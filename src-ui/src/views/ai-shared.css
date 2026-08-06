@@ -1,0 +1,443 @@
+/* =====================================================================
+ * AI 功能共享样式
+ * 供「AI 设置页」与三处 AI 增强入口（费曼故事评分 / 主动回忆语义评分 /
+ * 康奈尔笔记生成）复用，与 workbench-shared.css 同一套 --kb-* 令牌体系。
+ *
+ * 视觉约定：AI 相关元素统一使用 signature highlight（暖橘 --kb-highlight），
+ * 与主色蓝的常规操作区分开，让用户一眼识别「这是 AI 生成的内容」。
+ * ===================================================================== */
+
+/* ===== AI 触发按钮：在 .kb-btn 基础上换成高光色 ===== */
+.ai-btn {
+  border-color: var(--kb-highlight-border);
+  background: var(--kb-highlight-soft);
+  color: var(--kb-highlight);
+}
+.ai-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kb-highlight) 18%, transparent);
+  border-color: var(--kb-highlight);
+}
+.ai-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* 按下反馈：下沉 1px，给用户明确的点击物理感（不改动静止态外观） */
+.ai-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  background: color-mix(in srgb, var(--kb-highlight) 22%, transparent);
+}
+/* 键盘焦点环：高光按钮用主色软光环，保证可访问性 */
+.ai-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 111, 224, 0.28);
+}
+/* 加载中的旋转图标 */
+.ai-spin {
+  animation: ai-spin 0.9s linear infinite;
+}
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== AI 结果面板：淡橘描边卡片，与普通卡片区分 ===== */
+.ai-panel {
+  border-radius: var(--kb-radius-md);
+  border: 1px solid var(--kb-highlight-border);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--kb-highlight) 6%, var(--kb-card)) 0%,
+    var(--kb-card) 60%
+  );
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ai-panel-in 0.22s ease;
+}
+@keyframes ai-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ai-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ai-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--kb-foreground);
+}
+.ai-panel-title .ai-icon {
+  color: var(--kb-highlight);
+}
+.ai-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== 元信息条：模型名 / 耗时 ===== */
+.ai-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--kb-muted-foreground);
+}
+
+/* ===== 评分展示 ===== */
+.ai-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ai-score {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--kb-highlight);
+}
+.ai-score-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--kb-muted-foreground);
+}
+/* 对照分（规则法），弱化展示 */
+.ai-score-compare {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.ai-score-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--kb-muted);
+  overflow: hidden;
+}
+.ai-score-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--kb-highlight);
+  transition: width 0.4s ease;
+}
+
+/* ===== 要点列表（建议 / 遗漏 / 卡点） ===== */
+.ai-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--kb-card-foreground);
+}
+.ai-list li::before {
+  content: '';
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--kb-highlight);
+}
+.ai-list.is-danger li::before {
+  background: var(--kb-destructive);
+}
+.ai-list.is-muted li::before {
+  background: var(--kb-muted-foreground);
+}
+
+.ai-subtitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kb-muted-foreground);
+}
+.ai-feedback {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--kb-foreground);
+}
+
+/* ===== 未配置提示条 ===== */
+.ai-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px dashed var(--kb-border);
+  background: var(--kb-muted);
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+}
+.ai-hint a {
+  color: var(--kb-primary);
+  font-weight: 600;
+}
+
+/* ===== 设置页专用 ===== */
+.ai-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 760px;
+}
+.ai-card {
+  border-radius: var(--kb-radius-lg);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  box-shadow: var(--shadow-card);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ai-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--kb-foreground);
+}
+.ai-card-desc {
+  margin: -8px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--kb-muted-foreground);
+}
+.ai-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.ai-form-grid .ai-span-2 {
+  grid-column: 1 / -1;
+}
+.ai-field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--kb-muted-foreground);
+}
+
+/* 开关（复用令牌，不引入 UI 库） */
+.ai-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.ai-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.ai-switch-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--kb-muted);
+  border: 1px solid var(--kb-border);
+  transition: background 0.18s ease, border-color 0.18s ease;
+  flex-shrink: 0;
+}
+.ai-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--kb-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s ease;
+}
+.ai-switch input:checked + .ai-switch-track {
+  background: var(--kb-primary);
+  border-color: var(--kb-primary);
+}
+.ai-switch input:checked + .ai-switch-track::after {
+  transform: translateX(18px);
+}
+.ai-switch input:focus-visible + .ai-switch-track {
+  box-shadow: 0 0 0 3px rgba(59, 111, 224, 0.18);
+}
+
+/* 状态徽章 */
+.ai-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.ai-status.is-ok {
+  background: color-mix(in srgb, var(--kb-accent) 14%, transparent);
+  color: var(--kb-accent);
+}
+.ai-status.is-off {
+  background: var(--kb-muted);
+  color: var(--kb-muted-foreground);
+}
+.ai-status.is-err {
+  background: color-mix(in srgb, var(--kb-destructive) 12%, transparent);
+  color: var(--kb-destructive);
+}
+.ai-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 能力清单 */
+.ai-cap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ai-cap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--kb-radius-md);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-background);
+}
+.ai-cap-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--kb-radius-sm);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--kb-highlight) 12%, transparent);
+  color: var(--kb-highlight);
+}
+.ai-cap-body {
+  min-width: 0;
+  flex: 1;
+}
+.ai-cap-name {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--kb-foreground);
+}
+.ai-cap-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--kb-muted-foreground);
+}
+
+@media (max-width: 768px) {
+  .ai-form-grid { grid-template-columns: 1fr; }
+  .ai-card { padding: 16px; }
+}
+
+/* ===== 内容关联列表（AiInsights 与 AiAssociatePanel 共用，单一来源） =====
+ * 统一到 --kb-* 令牌；关联项为可点整行，补充行级 hover/active/focus 反馈，
+ * 避免只有文字下划线、键盘不可达的问题。 */
+.assoc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kb-space-2);
+}
+.assoc-link {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  padding: 8px 10px;
+  border-radius: var(--kb-radius-sm);
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.assoc-link:hover { background: var(--kb-muted); }
+.assoc-link:active { transform: translateY(1px); }
+.assoc-link:focus-visible {
+  outline: none;
+  box-shadow: var(--kb-focus-ring);
+}
+.assoc-title {
+  font-size: var(--kb-fs-body-md);
+  font-weight: 600;
+  color: var(--kb-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.assoc-type {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--kb-muted);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-caption);
+  font-weight: 600;
+}
+.assoc-score {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--kb-fs-caption);
+  font-weight: 700;
+  color: var(--kb-highlight);
+  font-variant-numeric: tabular-nums;
+}
+.assoc-snippet {
+  margin: 2px 0 0;
+  padding-left: 10px;
+  font-size: var(--kb-fs-caption);
+  line-height: 1.55;
+  color: var(--kb-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-empty {
+  margin: 0;
+  font-size: var(--kb-fs-caption);
+  color: var(--kb-muted-foreground);
+}

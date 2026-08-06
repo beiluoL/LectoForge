@@ -1,0 +1,839 @@
+/* =====================================================================
+ * 思维导图（MindMap）样式
+ *
+ * 约束：颜色 / 间距 / 圆角 / 字号一律取 style.css 的 --kb-* 令牌，不新增硬编码色值，
+ * 深色主题靠令牌自动切换。按钮 / 输入框复用全局 .kb-btn / .kb-input / .kb-select。
+ * 唯一的例外是流程图节点的形状几何（clip-path / transform），那是图形语义不是主题色。
+ * ===================================================================== */
+
+/* ---------- 页面外壳：顶部工具栏 + 下方左右两栏 ---------- */
+.mm-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kb-space-3);
+  /* 视口 - 顶栏 - App.vue 内容区上下 py-6(48px)，页面自身不产生滚动条 */
+  height: calc(100vh - var(--kb-nav-height) - 48px);
+  min-height: 520px;
+}
+
+.mm-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  height: 36px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.mm-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: var(--kb-fs-h4);
+  font-weight: var(--kb-fw-h4);
+  color: var(--kb-foreground);
+}
+
+.mm-title-input {
+  min-width: 0;
+  width: 200px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-body-sm);
+  font-weight: 600;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mm-title-input:hover:not(:disabled) {
+  background: var(--kb-muted);
+}
+.mm-title-input:focus {
+  background: var(--kb-card);
+  border-color: var(--kb-primary);
+  box-shadow: var(--kb-focus-ring);
+}
+.mm-title-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mm-save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--kb-muted);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+  white-space: nowrap;
+}
+.mm-save-state.is-ok { color: var(--kb-accent); }
+.mm-save-state.is-dirty { color: var(--kb-warning); }
+.mm-save-state.is-error { color: var(--kb-destructive); }
+
+.mm-bar-sep {
+  width: 1px;
+  height: 18px;
+  flex-shrink: 0;
+  background: var(--kb-border);
+}
+
+/* ---------- 分段视图切换器 ---------- */
+.mm-seg {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-muted);
+}
+
+.mm-seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: calc(var(--kb-radius-sm) - 2px);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-caption);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mm-seg-item:hover {
+  color: var(--kb-foreground);
+}
+.mm-seg-item.is-active {
+  background: var(--kb-card);
+  color: var(--kb-primary);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+}
+
+.kb-btn.is-on {
+  border-color: var(--kb-primary);
+  color: var(--kb-primary);
+  background: var(--kb-highlight-soft, var(--kb-muted));
+}
+
+/* 通用小图标按钮（页面内复用） */
+.mm-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.mm-icon-btn:hover {
+  background: var(--kb-muted);
+  color: var(--kb-foreground);
+}
+.mm-icon-btn:active { transform: translateY(var(--kb-press-y)); }
+.mm-icon-btn:focus-visible { outline: none; box-shadow: var(--kb-focus-ring); }
+
+/* ---------- 主体：左列表 + 右工作区 ---------- */
+.mm-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.mm-side {
+  display: flex;
+  flex-direction: column;
+  width: 214px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--kb-border);
+  background: var(--kb-background);
+  transition: width 0.18s ease;
+}
+.mm-side.is-collapsed { width: 40px; }
+
+.mm-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  height: 38px;
+  padding: 0 6px 0 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--kb-border);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mm-side.is-collapsed .mm-side-head { padding: 0; justify-content: center; }
+
+.mm-side-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.mm-side-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--kb-radius-sm);
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-body-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.mm-side-item:hover { background: var(--kb-muted); }
+.mm-side-item.is-active {
+  background: var(--kb-card);
+  color: var(--kb-primary);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--kb-primary);
+}
+
+.mm-side-icon { flex-shrink: 0; color: var(--kb-muted-foreground); }
+.mm-side-item.is-active .mm-side-icon { color: var(--kb-primary); }
+
+.mm-side-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mm-side-meta {
+  flex-shrink: 0;
+  color: var(--kb-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--kb-fs-xs);
+}
+
+.mm-side-del {
+  display: none;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+.mm-side-item:hover .mm-side-del { display: inline-flex; }
+.mm-side-del:hover { color: var(--kb-destructive); background: var(--kb-muted); }
+
+.mm-side-empty {
+  padding: 16px 10px;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-caption);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.mm-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.mm-main > * { min-width: 0; }
+.mm-main.is-split > .mm-outline { flex: 0 0 44%; border-right: 1px solid var(--kb-border); }
+.mm-main.is-split > .mm-split-right { flex: 1 1 auto; }
+
+/* =====================================================================
+ * 模块二：极简大纲编辑器
+ * ===================================================================== */
+.mm-outline {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mm-outline-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--kb-space-4) var(--kb-space-5) 40vh;
+  overflow-y: auto;
+}
+
+.mm-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 1px 0;
+  border-radius: var(--kb-radius-sm);
+}
+.mm-row:hover { background: color-mix(in srgb, var(--kb-muted) 55%, transparent); }
+.mm-row.is-selected { background: var(--kb-muted); }
+.mm-row.is-dragging { opacity: 0.4; }
+
+.mm-row-indent { flex-shrink: 0; }
+
+.mm-row-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 24px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.mm-row:hover .mm-row-toggle { opacity: 1; }
+.mm-row-toggle:hover { color: var(--kb-foreground); }
+/* 折叠状态下箭头常亮：这是「这里还有内容」的唯一线索，不能只在悬停时出现 */
+.mm-row-toggle--empty { cursor: default; opacity: 1; }
+
+.mm-row-bullet {
+  position: relative;
+  width: 16px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: grab;
+}
+.mm-row-bullet::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--kb-muted-foreground);
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.mm-row-bullet:hover::after { background: var(--kb-primary); }
+/* 折叠时给圆点套一圈灰环，等价于 XMind 的「收起的分支」提示 */
+.mm-row-bullet.has-collapsed::after {
+  box-shadow: 0 0 0 4px var(--kb-muted);
+  background: var(--kb-foreground);
+}
+.mm-row-bullet:active { cursor: grabbing; }
+
+.mm-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 24px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-body-md);
+  line-height: 1.55;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mm-row-text:focus { background: var(--kb-card); box-shadow: inset 0 0 0 1px var(--kb-primary); }
+.mm-row-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--kb-muted-foreground);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.mm-row-del {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
+  align-self: center;
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+}
+.mm-row:hover .mm-row-del { display: inline-flex; }
+.mm-row-del:hover { color: var(--kb-destructive); background: var(--kb-card); }
+
+/* 拖拽落点提示：前 / 后插入画线，成为子节点则整行高亮 */
+.mm-row.is-drop-before::before,
+.mm-row.is-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 24px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--kb-primary);
+}
+.mm-row.is-drop-before::before { top: -1px; }
+.mm-row.is-drop-after::after { bottom: -1px; }
+.mm-row.is-drop-child {
+  background: var(--kb-highlight-soft, var(--kb-muted));
+  box-shadow: inset 0 0 0 1px var(--kb-primary);
+}
+
+.mm-empty-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px dashed var(--kb-border);
+  border-radius: var(--kb-radius-md);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-body-sm);
+  cursor: pointer;
+}
+.mm-empty-add:hover { border-color: var(--kb-primary); color: var(--kb-primary); }
+
+.mm-outline-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kb-space-3);
+  flex-shrink: 0;
+  padding: 6px var(--kb-space-5);
+  border-top: 1px solid var(--kb-border);
+  background: var(--kb-background);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+}
+.mm-outline-hints kbd {
+  padding: 1px 5px;
+  margin-right: 3px;
+  border: 1px solid var(--kb-border);
+  border-radius: 4px;
+  background: var(--kb-card);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* =====================================================================
+ * 模块三：markmap 导图视图
+ * ===================================================================== */
+.mm-mindmap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mm-canvas-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  flex-shrink: 0;
+  padding: 0 var(--kb-space-3);
+  border-bottom: 1px solid var(--kb-border);
+  background: var(--kb-background);
+}
+
+.mm-canvas-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-body-sm);
+  font-weight: 600;
+}
+
+.mm-canvas-meta {
+  flex-shrink: 0;
+  color: var(--kb-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--kb-fs-xs);
+}
+
+.mm-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-caption);
+  cursor: pointer;
+  user-select: none;
+}
+.mm-switch input { accent-color: var(--kb-primary); cursor: pointer; }
+
+.mm-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--kb-card);
+  /* 淡网格：给缩放和拖拽一个视觉参照物，否则空白画布上完全感知不到位移 */
+  background-image: radial-gradient(var(--kb-border) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.mm-canvas-svg { width: 100%; height: 100%; display: block; }
+
+.mm-canvas-empty,
+.mm-flow-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-body-sm);
+  pointer-events: none;
+}
+
+/* =====================================================================
+ * 模块四：vue-flow 流程图
+ * ===================================================================== */
+.mm-flow {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mm-flow-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 178px;
+  flex-shrink: 0;
+  padding: var(--kb-space-3);
+  border-right: 1px solid var(--kb-border);
+  background: var(--kb-background);
+  overflow-y: auto;
+}
+
+.mm-palette-title {
+  margin: 0 0 2px;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mm-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-card);
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-caption);
+  text-align: left;
+  cursor: grab;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.mm-palette-item:hover { border-color: var(--kb-primary); }
+.mm-palette-item:active { cursor: grabbing; transform: translateY(var(--kb-press-y)); }
+
+.mm-palette-select { height: 30px; font-size: var(--kb-fs-caption); }
+
+.mm-palette-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--kb-space-4);
+}
+.mm-palette-actions .kb-btn { width: 100%; justify-content: center; }
+
+.mm-palette-tip {
+  margin: auto 0 0;
+  padding-top: var(--kb-space-3);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+  line-height: 1.9;
+}
+.mm-palette-tip kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--kb-border);
+  border-radius: 3px;
+  background: var(--kb-card);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* 形状预览小图标 */
+.mm-shape-preview {
+  width: 16px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--kb-primary);
+  background: transparent;
+}
+.mm-shape-preview.is-rounded { border-radius: 6px; }
+.mm-shape-preview.is-ellipse { border-radius: 50%; }
+.mm-shape-preview.is-diamond { width: 12px; height: 12px; transform: rotate(45deg); }
+.mm-shape-preview.is-parallelogram { transform: skewX(-18deg); }
+
+.mm-flow-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--kb-card);
+}
+
+/* ---------- 流程图节点 ---------- */
+.mm-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 148px;
+  min-height: 52px;
+  padding: 8px 12px;
+}
+.mm-node.is-diamond { width: 132px; min-height: 92px; }
+.mm-node.is-ellipse { width: 148px; min-height: 62px; }
+
+/* 形状本体单独一层：菱形要旋转、平行四边形要斜切，
+ * 如果直接对容器做变换，里面的文字会跟着歪掉，所以背景与文字分层。 */
+.mm-node-shape {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--kb-primary);
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-card);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.mm-node.is-rounded .mm-node-shape { border-radius: 999px; }
+.mm-node.is-ellipse .mm-node-shape { border-radius: 50%; }
+.mm-node.is-diamond .mm-node-shape { inset: 14px 6px; transform: rotate(45deg); border-radius: 4px; }
+.mm-node.is-parallelogram .mm-node-shape { transform: skewX(-18deg); }
+
+.mm-node.is-selected .mm-node-shape {
+  border-color: var(--kb-highlight);
+  box-shadow: 0 0 0 3px var(--kb-highlight-soft, rgba(255, 107, 53, 0.15));
+}
+.mm-node:hover .mm-node-shape { box-shadow: var(--shadow-card); }
+
+.mm-node-label {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-caption);
+  line-height: 1.45;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.mm-node-input {
+  min-width: 60px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--kb-background);
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--kb-primary);
+}
+
+/* 连接点：默认淡化，悬停节点时才显形，避免画布上到处是小圆点 */
+.mm-handle {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--kb-card);
+  background: var(--kb-primary);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.mm-node:hover .mm-handle,
+.mm-node.is-selected .mm-handle { opacity: 1; }
+
+/* 右键菜单 */
+.mm-context-menu {
+  position: absolute;
+  z-index: 20;
+  min-width: 172px;
+  padding: 5px;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-md);
+  background: var(--kb-card);
+  box-shadow: var(--shadow-lg);
+}
+.mm-context-title {
+  margin: 2px 8px 5px;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+}
+.mm-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-caption);
+  text-align: left;
+  cursor: pointer;
+}
+.mm-context-menu button:hover { background: var(--kb-muted); }
+
+/* vue-flow 内置控件与主题令牌对齐 */
+.mm-flow-canvas .vue-flow__controls {
+  box-shadow: var(--shadow-card);
+  border-radius: var(--kb-radius-sm);
+  overflow: hidden;
+}
+.mm-flow-canvas .vue-flow__controls-button {
+  border-bottom: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  fill: var(--kb-muted-foreground);
+}
+.mm-flow-canvas .vue-flow__controls-button:hover { background: var(--kb-muted); }
+.mm-flow-canvas .vue-flow__edge-path { stroke: var(--kb-muted-foreground); }
+.mm-flow-canvas .vue-flow__edge.selected .vue-flow__edge-path,
+.mm-flow-canvas .vue-flow__edge:hover .vue-flow__edge-path { stroke: var(--kb-primary); }
+.mm-flow-canvas .vue-flow__edge-text { fill: var(--kb-foreground); font-size: 11px; }
+.mm-flow-canvas .vue-flow__edge-textbg { fill: var(--kb-card); }
+.mm-flow-canvas .vue-flow__connection-path { stroke: var(--kb-primary); }
+
+/* =====================================================================
+ * 模块五：AI 生成弹窗
+ * ===================================================================== */
+.mm-ai-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--kb-space-4);
+  background: rgba(15, 17, 21, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.mm-ai-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: 88vh;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-lg);
+  background: var(--kb-card);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.mm-ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--kb-space-3) var(--kb-space-4);
+  border-bottom: 1px solid var(--kb-border);
+}
+
+.mm-ai-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-body-md);
+  font-weight: 600;
+}
+
+.mm-ai-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--kb-space-4);
+  overflow-y: auto;
+}
+
+.mm-ai-textarea { line-height: 1.6; }
+
+.mm-ai-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--kb-space-3);
+}
+
+.mm-ai-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--kb-border);
+  border-radius: 999px;
+  background: var(--kb-background);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.mm-ai-chip:hover { border-color: var(--kb-primary); color: var(--kb-primary); }
+
+.mm-ai-params {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kb-space-3);
+  margin-top: var(--kb-space-4);
+}
+
+.mm-ai-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: var(--kb-space-4) 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--kb-highlight-border, var(--kb-border));
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-highlight-soft, var(--kb-muted));
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+  line-height: 1.6;
+}
+.mm-ai-warn strong { color: var(--kb-foreground); }
+
+.mm-ai-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  padding: var(--kb-space-3) var(--kb-space-4);
+  border-top: 1px solid var(--kb-border);
+  background: var(--kb-background);
+}
+
+.mm-ai-hint {
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-xs);
+}
+
+/* ---------- 窄窗适配 ---------- */
+@media (max-width: 1080px) {
+  .mm-main.is-split > .mm-outline { flex-basis: 50%; }
+  .mm-title-input { width: 140px; }
+}
+
+@media (max-width: 900px) {
+  .mm-side { display: none; }
+  .mm-seg-item span { display: none; }
+  .mm-seg-item { padding: 0 8px; }
+}

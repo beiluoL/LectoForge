@@ -1,0 +1,343 @@
+// AI 能力接口：配置中心 + 三个学习闭环增强点（费曼评分 / 语义回忆评分 / 康奈尔笔记生成）。
+// 与 /api/workbench/* 完全解耦——AI 只负责算出结果返回，落库仍走原有业务接口，
+// 因此未配置 Key 或断网时，所有原有功能不受任何影响。
+import { apiGet, apiPost, apiPut } from './request'
+
+/** AI 调用普遍在 1~10s，远超全局 15s 默认超时的安全边界，单独放宽 */
+const AI_TIMEOUT = 90000
+
+// ============================ 配置中心 ============================
+
+export interface AiProviderPreset {
+  value: string
+  label: string
+  baseUrl: string
+  model: string
+}
+
+/** 服务端返回的安全配置视图（apiKey 仅返回掩码） */
+export interface AiConfigVO {
+  enabled: boolean
+  provider: string
+  baseUrl: string
+  model: string
+  temperature: number
+  timeoutMs: number
+  apiKeyMask: string
+  configured: boolean
+  presets?: AiProviderPreset[]
+  /** 向量化配置（G3 内容关联用，可选） */
+  embeddingsModel?: string
+  embeddingsConfigured?: boolean
+  embeddingPresets?: AiProviderPreset[]
+}
+
+export interface AiConfigPayload {
+  enabled?: boolean
+  provider?: string
+  baseUrl?: string
+  /** 留空 = 保持原值；传 null = 清空已保存的 Key */
+  apiKey?: string | null
+  model?: string
+  temperature?: number
+  timeoutMs?: number
+  /** 向量化配置（可选） */
+  embeddingsBaseUrl?: string
+  /** 留空 = 保持原值；传 null = 清空已保存的 Embeddings Key */
+  embeddingsApiKey?: string | null
+  embeddingsModel?: string
+}
+
+export interface AiStatusVO {
+  ready: boolean
+  enabled: boolean
+  model: string
+  provider: string
+}
+
+export interface AiPingResult {
+  ok: boolean
+  model: string
+  latencyMs: number
+  reply: string
+}
+
+export function getAiConfig() {
+  return apiGet<AiConfigVO>('/ai/config')
+}
+
+export function saveAiConfig(payload: AiConfigPayload) {
+  return apiPut<AiConfigVO>('/ai/config', payload)
+}
+
+/** 连通性测试；可传未保存的临时配置先试后存 */
+export function testAiConnection(payload?: AiConfigPayload) {
+  return apiPost<AiPingResult>('/ai/test', payload ?? {}, { timeout: AI_TIMEOUT })
+}
+
+/** 轻量状态查询：各页面据此决定是否展示 AI 入口，不产生模型调用 */
+export function getAiStatus() {
+  return apiGet<AiStatusVO>('/ai/status')
+}
+
+// ============================ P1-E1：费曼故事清晰度评分 ============================
+
+export interface StoryClarityResult {
+  /** 0~100，可直接填入 form.clarityScore */
+  clarityScore: number
+  /** 知识缺口说明，可直接填入 form.gapNote */
+  gapNote: string
+  suggestions: string[]
+  vagueParts: string[]
+  model: string
+  latencyMs: number
+}
+
+export function scoreStoryClarity(payload: {
+  title?: string
+  audience?: string
+  metaphor?: string
+  content: string
+}) {
+  return apiPost<StoryClarityResult>('/ai/story/clarity', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P1-D1：主动回忆语义评分 ============================
+
+export interface RecallScoreResult {
+  /** AI 语义还原度 0~100 */
+  score: number
+  /** 原规则法字面命中分，用于对照展示 */
+  ruleScore: number
+  missedPoints: string[]
+  wrongPoints: string[]
+  feedback: string
+  model: string
+  latencyMs: number
+}
+
+export function scoreRecallSemantic(payload: {
+  sourceText: string
+  recallText: string
+  round?: number
+}) {
+  return apiPost<RecallScoreResult>('/ai/recall/score', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P1-B1：康奈尔笔记生成 ============================
+
+export interface NoteGenerateResult {
+  /** 问题式线索列，换行分隔，可直接填入 form.cueColumn */
+  cueColumn: string
+  /** 总结区，可直接填入 form.summaryColumn */
+  summaryColumn: string
+  keyPoints: string[]
+  model: string
+  latencyMs: number
+}
+
+export function generateNoteColumns(payload: {
+  title?: string
+  noteColumn: string
+  mode?: 'cue' | 'summary' | 'both'
+}) {
+  return apiPost<NoteGenerateResult>('/ai/note/generate', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P1-A1：收集箱一键提炼要点 ============================
+
+export interface CaptureSummarizeResult {
+  /** 3~5 条要点 */
+  bullets: string[]
+  /** 一句话概括 */
+  oneLine: string
+  model: string
+  latencyMs: number
+}
+
+export function summarizeCapture(payload: { title?: string; content: string }) {
+  return apiPost<CaptureSummarizeResult>('/ai/capture/summarize', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P1-A2：自动标签 + 建议分类 ============================
+
+export interface TagsResult {
+  /** 3~6 个关键词标签 */
+  tags: string[]
+  /** 建议分类的本地 id（未命中则为 null） */
+  suggestedCategoryId: number | null
+  /** 建议分类名（用于展示） */
+  suggestedCategoryName: string
+  model: string
+  latencyMs: number
+}
+
+export function suggestTags(payload: { title?: string; content: string }) {
+  return apiPost<TagsResult>('/ai/tags', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P2-B4/C1：批量生成复习卡片 ============================
+
+export interface Flashcard {
+  front: string
+  back: string
+}
+
+export interface FlashcardsResult {
+  cards: Flashcard[]
+  model: string
+  latencyMs: number
+}
+
+export function generateFlashcards(payload: { title?: string; noteColumn: string; count?: number }) {
+  return apiPost<FlashcardsResult>('/ai/note/flashcards', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P2-A3：收集箱 → 起草笔记 ============================
+
+export interface DraftNoteResult {
+  title: string
+  noteColumn: string
+  cueColumn: string
+  summaryColumn: string
+  model: string
+  latencyMs: number
+}
+
+export function draftNoteFromCapture(payload: { title?: string; content: string }) {
+  return apiPost<DraftNoteResult>('/ai/capture/draft-note', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P2-E3：笔记 → 费曼故事初稿 ============================
+
+export interface DraftStoryResult {
+  content: string
+  metaphor: string
+  model: string
+  latencyMs: number
+}
+
+export function draftStoryFromNote(payload: { title?: string; noteColumn?: string; audience?: string }) {
+  return apiPost<DraftStoryResult>('/ai/story/draft', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P2-G1：学习周报 / 洞察 ============================
+
+export interface InsightReportResult {
+  summary: string
+  highlights: string[]
+  suggestions: string[]
+  model: string
+  latencyMs: number
+}
+
+export function generateInsightReport(payload: { days?: number } = {}) {
+  return apiPost<InsightReportResult>('/ai/insight/report', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P2-C2：薄弱点诊断 ============================
+
+export interface WeaknessResult {
+  summary: string
+  weakTopics: string[]
+  suggestions: string[]
+  model: string
+  latencyMs: number
+}
+
+export function diagnoseWeakness(payload: { days?: number } = {}) {
+  return apiPost<WeaknessResult>('/ai/weakness/diagnose', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P3-D2：三轮闭卷默写趋势改进建议 ============================
+
+export interface RecallAdviceResult {
+  summary: string
+  strengths: string[]
+  gaps: string[]
+  advice: string[]
+  nextSteps: string[]
+  model: string
+  latencyMs: number
+}
+
+export function adviseRecall(payload: { sessionId: number }) {
+  return apiPost<RecallAdviceResult>('/ai/recall/advice', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P3-F1/F2：记忆宫殿位点生成 ============================
+
+export interface PalaceLociItem {
+  name: string
+  knowledgePoint: string
+  imageHint: string
+}
+
+export interface PalaceLociResult {
+  loci: PalaceLociItem[]
+  model: string
+  latencyMs: number
+}
+
+export function generatePalaceLoci(payload: { theme?: string; count?: number; points?: string[]; context?: string }) {
+  return apiPost<PalaceLociResult>('/ai/palace/loci', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P3-G2：智能复习推荐引擎 ============================
+
+export interface ReviewRecommendPriority {
+  front: string
+  reason: string
+  method: string
+}
+
+export interface ReviewRecommendResult {
+  summary: string
+  priorities: ReviewRecommendPriority[]
+  suggestions: string[]
+  model: string
+  latencyMs: number
+}
+
+export function recommendReview(payload: { limit?: number } = {}) {
+  return apiPost<ReviewRecommendResult>('/ai/review/recommend', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ P3-G3：内容向量索引 + 语义关联 ============================
+
+export interface SyncEmbeddingsResult {
+  synced: number
+  skipped: number
+  total: number
+  model: string
+  latencyMs: number
+}
+
+export function syncEmbeddings(payload: { force?: boolean } = {}) {
+  return apiPost<SyncEmbeddingsResult>('/ai/embeddings/sync', payload, { timeout: 120000 })
+}
+
+export interface AssociateItem {
+  entityType: 'capture' | 'note' | 'story'
+  entityId: number
+  title: string
+  snippet: string
+  /** 余弦相似度 0~1 */
+  score: number
+  route: string
+}
+
+export interface AssociateResult {
+  items: AssociateItem[]
+  model: string
+  latencyMs: number
+}
+
+export function associateContent(payload: {
+  entityType?: 'capture' | 'note' | 'story'
+  entityId?: number
+  text?: string
+  limit?: number
+}) {
+  return apiPost<AssociateResult>('/ai/associate', payload, { timeout: AI_TIMEOUT })
+}
