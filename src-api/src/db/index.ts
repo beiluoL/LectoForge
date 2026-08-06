@@ -1,13 +1,13 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
-import { resolveDataDir } from '../lib/paths';
+import { getDbPath } from '../lib/paths';
 
-const dataDir = resolveDataDir();
-fs.mkdirSync(dataDir, { recursive: true });
-const dbPath = process.env.KNOWFLOW_DB || path.join(dataDir, 'workbench.db');
+/* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 KNOWFLOW_DATA_DIR
+ * （macOS: ~/Library/Application Support/com.knowflow.desktop/workbench.db），
+ * 开发期落在 <src-api>/data/workbench.db；目录创建与可写校验由 paths 负责。 */
+const dbPath = getDbPath();
+console.log(`[knowflow-desktop] SQLite: ${dbPath}`);
 
 export const sqlite = new Database(dbPath);
 // 单用户桌面应用：开 WAL 提升并发与崩溃安全
@@ -190,6 +190,8 @@ addColumn('wb_palace_loci', 'sort_order', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('wb_palace_loci', 'capture_id', 'INTEGER');
 addColumn('wb_palace_loci', 'note_id', 'INTEGER');
 addColumn('wb_palace_loci', 'category_id', 'INTEGER');
+addColumn('wb_palace_loci', 'mastered_level', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_palace_loci', 'last_reviewed_at', 'TEXT');
 addColumn('wb_palace_loci', 'created_at', 'TEXT');
 addColumn('wb_palace_loci', 'updated_at', 'TEXT');
 addColumn('wb_recall_session', 'note_id', 'INTEGER');

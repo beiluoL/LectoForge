@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolveDataDir } from './paths';
+import { getAiConfigPath } from './paths';
 
 /**
  * LLM 配置中心（P0）
@@ -56,7 +56,7 @@ export const EMBEDDING_PRESETS: Record<string, { label: string; baseUrl: string;
   custom: { label: '自定义（OpenAI 兼容）', baseUrl: '', model: '' },
 };
 
-const CONFIG_FILE = 'ai-config.json';
+/** 文件名常量已收敛到 lib/paths.getAiConfigPath()，此处仅保留注释便于检索：ai-config.json */
 
 const DEFAULT_CONFIG: LlmConfig = {
   enabled: true,
@@ -92,8 +92,9 @@ export class LlmError extends Error {
   }
 }
 
+/** <dataDir>/ai-config.json —— 目录不存在时由 paths 自动创建 */
 function configPath(): string {
-  return path.join(resolveDataDir(), CONFIG_FILE);
+  return getAiConfigPath();
 }
 
 /** 写盘并收紧权限；权限设置失败（如 Windows）不阻断主流程。 */

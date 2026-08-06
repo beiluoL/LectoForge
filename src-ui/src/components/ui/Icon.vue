@@ -32,6 +32,20 @@
     :role="decorative ? undefined : (ariaLabel ? 'img' : undefined)"
     v-html="sanitizedSvg"
   />
+  <!-- lucide-vue-next 图标：PascalCase / kebab-case 自动解析；命中则优先走 lucide 渲染（stroke-width 保持与手写 SVG 一致的 2） -->
+  <!-- 必须用 v-else-if 与上方 iconfont/svg-code 共同组成互斥链，最后落到下方手写 SVG 兜底；
+       改成 v-if 或被手写 SVG 的 v-else 抢链都会导致「同一图标渲染两份」（如 map-pin）。 -->
+  <component
+    v-else-if="lucideComponent"
+    :is="lucideComponent"
+    :class="iconClass"
+    :size="iconSizePx"
+    :color="color || undefined"
+    :stroke-width="2"
+    :aria-hidden="decorative ? 'true' : undefined"
+    :aria-label="decorative ? undefined : ariaLabel"
+    :role="decorative ? undefined : (ariaLabel ? 'img' : undefined)"
+  />
   <!-- 系统图标：渲染为 SVG -->
   <svg
     v-else
@@ -1394,6 +1408,7 @@
 //   2. iconfont Unicode code：name 以 iconfont: 开头（如 iconfont:e601）
 //   3. SVG 代码：name 以 <svg 开头
 import { computed } from 'vue'
+import * as LucideIcons from 'lucide-vue-next'
 
 interface Props {
   name: string
@@ -1531,5 +1546,29 @@ const sanitizedSvg = computed(() => {
   svg = svg.replace(/fill\s*=\s*["']#000(?:000)?["']/gi, 'fill="currentColor"')
   svg = svg.replace(/stroke\s*=\s*["']#000(?:000)?["']/gi, 'stroke="currentColor"')
   return svg
+})
+
+/**
+ * lucide-vue-next 适配：把 name（PascalCase / kebab-case / snake_case）解析到 lucide 组件。
+ * 找不到则返回 null，自动落到下方手写 SVG / img / iconfont / SVG code fallback。
+ * 这样新代码可以写 `<Icon name="MapPin" class="w-4 h-4" />`，旧代码 `<Icon name="map-pin" :size="18" />` 也能命中 lucide 的 MapPin。
+ */
+const lucideComponent = computed(() => {
+  const n = props.name
+  if (!n) return null
+  // 跳过非 lucide 路径（image / iconfont / SVG code）
+  if (n.startsWith('data:') || n.startsWith('http://') || n.startsWith('https://')) return null
+  if (n.startsWith('iconfont:') || n.startsWith('icon-')) return null
+  if (n.trimStart().startsWith('<svg')) return null
+  const lib = LucideIcons as Record<string, any>
+  // 1) 原名直查（PascalCase）
+  if (lib[n]) return lib[n]
+  // 2) kebab-case / snake_case 转 PascalCase 再查
+  const pascal = n
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join('')
+  return lib[pascal] || null
 })
 </script>

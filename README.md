@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 86 个端点 |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 87 个端点（含 AI 21 个） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -24,10 +24,10 @@
 ```
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle）
-│   ├── src/routes/  # 10 张表对应 74 个端点 + SM-2 + 遗忘曲线
+│   ├── src/routes/  # 10 张表对应 87 个端点（学习工作台 43 + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1）+ SM-2 + 遗忘曲线
 │   ├── src/services/sm2.ts  # SM-2 算法（与 Web 端逐位一致）
 │   └── src/db/      # schema + 建表 + WAL
-├── src-ui/          # Vue 3 前端（14 个业务视图 / 16 条路由：总览/收集箱/笔记/笔记编辑/复习/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图）
+├── src-ui/          # Vue 3 前端（14 个业务视图 / 16 条路由：总览/收集箱/笔记/笔记编辑/复习/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图）；已引入 Pinia 4 状态管理 + lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本

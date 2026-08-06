@@ -1,19 +1,45 @@
 #[cfg(not(debug_assertions))]
+use std::io::{BufRead, BufReader, Write};
+#[cfg(not(debug_assertions))]
 use std::net::TcpListener;
+#[cfg(not(debug_assertions))]
+use std::path::{Path, PathBuf};
+#[cfg(not(debug_assertions))]
+use std::process::{Child, Command, Stdio};
+#[cfg(not(debug_assertions))]
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
+#[cfg(not(debug_assertions))]
+use std::time::Instant;
 use std::time::Duration;
 
 use tauri::Emitter;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder, PredefinedMenuItem};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 #[cfg(not(debug_assertions))]
-use tauri_plugin_shell::ShellExt;
+use tauri::path::BaseDirectory;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 use serde_json::json;
 
 const DEFAULT_BACKEND_PORT: u16 = 8787;
+
+/// 注入给 Node 侧车的数据目录环境变量名（与 src-api/src/lib/paths.ts 的 DATA_DIR_ENV 一致）
+#[cfg(not(debug_assertions))]
+const DATA_DIR_ENV: &str = "KNOWFLOW_DATA_DIR";
+/// 侧车异常退出后的基础重启间隔
+#[cfg(not(debug_assertions))]
+const RESTART_BASE_DELAY: Duration = Duration::from_secs(2);
+/// 连续闪退时的重启间隔上限（避免每 2 秒 fork 一次形成事实上的进程炸弹）
+#[cfg(not(debug_assertions))]
+const RESTART_MAX_DELAY: Duration = Duration::from_secs(30);
+/// 子进程存活超过该时长即视为「这次起来了」，退避计时归零
+#[cfg(not(debug_assertions))]
+const HEALTHY_UPTIME: Duration = Duration::from_secs(30);
+/// 侧车日志文件大小上限，超过则在下次启动时清空
+#[cfg(not(debug_assertions))]
+const LOG_MAX_BYTES: u64 = 4 * 1024 * 1024;
 
 /// 共享状态：复习提醒开关（菜单可切换，后台调度线程读取）
 struct AppState {
@@ -22,11 +48,358 @@ struct AppState {
     reminder_enabled: Arc<Mutex<bool>>,
 }
 
-/// 持有 Node 侧车句柄，供退出时回收。
-/// 不回收的话侧车会变成孤儿进程常驻后台：端口一直被占，下次启动只能往后漂，
-/// 反复开关几次就会堆积出一串各占上百 MB 的僵尸后端。
+// =============================================================================
+// Node 侧车进程管理器
+//
+// 设计要点（都是踩过坑之后的硬性约束）：
+// 1. 用 std::process::Command 直接拉起，不再走 tauri-plugin-shell 的 sidecar API——
+//    只有拿到裸 Child 才能自己掌控 wait / kill / 重启的完整生命周期。
+// 2. 数据目录由宿主用 BaseDirectory::AppData 解析并 create_dir_all 后，
+//    以环境变量 KNOWFLOW_DATA_DIR 注入子进程；.app 包内只读，绝不能让后端写包内路径。
+// 3. 监控放在独立线程里阻塞 wait()，Tauri 主线程一秒都不能被挡住。
+// 4. 重启必须复用同一个端口：窗口页面的 origin 就是 http://127.0.0.1:<port>，
+//    换端口 = 前端永远连不回来。因此重启前先等端口被释放。
+// 5. 不存 Child 而存 pid：Child::wait() 要 &mut self，监控线程若持锁阻塞在 wait 上，
+//    退出时想 kill 就会死锁；kill 走 pid + 系统 kill 命令，不引入任何额外依赖。
+// =============================================================================
+
+/// 侧车启动参数（重启时原样复用）
 #[cfg(not(debug_assertions))]
-struct SidecarGuard(Mutex<Option<tauri_plugin_shell::process::CommandChild>>);
+#[derive(Clone)]
+struct SidecarSpec {
+    /// Node 可执行文件（Tauri externalBin 打进 Contents/MacOS/server）
+    node_bin: PathBuf,
+    /// 后端入口脚本 Contents/Resources/api/index.js
+    entry: PathBuf,
+    /// 前端构建产物 Contents/Resources/web
+    web_dir: PathBuf,
+    /// 可写数据目录 ~/Library/Application Support/<identifier>
+    data_dir: PathBuf,
+    /// 宿主协商好的固定端口
+    port: u16,
+    /// 侧车日志文件 <data_dir>/logs/sidecar.log
+    log_file: PathBuf,
+}
+
+#[cfg(not(debug_assertions))]
+struct SidecarManager {
+    spec: SidecarSpec,
+    app: tauri::AppHandle,
+    /// 当前子进程 pid（None 表示进程不在）
+    pid: Arc<Mutex<Option<u32>>>,
+    /// 应用退出中：置位后监控线程不再重启
+    stopping: Arc<AtomicBool>,
+    /// 已重启次数（仅用于日志与事件上报）
+    restarts: Arc<AtomicU32>,
+}
+
+#[cfg(not(debug_assertions))]
+impl SidecarManager {
+    fn new(app: tauri::AppHandle, spec: SidecarSpec) -> Self {
+        Self {
+            spec,
+            app,
+            pid: Arc::new(Mutex::new(None)),
+            stopping: Arc::new(AtomicBool::new(false)),
+            restarts: Arc::new(AtomicU32::new(0)),
+        }
+    }
+
+    /// 拉起一个新的 Node 子进程（含环境变量注入与日志管道接管）
+    fn spawn_process(&self) -> std::io::Result<Child> {
+        let mut cmd = Command::new(&self.spec.node_bin);
+        cmd.arg(&self.spec.entry)
+            .arg("--port")
+            .arg(self.spec.port.to_string())
+            .arg("--web-dir")
+            .arg(&self.spec.web_dir)
+            // --data-dir 与环境变量同时给：老版本后端只认参数，新版本优先认环境变量
+            .arg("--data-dir")
+            .arg(&self.spec.data_dir)
+            .env(DATA_DIR_ENV, &self.spec.data_dir)
+            .env("KNOWFLOW_PORT", self.spec.port.to_string())
+            .env("NODE_ENV", "production")
+            // 工作目录设成可写的数据目录：万一有库按相对路径落盘，也不会写进只读的 .app
+            .current_dir(&self.spec.data_dir)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mut child = cmd.spawn()?;
+        if let Some(out) = child.stdout.take() {
+            pipe_logs(out, "out", self.spec.log_file.clone());
+        }
+        if let Some(err) = child.stderr.take() {
+            pipe_logs(err, "err", self.spec.log_file.clone());
+        }
+        Ok(child)
+    }
+
+    /// 启动监控线程：拉起 → 阻塞 wait → 异常退出则退避重启，无限循环
+    fn supervise(self: &Arc<Self>) {
+        let this = Arc::clone(self);
+        std::thread::spawn(move || {
+            let mut delay = RESTART_BASE_DELAY;
+
+            loop {
+                if this.stopping.load(Ordering::SeqCst) {
+                    break;
+                }
+
+                /* 端口必须是自己的。上一条实例刚被杀，监听套接字可能还没彻底释放，
+                 * 此时抢着起新进程会撞 EADDRINUSE，后端要么退出要么漂到别的端口。 */
+                if !wait_port_released(this.spec.port, Duration::from_secs(10)) {
+                    eprintln!(
+                        "[knowflow] 端口 {} 迟迟未释放，仍尝试启动侧车",
+                        this.spec.port
+                    );
+                }
+
+                let started = Instant::now();
+                let mut child = match this.spawn_process() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("[knowflow] 侧车启动失败: {e}");
+                        sleep(delay);
+                        delay = next_delay(delay);
+                        continue;
+                    }
+                };
+
+                let pid = child.id();
+                *this.pid.lock().unwrap() = Some(pid);
+                let generation = this.restarts.load(Ordering::SeqCst);
+                println!(
+                    "[knowflow] 侧车已启动 pid={pid} port={} 第 {generation} 次",
+                    this.spec.port
+                );
+
+                // 就绪探测另开线程，绝不能挡住下面的 wait()
+                {
+                    let app = this.app.clone();
+                    let port = this.spec.port;
+                    std::thread::spawn(move || {
+                        if wait_for_backend(port) {
+                            let _ = app.emit(
+                                "sidecar://ready",
+                                json!({ "port": port, "pid": pid, "generation": generation }),
+                            );
+                        }
+                    });
+                }
+
+                // 阻塞等待子进程结束——本线程是分离出来的，主线程不受影响
+                let status = child.wait();
+                *this.pid.lock().unwrap() = None;
+
+                if this.stopping.load(Ordering::SeqCst) {
+                    println!("[knowflow] 应用退出中，侧车监控结束");
+                    break;
+                }
+
+                let (code, abnormal) = match &status {
+                    // code() 在被信号杀死时返回 None（如 OOM 的 SIGKILL），一律按异常处理
+                    Ok(st) => (st.code(), !st.success()),
+                    Err(e) => {
+                        eprintln!("[knowflow] 等待侧车退出时出错: {e}");
+                        (None, true)
+                    }
+                };
+
+                if !abnormal {
+                    /* 退出码 0：后端自己决定停下（例如孤儿自检发现宿主没了）。
+                     * 这种情况重启没有意义，交给下次启动应用处理。 */
+                    println!("[knowflow] 侧车正常退出（code=0），不再重启");
+                    let _ = this.app.emit("sidecar://stopped", json!({ "code": 0 }));
+                    break;
+                }
+
+                let uptime = started.elapsed();
+                eprintln!(
+                    "[knowflow] 侧车异常退出 code={:?}，存活 {:?}，{:?} 后重启",
+                    code, uptime, delay
+                );
+                let _ = this.app.emit(
+                    "sidecar://down",
+                    json!({ "code": code, "uptimeMs": uptime.as_millis() as u64 }),
+                );
+
+                // 活过 30 秒说明这次是「跑着跑着崩的」，不是启动就崩，退避重新计时
+                if uptime >= HEALTHY_UPTIME {
+                    delay = RESTART_BASE_DELAY;
+                }
+
+                sleep(delay);
+                delay = next_delay(delay);
+                this.restarts.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+    }
+
+    /// 应用退出时回收侧车：先 SIGTERM 给它清理的机会，2 秒内没走再 SIGKILL。
+    /// 不回收的话侧车会变成孤儿进程常驻后台，端口一直被占，
+    /// 反复开关几次就会堆积出一串各占上百 MB 的僵尸后端。
+    fn shutdown(&self) {
+        self.stopping.store(true, Ordering::SeqCst);
+        let pid = match *self.pid.lock().unwrap() {
+            Some(p) => p,
+            None => return,
+        };
+        println!("[knowflow] 正在回收侧车 pid={pid}");
+        signal_process(pid, false);
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            if !process_alive(pid) {
+                return;
+            }
+            sleep(Duration::from_millis(100));
+        }
+        eprintln!("[knowflow] 侧车未响应 SIGTERM，强制结束 pid={pid}");
+        signal_process(pid, true);
+    }
+}
+
+/// 重启间隔翻倍，封顶 RESTART_MAX_DELAY
+#[cfg(not(debug_assertions))]
+fn next_delay(current: Duration) -> Duration {
+    std::cmp::min(current * 2, RESTART_MAX_DELAY)
+}
+
+/// 给指定 pid 发信号（force = true 时 SIGKILL）。
+/// 只用系统自带命令，避免为了一次 kill 引入 libc 依赖。
+#[cfg(not(debug_assertions))]
+fn signal_process(pid: u32, force: bool) {
+    #[cfg(unix)]
+    {
+        let sig = if force { "-9" } else { "-15" };
+        let _ = Command::new("/bin/kill")
+            .arg(sig)
+            .arg(pid.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("taskkill");
+        cmd.arg("/PID").arg(pid.to_string()).arg("/T");
+        if force {
+            cmd.arg("/F");
+        }
+        let _ = cmd.stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+}
+
+/// 进程是否还活着（kill -0 只做权限与存在性检查，不真的发信号）
+#[cfg(not(debug_assertions))]
+fn process_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        Command::new("/bin/kill")
+            .arg("-0")
+            .arg(pid.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+    #[cfg(windows)]
+    {
+        Command::new("tasklist")
+            .arg("/FI")
+            .arg(format!("PID eq {pid}"))
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()))
+            .unwrap_or(false)
+    }
+}
+
+/// 等待端口重新可绑定，最长 timeout。返回 true 表示端口已空闲。
+#[cfg(not(debug_assertions))]
+fn wait_port_released(port: u16, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        sleep(Duration::from_millis(150));
+    }
+}
+
+/// 把子进程的 stdout/stderr 逐行转发到宿主控制台，并落盘到 <data>/logs/sidecar.log。
+/// 打包后的 .app 从 Finder 启动是没有控制台的，日志文件是唯一的排查线索。
+#[cfg(not(debug_assertions))]
+fn pipe_logs<R: std::io::Read + Send + 'static>(reader: R, tag: &'static str, log_file: PathBuf) {
+    std::thread::spawn(move || {
+        let mut buf = BufReader::new(reader);
+        let mut raw: Vec<u8> = Vec::with_capacity(256);
+        loop {
+            raw.clear();
+            match buf.read_until(b'\n', &mut raw) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let text = String::from_utf8_lossy(&raw);
+                    let text = text.trim_end_matches(['\r', '\n']);
+                    if tag == "err" {
+                        eprintln!("[knowflow-api] {text}");
+                    } else {
+                        println!("[knowflow-api] {text}");
+                    }
+                    append_log(&log_file, tag, text);
+                }
+                Err(_) => break,
+            }
+        }
+    });
+}
+
+#[cfg(not(debug_assertions))]
+fn append_log(path: &Path, tag: &str, line: &str) {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{stamp} [{tag}] {line}");
+    }
+}
+
+/// 定位 Node 侧车可执行文件。
+/// macOS 打包后 externalBin 会被放进 Contents/MacOS/ 且去掉目标三元组后缀，
+/// 但为防不同 Tauri 版本行为差异，这里按候选顺序逐个探测。
+#[cfg(not(debug_assertions))]
+fn resolve_node_bin(resource_dir: &Path) -> Option<PathBuf> {
+    if let Ok(custom) = std::env::var("KNOWFLOW_NODE_BIN") {
+        let p = PathBuf::from(custom);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let triple = format!(
+        "{}-{}",
+        std::env::consts::ARCH,
+        if cfg!(target_os = "macos") {
+            "apple-darwin"
+        } else if cfg!(target_os = "windows") {
+            "pc-windows-msvc"
+        } else {
+            "unknown-linux-gnu"
+        }
+    );
+    let candidates = [
+        exe_dir.join("server"),
+        exe_dir.join(format!("server-{triple}")),
+        exe_dir.join("server.exe"),
+        resource_dir.join("server"),
+    ];
+    candidates.into_iter().find(|p| p.exists())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -45,10 +418,26 @@ pub fn run() {
                 let resolver = app.path();
                 let resource_dir = resolver.resource_dir()?;
                 let web_dir = resource_dir.join("web");
-                let api_dir = resource_dir.join("api");
-                let api_index = api_dir.join("index.js");
-                let data_dir = resolver.app_data_dir()?;
+                let api_index = resource_dir.join("api").join("index.js");
+
+                /* ===== 任务 A：可写数据目录解析与注入 =====
+                 * BaseDirectory::AppData 在 macOS 下解析为
+                 *   ~/Library/Application Support/<bundle identifier>
+                 * 即 ~/Library/Application Support/com.knowflow.desktop。
+                 * resolve("") 会带一个尾随分隔符，用 components() 归一化掉，日志才干净。 */
+                let data_dir: std::path::PathBuf = resolver
+                    .resolve("", BaseDirectory::AppData)?
+                    .components()
+                    .collect();
                 std::fs::create_dir_all(&data_dir)?;
+                let log_dir = data_dir.join("logs");
+                std::fs::create_dir_all(&log_dir)?;
+                let log_file = log_dir.join("sidecar.log");
+                // 日志超过上限就重开一份，别让它无限长大
+                if std::fs::metadata(&log_file).map(|m| m.len()).unwrap_or(0) > LOG_MAX_BYTES {
+                    let _ = std::fs::remove_file(&log_file);
+                }
+                println!("[knowflow] 数据目录: {}", data_dir.display());
 
                 /* 端口必须由宿主先协商好再传给侧车。
                  * 后端在 EADDRINUSE 时会自行 +1 漂移，若这里仍写死 8787，
@@ -56,36 +445,20 @@ pub fn run() {
                  * 已被替换掉的旧构建产物），页面会卡在加载态。 */
                 let port = pick_free_port(DEFAULT_BACKEND_PORT);
 
-                let sidecar = app
-                    .shell()
-                    .sidecar("server")
-                    .expect("未找到 Node 侧车，请先运行 scripts/prepare-bin.sh")
-                    .args([
-                        api_index.to_str().unwrap(),
-                        "--port",
-                        &port.to_string(),
-                        "--web-dir",
-                        web_dir.to_str().unwrap(),
-                        "--data-dir",
-                        data_dir.to_str().unwrap(),
-                    ]);
-                let (mut rx, child) = sidecar.spawn().expect("启动后端侧车失败");
-                // 持续消费事件流，既避免通道积压，也把后端日志透出便于排查
-                tauri::async_runtime::spawn(async move {
-                    use tauri_plugin_shell::process::CommandEvent;
-                    while let Some(event) = rx.recv().await {
-                        match event {
-                            CommandEvent::Stdout(line) => {
-                                print!("[knowflow-api] {}", String::from_utf8_lossy(&line));
-                            }
-                            CommandEvent::Stderr(line) => {
-                                eprint!("[knowflow-api] {}", String::from_utf8_lossy(&line));
-                            }
-                            _ => {}
-                        }
-                    }
-                });
-                app.manage(SidecarGuard(Mutex::new(Some(child))));
+                let node_bin = resolve_node_bin(&resource_dir)
+                    .expect("未找到 Node 侧车可执行文件，请先运行 scripts/prepare-bin.sh");
+
+                let spec = SidecarSpec {
+                    node_bin,
+                    entry: api_index,
+                    web_dir,
+                    data_dir,
+                    port,
+                    log_file,
+                };
+                let manager = Arc::new(SidecarManager::new(app.handle().clone(), spec));
+                manager.supervise();
+                app.manage(Arc::clone(&manager));
 
                 // 阻塞等待后端就绪后再建窗口，确保窗口加载时后端已在监听，避免出现空白/错误页
                 if !wait_for_backend(port) {
@@ -198,19 +571,15 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app_handle, _event| {
             // 退出时回收 Node 侧车，避免它变成孤儿进程继续占着端口
             #[cfg(not(debug_assertions))]
             if matches!(_event, tauri::RunEvent::Exit) {
-                if let Some(guard) = _app_handle.try_state::<SidecarGuard>() {
-                    if let Ok(mut slot) = guard.0.lock() {
-                        if let Some(child) = slot.take() {
-                            let _ = child.kill();
-                        }
-                    }
+                if let Some(mgr) = _app_handle.try_state::<Arc<SidecarManager>>() {
+                    mgr.shutdown();
                 }
             }
         });
@@ -345,4 +714,30 @@ async fn do_check_update(app: tauri::AppHandle) -> Result<serde_json::Value, Str
 #[tauri::command]
 async fn check_for_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     do_check_update(app).await
+}
+
+/// 供前端调用的「手动重启知识引擎」命令。
+/// 前端重连遮罩里点「立即重启引擎」时走这里：杀掉当前侧车，
+/// 监控线程 wait() 返回后会按既有策略自动拉起新实例。
+#[tauri::command]
+fn restart_sidecar(_app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    #[cfg(not(debug_assertions))]
+    {
+        let mgr = _app
+            .try_state::<Arc<SidecarManager>>()
+            .ok_or_else(|| "侧车管理器未初始化".to_string())?;
+        let pid = *mgr.pid.lock().map_err(|e| e.to_string())?;
+        match pid {
+            Some(p) => {
+                signal_process(p, false);
+                Ok(json!({ "restarting": true, "killedPid": p }))
+            }
+            // 进程本就不在，监控线程正处于退避等待，稍后会自行拉起
+            None => Ok(json!({ "restarting": true, "killedPid": null })),
+        }
+    }
+    #[cfg(debug_assertions)]
+    {
+        Ok(json!({ "restarting": false, "reason": "开发模式下后端由 npm run dev:api 托管" }))
+    }
 }

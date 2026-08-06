@@ -33,6 +33,8 @@ function lociVO(l: any) {
     posX: l.posX,
     posY: l.posY,
     sortOrder: l.sortOrder,
+    masteredLevel: l.masteredLevel,
+    lastReviewedAt: l.lastReviewedAt,
     createTime: l.createdAt,
     updateTime: l.updatedAt,
   };
@@ -169,6 +171,8 @@ export default async function (app: FastifyInstance) {
         posX: b.posX !== undefined ? b.posX : ex.posX,
         posY: b.posY !== undefined ? b.posY : ex.posY,
         sortOrder: b.sortOrder !== undefined ? b.sortOrder : ex.sortOrder,
+        masteredLevel: b.masteredLevel !== undefined ? b.masteredLevel : ex.masteredLevel,
+        lastReviewedAt: b.lastReviewedAt !== undefined ? b.lastReviewedAt : ex.lastReviewedAt,
         captureId: b.captureId !== undefined ? b.captureId : ex.captureId,
         noteId: b.noteId !== undefined ? b.noteId : ex.noteId,
         categoryId: b.categoryId !== undefined ? b.categoryId : ex.categoryId,
@@ -177,6 +181,18 @@ export default async function (app: FastifyInstance) {
       .where(eq(wbPalaceLoci.id, id))
       .run();
     return lociVO(db.select().from(wbPalaceLoci).where(eq(wbPalaceLoci.id, id)).get() as any);
+  });
+
+  // 复习待办：返回熟练度 < 3 的位点（SRS 简化判定）
+  app.get('/palaces/:id/review/due', async (req) => {
+    const id = Number((req.params as any).id);
+    return db
+      .select()
+      .from(wbPalaceLoci)
+      .where(and(eq(wbPalaceLoci.palaceId, id), sql`${wbPalaceLoci.masteredLevel} < 3`))
+      .orderBy(asc(wbPalaceLoci.sortOrder), asc(wbPalaceLoci.id))
+      .all()
+      .map(lociVO);
   });
 
   app.delete('/loci/:id', async (req, reply) => {

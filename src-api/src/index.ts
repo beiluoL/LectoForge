@@ -4,7 +4,7 @@ import staticPlugin from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolvePort, resolveWebDir } from './lib/paths';
+import { resolvePort, resolveWebDir, resolveDataDir, isLaunchedByHost } from './lib/paths';
 import captures from './routes/captures';
 import notes from './routes/notes';
 import reviews from './routes/reviews';
@@ -94,10 +94,16 @@ app.register(mindmapAiRoutes, { prefix: '/api/ai' });
 /* 健康检查：供 Tauri 宿主确认「这个端口上的服务确实是自己刚拉起的那一个」。
  * 仅靠 TCP 连通性判断是不够的——端口可能被上一次没退干净的实例或别的程序占着。 */
 const BOOT_ID = `${process.pid}-${Date.now()}`;
+const STARTED_AT = Date.now();
 app.get('/api/health', async () => ({
+  status: 'ok',
   service: 'knowflow-desktop-api',
   bootId: BOOT_ID,
   pid: process.pid,
+  /* uptime 供前端识别「后端是刚被宿主重启起来的新实例」：
+   * 重连成功后若 bootId 变了，说明侧车重启过，前端据此决定是否刷新只读缓存。 */
+  uptimeMs: Date.now() - STARTED_AT,
+  dataDir: resolveDataDir(),
   webDir: resolveWebDir(),
 }));
 
@@ -140,7 +146,7 @@ if (webDir && fs.existsSync(webDir)) {
  * 宿主若被强制退出或崩溃，它的退出回调来不及杀掉本进程，侧车就会常驻后台占着端口，
  * 下次启动只能往后漂，反复几次便堆积出一串僵尸后端。这里自行监测：
  * 一旦被 launchd 收养（ppid 变成 1），说明宿主没了，主动退出。 */
-if (process.argv.includes('--data-dir')) {
+if (isLaunchedByHost()) {
   const orphanTimer = setInterval(() => {
     if (process.ppid === 1) {
       console.log('[knowflow-desktop] 宿主已退出，侧车自动关闭');
@@ -150,24 +156,36 @@ if (process.argv.includes('--data-dir')) {
   orphanTimer.unref();
 }
 
-// ===== 启动：仅绑定回环地址，动态端口避让占用 =====
+/* ===== 启动：仅绑定回环地址 =====
+ * 端口策略按启动来源分两种，区别很关键：
+ * - 宿主模式（Tauri 拉起）：端口由宿主协商后传入，**绝不允许漂移**。
+ *   窗口加载的页面 origin 就是 http://127.0.0.1:<port>，侧车崩溃重启后若换了端口，
+ *   已加载的页面永远连不回来，前端的断线重连就成了死循环。
+ *   端口被上一条正在退出的实例占着属于正常时序，等它释放即可（最多 ~6 秒）。
+ * - 独立模式（npm run dev:api）：保留 +1 漂移，避免开发时端口冲突挡住调试。 */
 async function start() {
   let port = resolvePort();
-  for (let i = 0; i < 20; i++) {
+  const hosted = isLaunchedByHost();
+  const attempts = hosted ? 30 : 20;
+
+  for (let i = 0; i < attempts; i++) {
     try {
       await app.listen({ port, host: '127.0.0.1' });
       console.log(`[knowflow-desktop] API on http://127.0.0.1:${port}`);
+      console.log(`[knowflow-desktop] data dir: ${resolveDataDir()}`);
       console.log(`[knowflow-desktop] web dir: ${webDir ?? '(none)'}`);
       return;
     } catch (e: any) {
-      if (e.code === 'EADDRINUSE') {
-        port += 1;
+      if (e.code !== 'EADDRINUSE') throw e;
+      if (hosted) {
+        // 等旧实例把监听套接字彻底释放，端口保持不变
+        await new Promise((r) => setTimeout(r, 200));
         continue;
       }
-      throw e;
+      port += 1;
     }
   }
-  throw new Error('无法找到可用端口');
+  throw new Error(hosted ? `端口 ${port} 长时间被占用，放弃启动` : '无法找到可用端口');
 }
 
 start().catch((e) => {

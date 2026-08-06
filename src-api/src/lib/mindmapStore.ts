@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolveDataDir } from './paths';
+import { getMindmapsDir } from './paths';
 
 // ===================== 类型 =====================
 
@@ -65,10 +65,9 @@ export class MindMapError extends Error {
 /** id 白名单：只允许字母数字与 - _，杜绝 ../ 路径穿越 */
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
+/** <dataDir>/mindmaps/ —— 目录不存在时由 paths 自动创建 */
 function mapsDir(): string {
-  const dir = path.join(resolveDataDir(), 'mindmaps');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return getMindmapsDir();
 }
 
 function fileOf(id: string): string {

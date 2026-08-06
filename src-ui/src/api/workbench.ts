@@ -120,6 +120,10 @@ export function updateLoci(id: number, payload: WbPalaceLociPayload) {
 export function deleteLoci(id: number) {
   return apiDelete<void>(`/workbench/loci/${id}`)
 }
+/** 复习待办：返回熟练度 < 3 的位点（SRS 简化判定） */
+export function listReviewDue(palaceId: number) {
+  return apiGet<WbPalaceLoci[]>(`/workbench/palaces/${palaceId}/review/due`)
+}
 
 // ============================ 模块四：费曼故事 ============================
 export function listStories(params?: { categoryId?: number; status?: string; keyword?: string }) {

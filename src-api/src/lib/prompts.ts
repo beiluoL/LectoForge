@@ -661,7 +661,8 @@ export function buildPalaceLociPrompt(input: PalaceLociInput): ChatMessage[] {
         `- 生成 ${n} 个左右的位点，按「空间漫游顺序」排列（从入口到深处，或沿一条路线）；`,
         '- name 必须是具体的空间位置名（如「玄关鞋柜」「第三个路灯」「图书馆门口」），不要叫「知识点1」；',
         '- knowledgePoint 是该位点要记住的内容，和输入点一一对应、不遗漏；',
-        '- imageHint 是把该知识点变成夸张画面（如「一只大象在背单词」），越离谱越好记；',
+        '- imageHint 必须是「有视觉冲击力」的具象画面：把抽象知识点变成夸张、动态、带颜色/声音/动作的电影镜头（如「一只大象穿围裙在客厅背单词，单词像气球一样炸开」）；越离谱、越鲜艳、越有动感越好记；',
+        '- imageHint 不写解释性文字，只输出一个可脑补的画面短句（15~30 字）；',
         '- 严禁编造知识。只输出 JSON。',
       ].join('\n'),
     },
@@ -678,6 +679,44 @@ export function buildPalaceLociPrompt(input: PalaceLociInput): ChatMessage[] {
         '  "loci": [',
         '    { "name": "空间位置名", "knowledgePoint": "该点要记的内容", "imageHint": "夸张易记的联想图像" }',
         '  ]',
+        '}',
+      ].join('\n'),
+    },
+  ];
+}
+
+export interface PalaceLociImageHintOutput {
+  /** 重生成的、有视觉冲击力的联想图像描述 */
+  imageHint: string
+}
+
+/**
+ * F1/F2 单点增强：为「某个已存在位点」重新生成/润色它的 imageHint。
+ * 输入位点名称与已绑定的知识点，返回一个更具视觉冲击力、更夸张好记的联想画面。
+ */
+export function buildPalaceLociImageHintPrompt(input: { name: string; knowledgePoint: string }): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是记忆宫殿（Method of Loci）的联想图像设计师。用户给你一个空间位点名和它绑定的知识点，',
+        '你要为这个知识点重新设计一句「有视觉冲击力」的联想图像（imageHint）。',
+        '要求：',
+        '- 只输出画面，不解释；像一句能直接在脑海里播放的电影镜头（15~30 字）。',
+        '- 必须夸张、动态、带颜色/声音/动作/质感，越离谱越好记；把抽象知识变成具体可感的物体或动作。',
+        '- 紧扣该位点的知识点，不能偏离主题；严禁编造无关知识。',
+        '- 只输出 JSON。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【位点名称】${input.name || '未知位置'}`,
+        `【绑定知识点】${input.knowledgePoint || '（空）'}`,
+        '',
+        '请按以下 JSON 结构输出：',
+        '{',
+        '  "imageHint": "有视觉冲击力的联想图像短句"',
         '}',
       ].join('\n'),
     },

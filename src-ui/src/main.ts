@@ -1,4 +1,6 @@
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
 import App from './App.vue';
 import router from './router';
 import './style.css';
@@ -6,4 +8,7 @@ import './style.css';
  * DesktopTopNav 等未单独引入的页面也能获得统一图标按钮样式。 */
 import './views/workbench-shared.css';
 
-createApp(App).use(router).mount('#app');
+const pinia = createPinia();
+pinia.use(piniaPluginPersistedstate);
+
+createApp(App).use(pinia).use(router).mount('#app');

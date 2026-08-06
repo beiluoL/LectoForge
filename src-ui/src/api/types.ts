@@ -1677,6 +1677,10 @@ export interface WbPalaceLoci {
   posX?: number
   posY?: number
   sortOrder?: number
+  /** SRS 熟练度 0-5（越高越熟） */
+  masteredLevel?: number
+  /** 最近一次复习打分时间（ISO 字符串） */
+  lastReviewedAt?: string
   createTime?: string
   updateTime?: string
 }
@@ -1762,6 +1766,10 @@ export interface WbPalaceLociPayload {
   posX?: number
   posY?: number
   sortOrder?: number
+  /** SRS 熟练度 0-5（越高越熟） */
+  masteredLevel?: number
+  /** 最近一次复习打分时间（ISO 字符串） */
+  lastReviewedAt?: string
 }
 
 /** 费曼故事入参 */

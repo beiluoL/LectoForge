@@ -37,13 +37,13 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/workbench/palace',
     name: 'WorkbenchPalace',
-    component: () => import('@/views/WorkbenchPalace.vue'),
+    component: () => import('@/views/MemoryPalace/index.vue'),
     meta: { layout: 'c', fullscreen: true },
   },
   {
     path: '/workbench/palace/:id',
     name: 'WorkbenchPalaceEdit',
-    component: () => import('@/views/WorkbenchPalaceEdit.vue'),
+    component: () => import('@/views/MemoryPalace/index.vue'),
     meta: { layout: 'c', fullscreen: true },
   },
   {

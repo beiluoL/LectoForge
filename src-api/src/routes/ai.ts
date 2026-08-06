@@ -28,6 +28,7 @@ import {
   buildInsightReportPrompt,
   buildNoteGeneratePrompt,
   buildPalaceLociPrompt,
+  buildPalaceLociImageHintPrompt,
   buildRecallAdvicePrompt,
   buildRecallScorePrompt,
   buildReviewRecommendPrompt,
@@ -41,6 +42,7 @@ import {
   type InsightReportOutput,
   type NoteGenerateOutput,
   type PalaceLociOutput,
+  type PalaceLociImageHintOutput,
   type RecallAdviceOutput,
   type RecallScoreOutput,
   type ReviewRecommendOutput,
@@ -627,6 +629,30 @@ export default async function (app: FastifyInstance) {
             .slice(0, 12)
         : [];
       return { loci, model: raw.model, latencyMs: raw.latencyMs };
+    } catch (e) {
+      return fail(reply, e);
+    }
+  });
+
+  /**
+   * F1/F2 单点增强：为某个已存在位点重新生成/润色 imageHint（抽象→具象联想图像）。
+   * 接收位点 name + knowledgePoint，返回更具视觉冲击力的 imageHint 字符串。
+   */
+  app.post('/palace/loci/image-hint', async (req, reply) => {
+    const b = (req.body || {}) as { name?: string; knowledgePoint?: string };
+    if (!String(b.name || '').trim() && !String(b.knowledgePoint || '').trim()) {
+      return reply.code(400).send({ code: 400, message: '请至少提供位点名称或知识点', aiCode: 'AI_BAD_INPUT' });
+    }
+    try {
+      const { data, raw } = await chatJson<PalaceLociImageHintOutput>(
+        buildPalaceLociImageHintPrompt({ name: String(b.name || ''), knowledgePoint: String(b.knowledgePoint || '') }),
+        { temperature: 0.5 },
+      );
+      const imageHint = String(data.imageHint || '').trim();
+      if (!imageHint) {
+        return reply.code(502).send({ code: 502, message: 'AI 未返回有效联想图像', aiCode: 'AI_EMPTY' });
+      }
+      return { imageHint, model: raw.model, latencyMs: raw.latencyMs };
     } catch (e) {
       return fail(reply, e);
     }

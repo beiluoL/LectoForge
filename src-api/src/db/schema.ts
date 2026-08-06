@@ -104,6 +104,9 @@ export const wbPalaceLoci = sqliteTable('wb_palace_loci', {
   captureId: integer('capture_id'),
   noteId: integer('note_id'),
   categoryId: integer('category_id'),
+  // SRS 复习：熟练度 0-5（越高越熟），lastReviewedAt 记录最近一次打分时间
+  masteredLevel: integer('mastered_level').notNull().default(0),
+  lastReviewedAt: text('last_reviewed_at'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

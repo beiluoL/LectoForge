@@ -26,7 +26,7 @@
             <router-link to="/workbench/review" class="kb-btn wb-ghost-btn">
               <Icon name="repeat" :size="14" /> 间隔重复
             </router-link>
-            <button class="kb-btn kb-btn-primary wb-cta" @click="showCreate = true">
+            <button class="kb-btn kb-btn-primary wb-cta" @click="$emit('open-create')">
               <Icon name="plus" :size="16" /> 新建宫殿
             </button>
           </div>
@@ -34,7 +34,13 @@
 
         <!-- 闭环导航条 -->
         <nav class="wb-loop-nav" aria-label="学习闭环">
-          <router-link v-for="s in loopSteps" :key="s.key" :to="s.path" class="wb-loop-step" :class="{ 'is-current': s.key === 'review' }">
+          <router-link
+            v-for="s in loopSteps"
+            :key="s.key"
+            :to="s.path"
+            class="wb-loop-step"
+            :class="{ 'is-current': s.key === 'review' }"
+          >
             <span class="wb-loop-num">{{ s.num }}</span>
             <span class="wb-loop-name">{{ s.name }}</span>
           </router-link>
@@ -52,22 +58,22 @@
         </div>
       </div>
 
-      <div v-else-if="list.length === 0" class="wb-empty">
+      <div v-else-if="palaces.length === 0" class="wb-empty">
         <div class="wb-empty-icon"><Icon name="map-pin" :size="40" /></div>
         <h3 class="wb-empty-title">还没有记忆宫殿</h3>
         <p class="wb-empty-desc">创建一个你熟悉的空间场景，开始挂靠知识点。</p>
-        <button class="kb-btn kb-btn-primary" @click="showCreate = true">
+        <button class="kb-btn kb-btn-primary" @click="$emit('open-create')">
           <Icon name="plus" :size="14" /> 创建第一个
         </button>
       </div>
 
       <div v-else class="wb-palace-grid">
         <article
-          v-for="p in list"
+          v-for="p in palaces"
           :key="p.id"
           class="wb-palace-card"
           :style="{ '--pc': p.coverColor || '#3B6FE0' }"
-          @click="router.push('/workbench/palace/' + p.id)"
+          @click="$emit('open-palace', p)"
         >
           <div class="wb-palace-cover">
             <div class="wb-palace-cover-icon">
@@ -91,7 +97,7 @@
               进入编辑
               <Icon name="arrow-right" :size="14" />
             </span>
-            <button class="wb-icon-btn" title="删除" @click.stop="remove(p)">
+            <button class="wb-icon-btn" title="删除" @click.stop="$emit('delete-palace', p)">
               <Icon name="trash-2" :size="14" />
             </button>
           </div>
@@ -100,28 +106,28 @@
     </section>
 
     <!-- ============ 新建宫殿 Drawer ============ -->
-    <div v-if="showCreate" class="wb-drawer-mask" @click.self="showCreate = false">
+    <div v-if="showCreate" class="wb-drawer-mask" @click.self="$emit('close-create')">
       <div class="wb-drawer">
         <header class="wb-drawer-head">
           <div>
             <span class="wb-eyebrow wb-eyebrow-sm">New Palace</span>
             <h2 class="wb-drawer-title">新建记忆宫殿</h2>
           </div>
-          <button class="wb-icon-btn" @click="showCreate = false"><Icon name="x" :size="18" /></button>
+          <button class="wb-icon-btn" @click="$emit('close-create')"><Icon name="x" :size="18" /></button>
         </header>
         <div class="wb-drawer-body">
           <div class="wb-field">
             <label class="wb-label">名称 <span class="wb-req">*</span></label>
-            <input v-model="form.name" class="kb-input" placeholder="如：我的书房" />
+            <input :value="form.name" @input="onFormField('name', $event)" class="kb-input" placeholder="如：我的书房" />
           </div>
           <div class="wb-field">
             <label class="wb-label">描述</label>
-            <input v-model="form.description" class="kb-input" placeholder="场景描述" />
+            <input :value="form.description" @input="onFormField('description', $event)" class="kb-input" placeholder="场景描述" />
           </div>
           <div class="wb-field-row">
             <div class="wb-field">
               <label class="wb-label">主题</label>
-              <select v-model="form.theme" class="kb-input">
+              <select :value="form.theme" @change="onFormField('theme', $event)" class="kb-input">
                 <option value="ROOM">房间</option>
                 <option value="STREET">街道</option>
                 <option value="CAMPUS">校园</option>
@@ -137,15 +143,15 @@
                   class="wb-color-dot"
                   :class="{ 'is-active': form.coverColor === c }"
                   :style="{ background: c }"
-                  @click="form.coverColor = c"
+                  @click="$emit('form-color', c)"
                 ></button>
               </div>
             </div>
           </div>
         </div>
         <footer class="wb-drawer-foot">
-          <button class="kb-btn" @click="showCreate = false">取消</button>
-          <button class="kb-btn kb-btn-primary" @click="save">
+          <button class="kb-btn" @click="$emit('close-create')">取消</button>
+          <button class="kb-btn kb-btn-primary" @click="$emit('submit-create')">
             <Icon name="check" :size="14" /> 保存
           </button>
         </footer>
@@ -155,23 +161,28 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
-import { notify, confirmDialog, getApiError } from '@/utils/toast'
-import './workbench-shared.css'
-import { listPalaces, createPalace, deletePalace } from '@/api/workbench'
 import type { WbPalace, WbPalacePayload } from '@/api/types'
 
-const router = useRouter()
+defineProps<{
+  palaces: WbPalace[]
+  loading: boolean
+  showCreate: boolean
+  form: WbPalacePayload
+  colorPresets: string[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'open-create'): void
+  (e: 'close-create'): void
+  (e: 'open-palace', palace: WbPalace): void
+  (e: 'delete-palace', palace: WbPalace): void
+  (e: 'submit-create'): void
+  (e: 'form-field', key: 'name' | 'description' | 'theme', ev: Event): void
+  (e: 'form-color', color: string): void
+}>()
+
 const themeColor = '#8B5CF6'
-
-const list = ref<WbPalace[]>([])
-const loading = ref(true)
-const showCreate = ref(false)
-const form = reactive<WbPalacePayload>({ name: '', description: '', theme: 'ROOM', coverColor: '#3B6FE0' })
-
-const colorPresets = ['#3B6FE0', '#8B5CF6', '#F59E0B', '#10B981', '#FF6B35', '#EF4444']
 
 const loopSteps = [
   { key: 'input', num: '01', name: '输入', path: '/workbench/capture' },
@@ -180,47 +191,13 @@ const loopSteps = [
   { key: 'output', num: '04', name: '输出', path: '/workbench/story' },
 ]
 
-async function load() {
-  loading.value = true
-  try {
-    list.value = await listPalaces()
-  } catch (e) {
-    notify(getApiError(e, '加载失败'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-async function save() {
-  if (!form.name.trim()) {
-    notify('名称不能为空', 'warning')
-    return
-  }
-  try {
-    await createPalace({ ...form })
-    notify('已创建', 'success')
-    showCreate.value = false
-    Object.assign(form, { name: '', description: '', theme: 'ROOM', coverColor: '#3B6FE0' })
-    load()
-  } catch (e) {
-    notify(getApiError(e, '保存失败'), 'error')
-  }
-}
-async function remove(p: WbPalace) {
-  const ok = await confirmDialog('确认删除该宫殿及其所有位点？')
-  if (!ok) return
-  try {
-    await deletePalace(p.id)
-    notify('已删除', 'success')
-    load()
-  } catch (e) {
-    notify(getApiError(e, '删除失败'), 'error')
-  }
-}
 function themeLabel(t?: string) {
   return { ROOM: '房间', STREET: '街道', CAMPUS: '校园', CUSTOM: '自定义' }[t || ''] || t || ''
 }
 
-onMounted(load)
+function onFormField(key: 'name' | 'description' | 'theme', ev: Event) {
+  emit('form-field', key, ev)
+}
 </script>
 
 <style scoped>

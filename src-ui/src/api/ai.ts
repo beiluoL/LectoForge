@@ -283,6 +283,17 @@ export function generatePalaceLoci(payload: { theme?: string; count?: number; po
   return apiPost<PalaceLociResult>('/ai/palace/loci', payload, { timeout: AI_TIMEOUT })
 }
 
+export interface PalaceLociImageHintResult {
+  imageHint: string
+  model: string
+  latencyMs: number
+}
+
+/** F1/F2 单点增强：为某个已存在位点重新生成/润色 imageHint（联想图像） */
+export function regeneratePalaceLociImageHint(payload: { name?: string; knowledgePoint?: string }) {
+  return apiPost<PalaceLociImageHintResult>('/ai/palace/loci/image-hint', payload, { timeout: AI_TIMEOUT })
+}
+
 // ============================ P3-G2：智能复习推荐引擎 ============================
 
 export interface ReviewRecommendPriority {

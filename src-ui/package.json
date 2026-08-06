@@ -19,9 +19,12 @@
     "highlight.js": "^11.11.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "lucide-vue-next": "^0.577.0",
     "markdown-it": "^15.0.0",
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
+    "pinia": "^4.0.2",
+    "pinia-plugin-persistedstate": "^4.7.1",
     "vue": "^3.4.38",
     "vue-router": "^4.4.3"
   },

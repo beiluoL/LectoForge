@@ -17,6 +17,8 @@
     </main>
   </div>
   <ToastHost />
+  <!-- 侧车断线遮罩：宿主重启后端期间挂起界面，恢复后自动隐藏并重放失败请求 -->
+  <ConnectionOverlay />
 </template>
 
 <script setup lang="ts">
@@ -24,6 +26,7 @@
 import { useRoute } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
 import ToastHost from '@/components/ui/ToastHost.vue';
+import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
 
 const route = useRoute();
 </script>

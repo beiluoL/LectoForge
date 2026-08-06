@@ -14,7 +14,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { resolveDataDir } from './paths';
+import { getWorkspaceConfigPath } from './paths';
 
 /** 视为 Markdown 的扩展名 */
 const MD_EXT = new Set(['.md', '.markdown', '.mdx']);
@@ -30,7 +30,7 @@ const SKIP_DIRS = new Set([
   '.DS_Store', '__pycache__', '.idea', '.vscode',
 ]);
 
-const WORKSPACE_FILE = 'library-workspace.json';
+/** 文件名常量已收敛到 lib/paths.getWorkspaceConfigPath()，此处仅保留注释便于检索：library-workspace.json */
 
 export interface TreeNode {
   /** 相对工作区根目录的 POSIX 路径，根目录为 '' */
@@ -64,8 +64,9 @@ export class VaultError extends Error {
 let rootDir: string | null = null;
 let loaded = false;
 
+/** <dataDir>/library-workspace.json —— 目录不存在时由 paths 自动创建 */
 function workspaceConfigPath(): string {
-  return path.join(resolveDataDir(), WORKSPACE_FILE);
+  return getWorkspaceConfigPath();
 }
 
 /** 默认笔记库位置：~/Documents/KnowFlow 文档库（不自动创建，仅作为建议值展示） */
