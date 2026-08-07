@@ -33,6 +33,10 @@ import {
 import { playCue, whiteNoise } from '@/utils/pomodoroAudio';
 import { notify } from '@/utils/toast';
 
+// 对外 re-export 番茄钟类型，让消费方（App.vue / PopupTimer.vue 等）统一从 store 入口引，
+// 避免散落两处 import 路径（store 与 api）一旦调整类型位置出现编译错位。
+export type { PomodoroPhase } from '@/api/pomodoro';
+
 export type PomodoroStatus = 'idle' | 'running' | 'paused' | 'completed';
 
 /** 各阶段的展示名（菜单栏与状态条共用，改文案只改这里） */
@@ -81,6 +85,9 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     volume: 45,
     track: 'rain',
   });
+
+  /** 自动开始下一段（专注结束自动进休息，休息结束自动进专注）—— 后端 config schema 已有这个字段 */
+  const autoStartNext = ref(false);
 
   /** 本次启动应用以来完成的番茄数（图表统计走后端，这里只做即时反馈） */
   const completedToday = ref(0);
@@ -190,6 +197,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
       Object.assign(settings, cfg.settings);
       Object.assign(soundSettings, cfg.soundSettings);
       Object.assign(whiteNoiseState, cfg.whiteNoise);
+      autoStartNext.value = cfg.autoStartNext;
       whiteNoise.setVolume(whiteNoiseState.volume);
       // 空闲态才同步倒计时显示，正在跑的时候改配置不能把当前这一段掐掉
       if (status.value === 'idle') timeLeft.value = phaseTotalSec.value;
@@ -210,6 +218,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
         settings: { ...settings },
         soundSettings: { ...soundSettings },
         whiteNoise: { ...whiteNoiseState },
+        autoStartNext: autoStartNext.value,
       }).catch(() => {
         /* 保存失败不弹错：用户可能正在拖滑块，弹窗会打断操作 */
       });
@@ -358,7 +367,10 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     phase.value = next;
     timeLeft.value = phaseTotalSec.value;
     status.value = 'idle';
-    void emitToNative(true);
+    // 自动开始下一段：专注/休息结束无缝衔接下一段，用户不再需要点开始。
+    // 注意要在 emitToNative 之前 startTimer，否则菜单栏标题会先闪一帧 idle 状态。
+    if (autoStartNext.value) startTimer();
+    else void emitToNative(true);
   }
 
   /* ==================== 七、音频 actions ==================== */
@@ -400,6 +412,12 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     saveSettings();
   }
 
+  /** 自动开始下一段开关 */
+  function setAutoStartNext(v: boolean): void {
+    autoStartNext.value = v;
+    saveSettings();
+  }
+
   /* ==================== 八、初始化 ==================== */
 
   let inited = false;
@@ -420,6 +438,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     timeLeft,
     soundSettings,
     whiteNoise: whiteNoiseState,
+    autoStartNext,
     completedToday,
     configLoaded,
     // getters
@@ -448,5 +467,6 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     toggleWhiteNoise,
     setWhiteNoiseVolume,
     setWhiteNoiseTrack,
+    setAutoStartNext,
   };
 });

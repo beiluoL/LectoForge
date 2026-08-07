@@ -497,7 +497,7 @@ pub fn run() {
                     WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
                 )
                 .title("KnowFlow 番茄钟")
-                .inner_size(360.0, 480.0)
+                .inner_size(360.0, 440.0)
                 .decorations(false)
                 .transparent(true)
                 .always_on_top(true)
@@ -525,7 +525,7 @@ pub fn run() {
                     WebviewUrl::External("http://localhost:5173".parse().unwrap()),
                 )
                 .title("KnowFlow 番茄钟 (dev)")
-                .inner_size(360.0, 480.0)
+                .inner_size(360.0, 440.0)
                 .decorations(false)
                 .transparent(true)
                 .always_on_top(true)
@@ -690,7 +690,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app_handle, _event| {
@@ -889,4 +889,33 @@ fn trigger_notification(app: tauri::AppHandle, title: String, body: String) {
     {
         let _ = (app, title, body);
     }
+}
+
+/// 供前端调用的「打开外部链接」命令：菜单栏番茄钟弹窗底部的「给我们好评 / 关于（外链）」
+/// 走这里直接交给系统默认浏览器处理，不引入 tauri-plugin-shell 的 `open` 全局
+/// （避免给前端多开一个权限口子；URL 是否合法由调用方负责）。
+#[tauri::command]
+fn open_external_url(url: String) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(&url).spawn();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "start", "", &url])
+            .spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+    }
+}
+
+/// 供前端调用的「退出应用」命令：菜单栏番茄钟弹窗底部的「退出」走这里。
+/// 用 `app.exit(0)` 走正常的 Tauri 退出流程（回收 Node 侧车、关闭 webview），
+/// 不要用 std::process::exit，那样会跳过侧车清理留下孤儿进程。
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
 }

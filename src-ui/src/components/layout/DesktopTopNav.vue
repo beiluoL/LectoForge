@@ -163,7 +163,8 @@ async function onNavClick(it: NavItem, e: MouseEvent) {
   try {
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    const popup = WebviewWindow.getByLabel('pomodoro_popup');
+    // @tauri-apps/api 2.x：getByLabel 是 async（之前同步返回的版本已弃用）
+    const popup = await WebviewWindow.getByLabel('pomodoro_popup');
     if (popup) {
       await popup.show();
       await popup.setFocus();
