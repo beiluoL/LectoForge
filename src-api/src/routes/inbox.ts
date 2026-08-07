@@ -20,9 +20,9 @@ import * as cheerio from 'cheerio';
 import iconv from 'iconv-lite';
 
 import { db } from '../db';
-import { wbCapture, wbNote } from '../db/schema';
+import { wbCapture, wbNote, wbPalace, wbPalaceLoci, wbStory } from '../db/schema';
 import { CURRENT_USER, nowIso } from '../db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { assertSafeName, createNote, ensureMdExt, getRootDir, writeNote, VaultError } from '../lib/vault';
 
 // ===================== 类型与映射 =====================
@@ -133,7 +133,7 @@ function absolutize(image: string | null | undefined, base: string): string | nu
  * 真实抓取网页元数据：axios（伪装 UA + 10s 超时 + arraybuffer）→ iconv 解码（应对 GBK）
  * → cheerio 解析 og / title / description / 正文摘要。任何异常都优雅降级，绝不抛 500。
  */
-async function clipUrl(rawUrl: string): Promise<ClipResult> {
+async function clipUrl(rawUrl: string, snippetLen = 120): Promise<ClipResult> {
   let targetUrl: URL;
   try {
     targetUrl = new URL(rawUrl);
@@ -189,10 +189,10 @@ async function clipUrl(rawUrl: string): Promise<ClipResult> {
       targetUrl.href,
     );
 
-    // 正文摘要：剔除干扰标签后取纯文本前 120 字
+    // 正文摘要：剔除干扰标签后取纯文本前 snippetLen 字（clip 默认 120，metadata 取 200）
     $('script, style, nav, footer, header, aside, iframe, noscript, svg').remove();
     const plainText = $('body').text().replace(/\s+/g, ' ').trim();
-    const snippet = plainText.slice(0, 120);
+    const snippet = plainText.slice(0, snippetLen);
 
     return { title, description, image, url: targetUrl.href, snippet, ok: true };
   } catch (error: any) {
@@ -234,13 +234,15 @@ function buildDocMarkdown(item: any): string {
 // ===================== 路由 =====================
 
 export default async function inboxRoutes(app: FastifyInstance) {
-  /** 全部「未处理」条目，时间倒序 */
-  app.get('/inbox/list', async () => {
+  /** 全部「未处理」条目；默认星标→时间倒序，?sort=asc 时按创建时间升序（收件箱积压视图用） */
+  app.get('/inbox/list', async (req) => {
+    const q = (req.query ?? {}) as any;
+    const ascSort = String(q.sort || '').toLowerCase() === 'asc';
     const rows = db
       .select()
       .from(wbCapture)
       .where(and(eq(wbCapture.userId, CURRENT_USER), eq(wbCapture.status, 'INBOX')))
-      .orderBy(desc(wbCapture.starred), desc(wbCapture.createdAt))
+      .orderBy(ascSort ? asc(wbCapture.createdAt) : desc(wbCapture.starred), desc(wbCapture.createdAt))
       .all();
     return rows.map(toVo);
   });
@@ -319,6 +321,21 @@ export default async function inboxRoutes(app: FastifyInstance) {
   app.get('/inbox/clip', clipHandler);
   app.post('/inbox/clip', clipHandler);
 
+  /**
+   * 网页元数据抓取（智能爬取 / 剪藏增强 B）。兼容 GET（?url=）与 POST（{ url }）。
+   * 与 /clip 同源：axios + 伪装 UA + GBK 解码 + 优雅降级；失败时仍返回 200 且 ok=false，
+   * 绝不抛 500 阻断用户手动录入。摘要取前 200 字（比 /clip 的 120 更长，便于「摘录初稿」）。
+   */
+  const metadataHandler = async (req: any) => {
+    const q = (req.query ?? {}) as any;
+    const b = (req.body ?? {}) as any;
+    const url: string = (q.url || q.sourceUrl || b.url || b.sourceUrl || '').toString().trim();
+    if (!url) return { title: '', description: 'URL 不能为空', image: null, url: '', snippet: '', ok: false };
+    return clipUrl(url, 200);
+  };
+  app.get('/inbox/metadata', metadataHandler);
+  app.post('/inbox/metadata', metadataHandler);
+
   /** 更新：内容 / 标题 / 标签 / 星标 / 状态（小写三态自动映射为 DB 大写） */
   app.put('/inbox/:id', async (req, reply) => {
     const id = Number((req.params as any).id);
@@ -349,17 +366,20 @@ export default async function inboxRoutes(app: FastifyInstance) {
   });
 
   /**
-   * 关键流转接口：把收集项「沉淀」到下游。
-   * body/query: { target: 'note' | 'cornell' }
+   * 关键流转接口：把收集项「沉淀」到下游（智能路由 C）。
+   * body/query: { target | targetType: 'note' | 'cornell' | 'palace' | 'story' }
    *   - cornell → 在 wb_note（康奈尔笔记）建一条，noteColumn = 收集内容，携带 captureId 回链
    *   - note    → 在文档库（磁盘 vault）写一个 .md 文件
+   *   - palace  → 在指定记忆宫殿（palaceId）新建/追加一个位点（wb_palace_loci），knowledgePoint = 收集内容
+   *   - story   → 在费曼故事（wb_story）建一条 DRAFT 草稿，content = 收集内容
    * 成功后把收集项标记为 archived，并记录 processedAt。
    */
   app.put('/inbox/:id/process', async (req, reply) => {
     const id = Number((req.params as any).id);
     const q = (req.query ?? {}) as any;
     const b = (req.body ?? {}) as any;
-    const target = String(b.target || q.target || 'cornell').toLowerCase();
+    // 兼容 spec 的 targetType 命名与既有 target 命名
+    const target = String(b.targetType || b.target || q.targetType || q.target || 'cornell').toLowerCase();
 
     const item = db
       .select()
@@ -369,7 +389,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
     if (!item) return reply.code(404).send({ message: '收集项不存在' });
 
     const now = nowIso();
-    let result: { target: string; noteId?: number; path?: string; title: string };
+    let result: { target: string; noteId?: number; path?: string; palaceId?: number; lociId?: number; storyId?: number; title: string };
 
     if (target === 'cornell') {
       // 沉淀为康奈尔笔记：内容进 noteColumn，线索/总结留空待用户填。
@@ -414,8 +434,67 @@ export default async function inboxRoutes(app: FastifyInstance) {
       }
       await writeNote(node.id, markdown);
       result = { target: 'note', path: node.id, title: item.title };
+    } else if (target === 'palace') {
+      // 沉淀到记忆宫殿：必须指定 palaceId；lociId 可选——有则把内容追加到位点，无则新建位点。
+      const palaceId = Number(b.palaceId ?? q.palaceId);
+      if (!palaceId || Number.isNaN(palaceId)) {
+        return reply.code(400).send({ message: '流转到记忆宫殿需要 palaceId' });
+      }
+      const palace = db.select().from(wbPalace).where(eq(wbPalace.id, palaceId)).get() as any;
+      if (!palace) return reply.code(404).send({ message: '记忆宫殿不存在' });
+
+      const lociId = Number(b.lociId ?? q.lociId ?? 0) || 0;
+      let finalLociId = lociId;
+      if (lociId) {
+        // 追加到已有位点：把收集内容拼到 knowledgePoint 末尾（保留原内容）
+        const exLoci = db.select().from(wbPalaceLoci).where(eq(wbPalaceLoci.id, lociId)).get() as any;
+        const kp = [exLoci?.knowledgePoint, item.content].filter(Boolean).join('\n\n');
+        db.update(wbPalaceLoci)
+          .set({ knowledgePoint: kp || null, captureId: item.id, updatedAt: now })
+          .where(eq(wbPalaceLoci.id, lociId))
+          .run();
+      } else {
+        // 新建位点：名称取收集标题，知识点取收集内容，sortOrder 排到末尾
+        const maxIdx = db
+          .select({ m: sql<number>`COALESCE(MAX(${wbPalaceLoci.sortOrder}), -1)` })
+          .from(wbPalaceLoci)
+          .where(eq(wbPalaceLoci.palaceId, palaceId))
+          .get() as any;
+        const loci = db
+          .insert(wbPalaceLoci)
+          .values({
+            palaceId,
+            userId: CURRENT_USER,
+            name: item.title,
+            knowledgePoint: item.content || null,
+            captureId: item.id,
+            sortOrder: (maxIdx?.m ?? -1) + 1,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning()
+          .get();
+        finalLociId = loci.id;
+      }
+      result = { target: 'palace', palaceId, lociId: finalLociId, title: item.title };
+    } else if (target === 'story') {
+      // 沉淀为费曼故事草稿：content 直接进正文，其他留空待用户补全
+      const story = db
+        .insert(wbStory)
+        .values({
+          userId: CURRENT_USER,
+          captureId: item.id,
+          title: item.title,
+          content: item.content || '',
+          status: 'DRAFT',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .get();
+      result = { target: 'story', storyId: story.id, title: item.title };
     } else {
-      return reply.code(400).send({ message: 'target 仅支持 note | cornell' });
+      return reply.code(400).send({ message: 'target 仅支持 note | cornell | palace | story' });
     }
 
     // 标记归档 + 流转时间

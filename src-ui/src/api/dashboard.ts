@@ -14,6 +14,8 @@ export interface DashboardStats {
   palaceLoci: number;
   /** 故事草稿数（status = DRAFT） */
   storyDrafts: number;
+  /** 收件箱积压数：INBOX 且创建已超过 72 小时未整理的条目 */
+  inboxOverdueCount: number;
   /** 最近 7 天从收集箱流转到笔记的数量 */
   weeklyFlow: number;
   /** 顶部闭环四步的总量统计 */

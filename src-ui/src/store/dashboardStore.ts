@@ -24,6 +24,7 @@ const EMPTY_STATS: DashboardStats = {
   dueReviews: 0,
   palaceLoci: 0,
   storyDrafts: 0,
+  inboxOverdueCount: 0,
   weeklyFlow: 0,
   loopSteps: { step1Count: 0, step2Count: 0, step3Count: 0, step4Count: 0 },
 };

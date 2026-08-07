@@ -24,6 +24,8 @@ export interface DashboardStats {
   palaceLoci: number;
   /** 故事草稿数（status = DRAFT） */
   storyDrafts: number;
+  /** 收件箱积压数：INBOX 且创建已超过 72 小时（3 天）未整理的条目（收件箱归零提醒 D） */
+  inboxOverdueCount: number;
   /** 最近 7 天从收集箱流转到笔记的数量（由 capture 生成、近 7 天创建的笔记） */
   weeklyFlow: number;
   /** 顶部闭环四步的总量统计 */
@@ -78,6 +80,12 @@ export default async function (app: FastifyInstance) {
     const palaceLoci = count(wbPalaceLoci);
     // 故事草稿
     const storyDrafts = count(wbStory, [eq(wbStory.status, 'DRAFT')]);
+    // 收件箱积压：INBOX 且创建时间早于 now - 72h（3 天）
+    const overdueThreshold = new Date(now.getTime() - 72 * 3600 * 1000).toISOString();
+    const inboxOverdueCount = count(wbCapture, [
+      eq(wbCapture.status, 'INBOX'),
+      sql`${wbCapture.createdAt} < ${overdueThreshold}`,
+    ]);
     // 最近 7 天从收集箱流转到笔记：captureId 非空且近 7 天创建的笔记（流转率统计）
     const weeklyFlow = count(wbNote, [
       sql`${wbNote.captureId} IS NOT NULL`,
@@ -96,6 +104,7 @@ export default async function (app: FastifyInstance) {
       dueReviews,
       palaceLoci,
       storyDrafts,
+      inboxOverdueCount,
       weeklyFlow,
       loopSteps: { step1Count, step2Count, step3Count, step4Count },
     };

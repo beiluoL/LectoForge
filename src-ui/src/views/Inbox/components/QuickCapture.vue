@@ -35,8 +35,47 @@
       </div>
     </div>
 
+    <!-- 摘录模式浮层：粘贴网页里高亮复制的精华片段，归入 content -->
+    <Transition name="qc-excerpt">
+      <div v-if="excerptMode" class="qc-excerpt">
+        <div class="qc-excerpt-head">
+          <span><Icon name="highlighter" :size="13" /> 摘录模式 · 粘贴网页中高亮复制的精华</span>
+          <button class="qc-excerpt-close" title="关闭" @click="excerptMode = false">
+            <Icon name="x" :size="13" />
+          </button>
+        </div>
+        <textarea
+          ref="excerptRef"
+          v-model="excerptText"
+          class="qc-excerpt-area"
+          rows="3"
+          placeholder="在此粘贴你从网页复制的精华片段，提交时会并入收集内容…"
+        ></textarea>
+        <div class="qc-excerpt-foot">
+          <span class="qc-excerpt-tip">片段将作为正文的一部分保存</span>
+          <button class="kb-btn kb-btn-sm" @click="excerptMode = false">完成</button>
+        </div>
+      </div>
+    </Transition>
+
     <!-- 工具条：标签 + 提交 -->
     <div class="qc-tools">
+      <!-- AI 智能建议标签：无标签且正文足够长时自动请求，用户点一下即采纳 -->
+      <div v-if="suggestedTags.length" class="qc-suggest">
+        <span class="qc-suggest-label"><Icon name="sparkles" :size="12" /> AI 建议</span>
+        <button
+          v-for="t in suggestedTags"
+          :key="t"
+          class="qc-tag qc-suggest-tag"
+          type="button"
+          @click="adoptSuggestion(t)"
+        >
+          {{ t }}
+          <Icon name="plus" :size="10" />
+        </button>
+        <button class="qc-suggest-dismiss" title="忽略建议" @click="suggestedTags = []">忽略</button>
+      </div>
+
       <div class="qc-tags">
         <button
           v-for="t in tagOptions"
@@ -67,6 +106,14 @@
       </div>
 
       <div class="qc-actions">
+        <!-- 剪藏时显示「将摘要作为初稿」勾选 -->
+        <label v-if="clip && clip.ok" class="qc-draft-toggle">
+          <input type="checkbox" v-model="useSummaryAsDraft" />
+          <span>将摘要作为初稿</span>
+        </label>
+        <button class="kb-btn kb-btn-sm" type="button" title="摘录模式" @click="openExcerpt">
+          <Icon name="highlighter" :size="12" /> 摘录
+        </button>
         <span class="qc-hint">{{ hint }}</span>
         <button
           class="kb-btn kb-btn-primary qc-submit"
@@ -129,6 +176,15 @@ const clipping = computed(() => store.clipping);
 /** 已抓取过的 URL，避免同一链接重复请求 */
 const clippedUrl = ref('');
 
+/** 剪藏增强：将网页摘要作为初稿进入收集箱 */
+const useSummaryAsDraft = ref(false);
+/** 摘录模式：粘贴网页高亮精华片段 */
+const excerptMode = ref(false);
+const excerptText = ref('');
+const excerptRef = ref<HTMLTextAreaElement | null>(null);
+/** AI 自动建议的标签（用户尚未采纳），2s 防抖后悄悄请求 */
+const suggestedTags = ref<string[]>([]);
+
 /** 标签：内置常用 + 历史出现过的 + 用户临时新增 */
 const customing = ref(false);
 const customTag = ref('');
@@ -155,31 +211,59 @@ function firstUrl(s: string): string {
   return m ? m[0] : '';
 }
 
-/** 真正发起抓取（已被 600ms 防抖包装） */
+/** 真正发起抓取（已被 800ms 防抖包装）：剪藏增强走 /metadata，摘要取前 200 字 */
 const doClip = useDebounceFn(async (url: string) => {
   if (!url || url === clippedUrl.value) return;
-  const res = await store.clip(url);
+  const res = await store.clipMeta(url);
   // 抓取回来时用户可能已经把链接删了，丢弃过期结果
   if (!res || firstUrl(text.value) !== url) return;
   clippedUrl.value = url;
   clip.value = res;
   clipTitle.value = res.title || '';
-}, 600);
+}, 800);
 
-// 监听输入：链接变化才触发抓取；链接被删则清掉预览
+/** 延时 2s 自动触发 AI 标签建议：仅在用户尚未打标签且正文足够长时悄悄请求（智能路由 C） */
+const autoSuggest = useDebounceFn(async () => {
+  const body = text.value.trim();
+  if (body.length < 20 || selectedTags.value.length || suggestedTags.value.length) return;
+  const firstLine = body.split('\n').map((s) => s.trim()).find(Boolean) || '';
+  const tags = await store.suggestTags(firstLine, body);
+  if (tags.length && !selectedTags.value.length) {
+    suggestedTags.value = tags.filter((t) => !selectedTags.value.includes(t));
+  }
+}, 2000);
+
+// 监听输入：链接变化才触发抓取；链接被删则清掉预览；并静默尝试 AI 标签建议
 watch(text, (val) => {
   const url = firstUrl(val);
   if (!url) {
     if (clip.value) clearClip();
-    return;
+  } else if (url !== clippedUrl.value) {
+    doClip(url);
   }
-  if (url !== clippedUrl.value) doClip(url);
+  autoSuggest();
 });
 
 function clearClip() {
   clip.value = null;
   clipTitle.value = '';
   clippedUrl.value = '';
+  useSummaryAsDraft.value = false;
+  suggestedTags.value = [];
+}
+
+/** 打开摘录模式浮层并聚焦输入框 */
+async function openExcerpt() {
+  excerptMode.value = true;
+  await nextTick();
+  excerptRef.value?.focus();
+}
+
+/** 采纳一条 AI 建议标签 */
+function adoptSuggestion(t: string) {
+  if (!selectedTags.value.includes(t)) selectedTags.value.push(t);
+  const i = suggestedTags.value.indexOf(t);
+  if (i > -1) suggestedTags.value.splice(i, 1);
 }
 
 function onImgError(e: Event) {
@@ -228,13 +312,24 @@ async function submit() {
   try {
     const url = clip.value?.url || firstUrl(text.value);
     const type: InboxType = clip.value || url ? 'link' : 'text';
-    // 剪藏时正文优先用抓取到的描述/摘要，用户自己敲的字作为补充留在前面
     const typed = text.value.trim();
-    const body = clip.value
-      ? [typed.replace(url, '').trim(), clip.value.description || clip.value.snippet]
-          .filter(Boolean)
-          .join('\n\n')
-      : typed;
+
+    // 正文组装：剪藏摘要是否作为初稿 / 摘录片段是否并入，分别处理
+    let body: string;
+    if (useSummaryAsDraft.value && clip.value) {
+      body = [clip.value.description || clip.value.snippet, typed.replace(url, '').trim()]
+        .filter(Boolean)
+        .join('\n\n');
+    } else if (clip.value) {
+      body = [typed.replace(url, '').trim(), clip.value.description || clip.value.snippet]
+        .filter(Boolean)
+        .join('\n\n');
+    } else {
+      body = typed;
+    }
+    // 摘录模式里粘贴的精华片段，统一并入正文
+    const excerpt = excerptText.value.trim();
+    if (excerpt) body = [body, excerpt].filter(Boolean).join('\n\n');
 
     await store.addItem({
       content: body,
@@ -245,8 +340,12 @@ async function submit() {
       tags: [...selectedTags.value],
     });
 
-    // 复位：标签保留选中（连续收集同类内容更顺手），只清内容与剪藏
+    // 复位：标签保留选中（连续收集同类内容更顺手），只清内容与剪藏/摘录/建议
     text.value = '';
+    excerptText.value = '';
+    excerptMode.value = false;
+    useSummaryAsDraft.value = false;
+    suggestedTags.value = [];
     clearClip();
     notify('已收进收集箱', 'success');
     emit('created');
@@ -490,6 +589,130 @@ defineExpose({ focus: () => taRef.value?.focus() });
 }
 .qc-spin {
   animation: qc-rotate 0.7s linear infinite;
+}
+
+/* ===== 摘录模式浮层 ===== */
+.qc-excerpt {
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-md);
+  background: var(--kb-background);
+  overflow: hidden;
+}
+.qc-excerpt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: var(--kb-fs-caption);
+  font-weight: 600;
+  color: var(--kb-foreground);
+  background: color-mix(in srgb, var(--kb-highlight) 10%, transparent);
+}
+.qc-excerpt-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.qc-excerpt-close {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+}
+.qc-excerpt-close:hover {
+  background: var(--kb-muted);
+  color: var(--kb-foreground);
+}
+.qc-excerpt-area {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  min-height: 64px;
+  background: transparent;
+  color: var(--kb-foreground);
+  font-family: inherit;
+  font-size: var(--kb-fs-body-sm);
+  line-height: 1.6;
+}
+.qc-excerpt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 10px;
+}
+.qc-excerpt-tip {
+  font-size: var(--kb-fs-xs);
+  color: var(--kb-muted-foreground);
+}
+.qc-excerpt-enter-active,
+.qc-excerpt-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.qc-excerpt-enter-from,
+.qc-excerpt-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* ===== AI 建议标签 ===== */
+.qc-suggest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--kb-radius-sm);
+  background: color-mix(in srgb, var(--kb-highlight) 8%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--kb-highlight) 40%, transparent);
+}
+.qc-suggest-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--kb-fs-xs);
+  font-weight: 600;
+  color: var(--kb-highlight);
+}
+.qc-suggest-tag {
+  border-color: color-mix(in srgb, var(--kb-highlight) 50%, transparent);
+  color: var(--kb-highlight);
+}
+.qc-suggest-tag:hover {
+  background: color-mix(in srgb, var(--kb-highlight) 14%, transparent);
+  border-color: var(--kb-highlight);
+}
+.qc-suggest-dismiss {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  font-size: var(--kb-fs-xs);
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ===== 摘要初稿勾选 ===== */
+.qc-draft-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--kb-fs-xs);
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.qc-draft-toggle input {
+  accent-color: var(--kb-primary);
 }
 
 @media (max-width: 720px) {

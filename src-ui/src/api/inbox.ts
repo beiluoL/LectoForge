@@ -11,8 +11,21 @@ export type InboxType = 'text' | 'link' | 'image';
 /** 收集项状态：未处理 / 已归档（含已沉淀）/ 回收站 */
 export type InboxStatus = 'unprocessed' | 'archived' | 'trashed';
 
-/** 沉淀目标：普通文档（写入文档库磁盘）/ 康奈尔笔记（写入数据库） */
-export type ProcessTarget = 'note' | 'cornell';
+/** 沉淀目标：文档库文档 / 康奈尔笔记 / 记忆宫殿位点 / 费曼故事草稿 */
+export type ProcessTarget = 'note' | 'cornell' | 'palace' | 'story';
+
+/** 流转附加参数（palace 目标需要 palaceId，可选 lociId） */
+export interface ProcessOptions {
+  palaceId?: number;
+  lociId?: number;
+}
+
+/** 智能分类建议结果（POST /api/ai/tags） */
+export interface TagSuggestResult {
+  tags: string[];
+  suggestedCategoryId: number | null;
+  suggestedCategoryName: string;
+}
 
 /** 单条收集项 */
 export interface InboxItem {
@@ -55,6 +68,11 @@ export interface ProcessResult {
   noteId?: number;
   /** target=note 时返回文档库中的文件相对路径 */
   path?: string;
+  /** target=palace 时返回宫殿 id / 位点 id */
+  palaceId?: number;
+  lociId?: number;
+  /** target=story 时返回新建的费曼故事 id */
+  storyId?: number;
   title: string;
   /** 流转后的收集项（status 已变为 archived） */
   item: InboxItem;
@@ -82,9 +100,9 @@ export interface UpdateInboxPayload {
   status?: InboxStatus;
 }
 
-/** 拉取全部未处理条目（后端已按 星标 → 时间 倒序排好） */
-export function fetchInboxList() {
-  return apiGet<InboxItem[]>('/inbox/list');
+/** 拉取全部未处理条目；sort='asc' 时按创建时间升序（收件箱积压视图用） */
+export function fetchInboxList(sort?: 'asc' | 'desc') {
+  return apiGet<InboxItem[]>('/inbox/list', sort ? { sort } : undefined);
 }
 
 /** 按状态拉取（归档箱 / 回收站视图用） */
@@ -105,6 +123,19 @@ export function clipUrl(url: string) {
   return apiGet<ClipResult>('/inbox/clip', { url });
 }
 
+/**
+ * 网页元数据抓取（剪藏增强）：与 /clip 同源，但摘要取前 200 字，便于「将摘要作为初稿」。
+ * 同样保证 200 成功、ok=false 时仅提示，绝不阻断手动录入。
+ */
+export function fetchMetadata(url: string) {
+  return apiGet<ClipResult>('/inbox/metadata', { url });
+}
+
+/** AI 智能分类建议：根据标题 + 正文推荐标签（并建议归类），前端决定是否采纳 */
+export function suggestTags(title: string, content: string) {
+  return apiPost<TagSuggestResult>('/ai/tags', { title, content });
+}
+
 /** 更新收集项（改内容 / 打标签 / 改状态） */
 export function updateInbox(id: number, payload: UpdateInboxPayload) {
   return apiPut<InboxItem>(`/inbox/${id}`, payload);
@@ -115,9 +146,9 @@ export function archiveInbox(id: number) {
   return updateInbox(id, { status: 'archived' });
 }
 
-/** 沉淀：流转为康奈尔笔记或文档库文档，成功后该条自动归档 */
-export function processInbox(id: number, target: ProcessTarget) {
-  return apiPut<ProcessResult>(`/inbox/${id}/process`, { target });
+/** 沉淀：流转为康奈尔笔记 / 文档库文档 / 记忆宫殿位点 / 费曼故事草稿，成功后该条自动归档 */
+export function processInbox(id: number, target: ProcessTarget, options?: ProcessOptions) {
+  return apiPut<ProcessResult>(`/inbox/${id}/process`, { target, ...(options || {}) });
 }
 
 /** 删除：软删除，移入回收站 */

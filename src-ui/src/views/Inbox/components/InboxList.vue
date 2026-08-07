@@ -85,6 +85,68 @@
                       <em>建卡片，进入复习闭环</em>
                     </span>
                   </button>
+                  <button class="il-menu-item" @click="openPalacePicker(item)">
+                    <Icon name="map-pin" :size="14" />
+                    <span>
+                      <strong>沉淀到记忆宫殿</strong>
+                      <em>挂靠到某个宫殿的位点</em>
+                    </span>
+                  </button>
+                  <button class="il-menu-item" @click="doProcess(item, 'story')">
+                    <Icon name="wand-2" :size="14" />
+                    <span>
+                      <strong>沉淀为费曼故事</strong>
+                      <em>生成草稿，用故事讲明白</em>
+                    </span>
+                  </button>
+                </div>
+
+                <!-- 记忆宫殿选择器：选宫殿 → 选/建位点 -->
+                <div v-if="palacePickerId === item.id" class="il-menu il-palace" @click.stop>
+                  <div class="il-palace-head">
+                    <span>选择记忆宫殿</span>
+                    <button class="il-palace-back" title="返回" @click="palacePickerId = null">✕</button>
+                  </div>
+                  <div v-if="palaceLoading" class="il-palace-loading">
+                    <span class="qc-spinner"></span> 加载宫殿…
+                  </div>
+                  <template v-else>
+                    <button
+                      v-for="p in palaces"
+                      :key="p.id"
+                      class="il-menu-item"
+                      :class="{ 'is-active': pickedPalaceId === p.id }"
+                      @click="pickPalace(p.id)"
+                    >
+                      <Icon name="map" :size="14" />
+                      <span>
+                        <strong>{{ p.name }}</strong>
+                        <em>{{ p.loci?.length || 0 }} 个位点</em>
+                      </span>
+                    </button>
+                    <p v-if="!palaces.length" class="il-palace-empty">还没有记忆宫殿，请先去「记忆宫殿」创建一个。</p>
+                  </template>
+
+                  <div v-if="pickedPalaceId" class="il-palace-loci">
+                    <div class="il-palace-sub">选择目标位点（或新建）：</div>
+                    <button
+                      v-for="l in currentLoci"
+                      :key="l.id"
+                      class="il-loci-item"
+                      :class="{ 'is-active': pickedLociId === l.id }"
+                      @click="pickedLociId = pickedLociId === l.id ? null : l.id"
+                    >
+                      {{ l.name }}
+                    </button>
+                    <button class="il-loci-new" @click="pickedLociId = null">＋ 新建位点（用本条标题）</button>
+                    <button
+                      class="kb-btn kb-btn-primary kb-btn-sm il-palace-go"
+                      :disabled="busyId === item.id"
+                      @click="confirmPalace(item)"
+                    >
+                      <Icon name="rocket" :size="12" /> 沉淀到该宫殿
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -121,13 +183,24 @@
  * 三者都会让卡片离开「未处理」列表，store 用乐观更新先摘掉卡片、失败再插回原位，
  * 所以这里不需要手动 reload。
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import { useInboxStore } from '@/stores/inboxStore';
 import { notify, getApiError, confirmDialog } from '@/utils/toast';
 import { fromNow, formatDateTime } from '@/utils/time';
+import { apiGet } from '@/api/request';
 import type { InboxItem, InboxType, ProcessTarget } from '@/api/inbox';
+
+interface LocusVO {
+  id: number;
+  name: string;
+}
+interface PalaceVO {
+  id: number;
+  name: string;
+  loci?: LocusVO[];
+}
 
 defineProps<{
   items: InboxItem[];
@@ -141,6 +214,18 @@ const store = useInboxStore();
 const openMenuId = ref<number | null>(null);
 /** 正在执行写操作的卡片 id，用于禁用该卡的按钮 */
 const busyId = ref<number | null>(null);
+
+/** ===== 记忆宫殿选择器状态 ===== */
+const palacePickerId = ref<number | null>(null);
+const palaces = ref<PalaceVO[]>([]);
+const palaceLoading = ref(false);
+const pickedPalaceId = ref<number | null>(null);
+const pickedLociId = ref<number | null>(null);
+
+/** 当前选中宫殿下的位点列表 */
+const currentLoci = computed<LocusVO[]>(
+  () => palaces.value.find((p) => p.id === pickedPalaceId.value)?.loci ?? [],
+);
 
 function typeIcon(t: InboxType): string {
   if (t === 'link') return 'link';
@@ -188,8 +273,24 @@ onBeforeUnmount(() => {
 /** 沉淀：成功后给一条带「去看看」语义的提示，并跳到下游 */
 async function doProcess(item: InboxItem, target: ProcessTarget) {
   closeMenu();
+  palacePickerId.value = null;
   busyId.value = item.id;
   try {
+    if (target === 'palace') {
+      const res = await store.process(item.id, 'palace', {
+        palaceId: pickedPalaceId.value!,
+        lociId: pickedLociId.value ?? undefined,
+      });
+      notify(`已沉淀到记忆宫殿：${res.title}`, 'success');
+      if (res.palaceId) router.push(`/workbench/palace/${res.palaceId}`);
+      return;
+    }
+    if (target === 'story') {
+      const res = await store.process(item.id, 'story');
+      notify(`已生成费曼故事草稿：${res.title}`, 'success');
+      if (res.storyId) router.push(`/workbench/story/${res.storyId}`);
+      return;
+    }
     const res = await store.process(item.id, target);
     if (target === 'cornell' && res.noteId) {
       notify(`已沉淀为康奈尔笔记：${res.title}`, 'success');
@@ -202,7 +303,40 @@ async function doProcess(item: InboxItem, target: ProcessTarget) {
     notify(getApiError(e, '沉淀失败，请重试'), 'error');
   } finally {
     busyId.value = null;
+    pickedPalaceId.value = null;
+    pickedLociId.value = null;
   }
+}
+
+/** 打开记忆宫殿选择器：拉取宫殿列表（含位点） */
+async function openPalacePicker(item: InboxItem) {
+  openMenuId.value = item.id;
+  palacePickerId.value = item.id;
+  pickedPalaceId.value = null;
+  pickedLociId.value = null;
+  if (palaces.value.length || palaceLoading.value) return;
+  palaceLoading.value = true;
+  try {
+    palaces.value = await apiGet<PalaceVO[]>('/workbench/palaces');
+  } catch {
+    palaces.value = [];
+  } finally {
+    palaceLoading.value = false;
+  }
+}
+
+function pickPalace(id: number) {
+  pickedPalaceId.value = id;
+  pickedLociId.value = null;
+}
+
+/** 从宫殿选择器确认沉淀（按钮在模板里复用 doProcess(target='palace')） */
+async function confirmPalace(item: InboxItem) {
+  if (!pickedPalaceId.value) {
+    notify('请先选择一个记忆宫殿', 'error');
+    return;
+  }
+  await doProcess(item, 'palace');
 }
 
 async function doArchive(item: InboxItem) {
@@ -443,6 +577,114 @@ async function doDelete(item: InboxItem) {
   font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
   line-height: 1.4;
+}
+
+/* ===== 记忆宫殿选择器 ===== */
+.il-palace {
+  width: 264px;
+}
+.il-palace-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 8px;
+  font-size: var(--kb-fs-body-sm);
+  font-weight: 600;
+  color: var(--kb-foreground);
+  border-bottom: 1px solid var(--kb-border);
+}
+.il-palace-back {
+  border: none;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+}
+.il-palace-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px;
+  font-size: var(--kb-fs-body-sm);
+  color: var(--kb-muted-foreground);
+}
+.il-palace-empty {
+  margin: 0;
+  padding: 12px 10px;
+  font-size: var(--kb-fs-xs);
+  color: var(--kb-muted-foreground);
+  line-height: 1.5;
+}
+.il-palace-loci {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--kb-border);
+}
+.il-palace-sub {
+  font-size: var(--kb-fs-xs);
+  color: var(--kb-muted-foreground);
+  padding: 4px 8px;
+}
+.il-loci-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  margin-top: 3px;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-card);
+  color: var(--kb-foreground);
+  font-family: inherit;
+  font-size: var(--kb-fs-body-sm);
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.il-loci-item:hover {
+  border-color: color-mix(in srgb, var(--kb-primary) 45%, var(--kb-border));
+}
+.il-loci-item.is-active {
+  background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
+  border-color: var(--kb-primary);
+  color: var(--kb-primary);
+  font-weight: 600;
+}
+.il-loci-new {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  margin-top: 3px;
+  border: 1px dashed var(--kb-border);
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  font-family: inherit;
+  font-size: var(--kb-fs-body-sm);
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.il-loci-new:hover {
+  color: var(--kb-primary);
+  border-color: var(--kb-primary);
+}
+.il-palace-go {
+  width: 100%;
+  margin-top: 10px;
+  justify-content: center;
+}
+.qc-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--kb-muted-foreground) 40%, transparent);
+  border-top-color: var(--kb-primary);
+  border-radius: 50%;
+  animation: qc-rotate 0.7s linear infinite;
+}
+@keyframes qc-rotate {
+  to { transform: rotate(360deg); }
 }
 
 /* ===== 列表进出场：沉淀/归档/删除时卡片平滑滑出 ===== */

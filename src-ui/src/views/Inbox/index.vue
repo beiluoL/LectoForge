@@ -55,6 +55,13 @@
       <QuickCapture @created="onCreated" />
     </section>
 
+    <!-- 收件箱积压视图提示条：来自首页「今日聚焦」跳转，按创建时间升序排最旧的 -->
+    <p v-if="overdueView" class="ib-overdue-note">
+      <Icon name="clock" :size="14" />
+      收件箱积压视图：按创建时间升序，最久未整理的排在最前。
+      <button class="ib-overdue-clear" type="button" @click="exitOverdueView">返回最新优先</button>
+    </p>
+
     <!-- ============ 待处理清单 ============ -->
     <section>
       <div class="ib-list-head">
@@ -89,6 +96,7 @@
  * 旧路径已在 router 里配了 redirect，历史链接不会 404。
  */
 import { computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import QuickCapture from './components/QuickCapture.vue';
@@ -100,8 +108,13 @@ const themeColor = '#3B6FE0';
 
 const store = useInboxStore();
 const { items, loading, error } = storeToRefs(store);
+const route = useRoute();
+const router = useRouter();
 
 const total = computed(() => items.value.length);
+
+/** 是否处于「收件箱积压」视图（来自首页今日聚焦的跳转），按创建时间升序、最旧排最前 */
+const overdueView = computed(() => route.query.overdue === '1');
 
 const loopSteps = [
   { key: 'input', num: '01', name: '输入', path: '/inbox' },
@@ -111,12 +124,20 @@ const loopSteps = [
 ];
 
 function reload() {
-  store.loadInbox();
+  store.loadInbox(overdueView.value ? 'asc' : undefined);
 }
 
 /** 新建成功后无需重拉：store 已把新条目 unshift 进列表 */
 function onCreated() {
   /* no-op：保留钩子，便于后续接埋点 */
+}
+
+/** 退出积压视图：去掉 ?overdue=1，回到默认「最新优先」 */
+function exitOverdueView() {
+  if (!overdueView.value) return;
+  const q = { ...route.query };
+  delete q.overdue;
+  router.replace({ query: q });
 }
 
 onMounted(reload);
@@ -203,5 +224,30 @@ onMounted(reload);
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* 收件箱积压视图提示条（暖橙警示色，呼应首页「待整理」卡片） */
+.ib-overdue-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--kb-radius-sm);
+  background: rgba(224, 122, 0, 0.1);
+  border: 1px solid rgba(224, 122, 0, 0.35);
+  color: var(--kb-foreground);
+  font-size: var(--kb-fs-body-sm);
+}
+.ib-overdue-clear {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--kb-primary);
+  font-family: inherit;
+  font-size: var(--kb-fs-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
 }
 </style>

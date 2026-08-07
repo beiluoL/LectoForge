@@ -77,6 +77,23 @@
           <Icon name="arrow-right" :size="16" class="wb-focus-arrow" />
         </button>
       </div>
+
+      <!-- 收件箱归零提醒：积压超 3 天（72h）的灵感，督促闭环 -->
+      <button
+        v-if="overdueCount > 0"
+        class="wb-overdue-banner"
+        @click="router.push('/inbox?overdue=1')"
+      >
+        <Icon name="triangle-alert" :size="18" />
+        <span class="wb-overdue-text">
+          有 <strong>{{ overdueCount }}</strong> 条灵感待整理，已积压超过 3 天
+        </span>
+        <span class="wb-overdue-cta">立即清理 <Icon name="arrow-right" :size="14" /></span>
+      </button>
+      <div v-else class="wb-overdue-done">
+        <Icon name="check-circle-2" :size="16" />
+        <span>收集箱已清零，闭环保持中 —— 继续保持「先积累，再沉淀」的节奏</span>
+      </div>
     </section>
 
     <!-- ============ 四模块闭环 ============ -->
@@ -236,6 +253,9 @@ const focusItems = computed(() => {
     { key: 'story', label: '故事草稿', value: d.storyDrafts, icon: 'wand-2', color: '#10B981', path: '/workbench/story', urgent: false },
   ]
 })
+
+/** 收件箱归零提醒：积压超过 72 小时的灵感条数（D 功能） */
+const overdueCount = computed(() => dashboard.value?.inboxOverdueCount ?? 0)
 
 const stats = computed(() => {
   const o = overview.value
@@ -552,6 +572,56 @@ onMounted(async () => {
 .wb-focus-card:hover .wb-focus-arrow {
   opacity: 1;
   transform: translateX(2px);
+}
+
+/* ============ 收件箱归零提醒（积压超 72h）============ */
+.wb-overdue-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, #F59E0B 45%, transparent);
+  border-radius: var(--kb-radius-md);
+  background: color-mix(in srgb, #F59E0B 10%, var(--kb-card));
+  color: color-mix(in srgb, #F59E0B 75%, var(--kb-foreground));
+  font-family: inherit;
+  font-size: var(--kb-fs-body-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.16s ease;
+}
+.wb-overdue-banner:hover {
+  border-color: #F59E0B;
+  background: color-mix(in srgb, #F59E0B 16%, var(--kb-card));
+}
+.wb-overdue-banner strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+.wb-overdue-text {
+  flex: 1;
+  min-width: 0;
+}
+.wb-overdue-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wb-overdue-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: var(--kb-radius-md);
+  background: color-mix(in srgb, #10B981 9%, var(--kb-card));
+  border: 1px solid color-mix(in srgb, #10B981 30%, transparent);
+  color: color-mix(in srgb, #10B981 70%, var(--kb-foreground));
+  font-size: var(--kb-fs-body-sm);
 }
 
 /* ============ 四模块闭环 ============ */
