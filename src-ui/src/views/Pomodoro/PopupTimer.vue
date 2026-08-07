@@ -1,161 +1,190 @@
 <!--
-  菜单栏番茄钟弹窗（pomodoro_popup 窗口，360×440 无边框透明）
-  仿 macOS 下拉菜单形态：顶部小三角指向菜单栏图标 → 红色倒计时 banner → 三 Tab
-  （时长/设置/声音）→ 底部固定菜单（给我们好评/关于/退出）。
+  菜单栏番茄钟弹窗（pomodoro_popup 窗口，320×400 无边框透明，macOS 毛玻璃）
+  仿 macOS 控制中心（Control Center）：悬浮玻璃面板 + 纵向 4 组独立卡片。
 
   所有计时逻辑都在 pomodoroStore（应用级单例，跨窗口常驻）；本组件只是它的「遥控器」。
   窗口被隐藏（window.hide）时 WebView 的 JS 仍在跑，计时照常后台运行、状态栏标题照常更新。
 
   交互：
-  - 红色 banner：点击切换开始/暂停
-  - Tab：切换 时长 / 设置 / 声音 面板
-  - 时长：4 个数字调节器（▲▼ 步进），改完空闲态立即重置倒计时、运行中保持当前这一段
-  - 设置：自动开始下一段 / 阶段切换提示音 / 阶段切换通知 三个开关
-  - 声音：发条声 / 叮 / 滴答声 三选一胶囊开关
-  - 底部：给我们好评（开外链）/ 关于（开主窗跳关于页）/ 退出
-  - 点击弹窗外部：Rust 侧 WindowEvent::Focused(false) 同步立即 hide()
+  - 卡片 1：阶段 + 大号倒计时 + 渐变 SVG 进度环（环中央显示阶段图标）
+  - 卡片 2：开始 / 暂停 / 重置 / 跳过当前阶段（四列无缝按钮）
+  - 卡片 3：当前循环进度（第 X 组 / 共 Y 组）+ 下一阶段预览
+  - 卡片 4：白噪音控制条（图标一键播放/静音 · 下拉选音源 · 音量滑块）
+  - 点击弹窗外部：Rust 侧 WindowEvent::Focused(false) 延迟 200ms 同步隐藏
 -->
 <template>
-  <div class="pomo-menu">
-    <div class="pomo-card">
-      <!-- 顶部小三角：CSS 伪元素指向菜单栏图标，模拟原生下拉菜单的「连接线」 -->
-      <div class="pomo-arrow" />
+  <div class="pomo-host">
+    <!-- 玻璃面板外层：极致毛玻璃 + 圆角 + 阴影 + 细边框 -->
+    <div
+      class="pomo-glass flex h-full w-full flex-col gap-4 rounded-2xl border border-white/20 bg-white/85 p-4 shadow-2xl backdrop-blur-2xl dark:border-black/20 dark:bg-black/85"
+    >
+      <!-- ============ 卡片 1：核心状态 + 计时大圆环 ============ -->
+      <div class="flex items-center gap-3">
+        <div class="flex min-w-0 flex-1 flex-col">
+          <span class="truncate text-xs font-medium text-gray-500 dark:text-gray-400">
+            {{ phaseEmoji }} {{ phaseLabel }}
+          </span>
+          <span
+            class="tabular-nums text-[40px] font-bold leading-none tracking-tight text-gray-900 dark:text-white"
+          >
+            {{ timeText }}
+          </span>
+          <span class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+            {{ statusText }}
+          </span>
+        </div>
 
-      <!-- 红色 Banner：倒计时 + 阶段状态 + 点击切换 -->
-      <button class="pomo-banner" @click="onToggleTimer">
-        <span class="pomo-banner-time">{{ timeText }}</span>
-        <span class="pomo-banner-status">{{ statusHint }}</span>
-      </button>
+        <!-- 渐变 SVG 进度环 -->
+        <div class="relative h-[88px] w-[88px] shrink-0">
+          <svg viewBox="0 0 100 100" class="h-full w-full -rotate-90">
+            <defs>
+              <linearGradient :id="RING_ID" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" :stop-color="ringFrom" />
+                <stop offset="100%" :stop-color="ringTo" />
+              </linearGradient>
+            </defs>
+            <circle
+              cx="50"
+              cy="50"
+              :r="RING_R"
+              fill="none"
+              stroke="rgba(120,120,120,0.18)"
+              :stroke-width="RING_STROKE"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              :r="RING_R"
+              fill="none"
+              :stroke="`url(#${RING_ID})`"
+              :stroke-width="RING_STROKE"
+              stroke-linecap="round"
+              :stroke-dasharray="ringCircumference"
+              :stroke-dashoffset="ringDashoffset"
+              style="transition: stroke-dashoffset 0.3s linear"
+            />
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <component :is="phaseIcon" class="h-7 w-7" :style="{ color: ringTo }" />
+          </div>
+        </div>
+      </div>
 
-      <!-- Tab 切换 -->
-      <div class="pomo-tabs" role="tablist">
+      <!-- ============ 卡片 2：核心动作栏（四列无缝按钮） ============ -->
+      <div class="grid grid-cols-4 gap-1 rounded-xl bg-gray-100/50 p-1 dark:bg-gray-800/50">
         <button
-          v-for="t in tabs"
-          :key="t.key"
-          class="pomo-tab"
-          :class="{ active: activeTab === t.key }"
-          role="tab"
-          :aria-selected="activeTab === t.key"
-          @click="activeTab = t.key"
+          class="pomo-act"
+          :disabled="isRunning"
+          title="开始"
+          @click="store.startTimer()"
         >
-          {{ t.label }}
+          <Play class="h-5 w-5" />
+          <span>开始</span>
+        </button>
+        <button
+          class="pomo-act"
+          :disabled="!isRunning"
+          title="暂停"
+          @click="store.pauseTimer()"
+        >
+          <Pause class="h-5 w-5" />
+          <span>暂停</span>
+        </button>
+        <button class="pomo-act" title="重置" @click="store.resetTimer()">
+          <RotateCcw class="h-5 w-5" />
+          <span>重置</span>
+        </button>
+        <button class="pomo-act" title="跳过当前阶段" @click="store.skipPhase()">
+          <SkipForward class="h-5 w-5" />
+          <span>跳过</span>
         </button>
       </div>
 
-      <!-- Tab 内容区 -->
-      <div class="pomo-pane">
-        <!-- 时长 Tab：4 个数字调节器 -->
-        <div v-show="activeTab === 'duration'" class="pomo-fields">
-          <div v-for="f in durationFields" :key="f.key" class="pomo-field">
-            <span class="pomo-field-label">{{ f.label }}</span>
-            <div class="pomo-spinner">
-              <button
-                class="pomo-spin"
-                :disabled="!canEditSettings"
-                aria-label="减小"
-                @click="bump(f.key, -f.step)"
-              >−</button>
-              <span class="pomo-val">
-                <span class="pomo-val-num">{{ f.value }}</span>
-                <span v-if="f.unit" class="pomo-val-unit">{{ f.unit }}</span>
-              </span>
-              <button
-                class="pomo-spin"
-                :disabled="!canEditSettings"
-                aria-label="增大"
-                @click="bump(f.key, +f.step)"
-              >+</button>
-            </div>
-          </div>
-          <p v-if="!canEditSettings" class="pomo-hint">
-            计时进行中，时长设置已锁定（避免打断当前这一段）
-          </p>
+      <!-- ============ 卡片 3：当前阶段统计（独立分组卡片） ============ -->
+      <div
+        class="flex items-center justify-between rounded-xl bg-gray-100/60 px-3 py-2.5 dark:bg-gray-800/60"
+      >
+        <div class="flex flex-col">
+          <span class="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            当前循环
+          </span>
+          <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            第 {{ currentCycle }} / {{ settings.cyclesPerSet }} 组
+          </span>
         </div>
-
-        <!-- 设置 Tab：3 个开关 -->
-        <div v-show="activeTab === 'settings'" class="pomo-fields">
-          <label class="pomo-toggle-row">
-            <span class="pomo-toggle-label">自动开始下一段</span>
-            <button
-              class="pomo-switch"
-              :class="{ on: autoStartNext }"
-              role="switch"
-              :aria-checked="autoStartNext"
-              @click="setAutoStartNext(!autoStartNext)"
-            ><span class="pomo-switch-knob" /></button>
-          </label>
-          <label class="pomo-toggle-row">
-            <span class="pomo-toggle-label">阶段切换提示音</span>
-            <button
-              class="pomo-switch"
-              :class="{ on: soundSettings.enabled }"
-              role="switch"
-              :aria-checked="soundSettings.enabled"
-              @click="setSoundEnabled(!soundSettings.enabled)"
-            ><span class="pomo-switch-knob" /></button>
-          </label>
-          <label class="pomo-toggle-row">
-            <span class="pomo-toggle-label">阶段切换通知</span>
-            <button
-              class="pomo-switch"
-              :class="{ on: notifEnabled }"
-              role="switch"
-              :aria-checked="notifEnabled"
-              @click="setNotifEnabled(!notifEnabled)"
-            ><span class="pomo-switch-knob" /></button>
-          </label>
-          <button class="pomo-link-row" @click="showMain">
-            <span>打开主窗口</span>
-            <span class="pomo-shortcut">↗</span>
-          </button>
-        </div>
-
-        <!-- 声音 Tab：3 个胶囊开关（互斥单选） -->
-        <div v-show="activeTab === 'sound'" class="pomo-fields">
-          <div v-for="s in soundOptions" :key="s.key" class="pomo-toggle-row">
-            <span class="pomo-toggle-label">{{ s.label }}</span>
-            <button
-              class="pomo-switch"
-              :class="{ on: soundSettings.soundType === s.key }"
-              role="switch"
-              :aria-checked="soundSettings.soundType === s.key"
-              :aria-label="`切换提示音为 ${s.label}`"
-              @click="pickSound(s.key)"
-            ><span class="pomo-switch-knob" /></button>
-          </div>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            下一阶段
+          </span>
+          <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            {{ nextPhase.name }} {{ nextPhase.time }}
+          </span>
         </div>
       </div>
 
-      <!-- 底部固定菜单：与我们主应用内下拉菜单风格保持一致（标签 + 右侧 ⌘ 快捷键占位） -->
-      <div class="pomo-bottom">
-        <button class="pomo-menu-item" @click="rateUs">
-          <span>给我们好评</span>
+      <!-- ============ 卡片 4：专注与白噪音设置（底部折叠分组卡片） ============ -->
+      <div
+        class="flex items-center gap-3 rounded-xl bg-gray-100/50 p-3 dark:bg-gray-800/50"
+      >
+        <!-- 左：白噪音图标（点击一键播放/静音） -->
+        <button
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/80 transition hover:bg-white dark:bg-white/10 dark:hover:bg-white/20"
+          :title="whiteNoise.enabled ? '点击静音' : '点击播放'"
+          @click="store.toggleWhiteNoise()"
+        >
+          <component
+            :is="whiteNoise.enabled ? Volume2 : VolumeX"
+            class="h-4 w-4"
+            :class="whiteNoise.enabled ? 'text-[#FF6B35]' : 'text-gray-400'"
+          />
         </button>
-        <button class="pomo-menu-item" @click="showAbout">
-          <span>关于</span>
-          <span class="pomo-shortcut">⌘ A</span>
-        </button>
-        <button class="pomo-menu-item pomo-menu-item--danger" @click="quitApp">
-          <span>退出</span>
-          <span class="pomo-shortcut">⌘ Q</span>
-        </button>
+
+        <!-- 中：音源下拉选择 -->
+        <select
+          :value="whiteNoise.track"
+          class="min-w-0 flex-1 cursor-pointer rounded-lg bg-transparent px-2 py-1.5 text-sm font-medium text-gray-700 outline-none hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/10"
+          @change="onTrackChange"
+        >
+          <option v-for="o in trackOptions" :key="o.value" :value="o.value" class="text-black">
+            {{ o.label }}
+          </option>
+        </select>
+
+        <!-- 右：音量滑块 -->
+        <input
+          type="range"
+          min="0"
+          max="100"
+          :value="whiteNoise.volume"
+          class="w-16 cursor-pointer accent-[#FF6B35]"
+          @input="onVolume"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { usePomodoroStore } from '@/store/pomodoroStore';
-import type { SoundType } from '@/api/pomodoro';
-
-// 「给我们好评」打开的链接。后续可换成 App Store / 反馈表单 / 官网。
-// 用 GitHub 仓库地址兜底，避免占位空字符串被 `open` 当成本地路径打开失败。
-const RATE_URL = 'https://github.com/beiluoL/LectoForge';
+import type { Component } from 'vue';
+import {
+  Timer,
+  Coffee,
+  Sun,
+  Play,
+  Pause,
+  RotateCcw,
+  SkipForward,
+  Volume2,
+  VolumeX,
+} from 'lucide-vue-next';
+import { usePomodoroStore, PHASE_LABEL, type PomodoroPhase } from '@/store/pomodoroStore';
+import type { NoiseTrack } from '@/api/pomodoro';
 
 const store = usePomodoroStore();
 const {
+  phase,
   phaseLabel,
   phaseEmoji,
   status,
@@ -163,528 +192,127 @@ const {
   settings,
   timeText,
   isRunning,
-  soundSettings,
-  autoStartNext,
+  progress,
+  whiteNoise,
 } = storeToRefs(store);
-// actions 不能走 storeToRefs（它只解构 state/getter）；直接 destructure 让模板可见
-const { setAutoStartNext, setSoundEnabled, updateSettings, setSoundType, init } = store;
 
-/* ==================== Tab 状态 ==================== */
+/* ============ 进度环几何 ============ */
+const RING_ID = 'pomo-ring-grad';
+const RING_R = 42;
+const RING_STROKE = 8;
+const ringCircumference = 2 * Math.PI * RING_R;
+// 剩余比例 = 1 - 已用比例；dashoffset 越大可见弧越短（环随倒计时收缩）
+const ringDashoffset = computed(() => ringCircumference * (progress.value / 100));
 
-type TabKey = 'duration' | 'settings' | 'sound';
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'duration', label: '时长' },
-  { key: 'settings', label: '设置' },
-  { key: 'sound', label: '声音' },
-];
-const activeTab = ref<TabKey>('duration');
+/* ============ 阶段配色（渐变两端）+ 阶段图标 ============ */
+const RING_COLORS: Record<PomodoroPhase, { from: string; to: string }> = {
+  work: { from: '#FFB380', to: '#FF6B35' }, // 番茄红
+  short_break: { from: '#6EE7B7', to: '#10B981' }, // 休息绿
+  long_break: { from: '#93B3F5', to: '#3B6FE0' }, // 长休蓝
+};
+const PHASE_ICON: Record<PomodoroPhase, Component> = {
+  work: Timer,
+  short_break: Coffee,
+  long_break: Sun,
+};
+const ringFrom = computed(() => RING_COLORS[phase.value].from);
+const ringTo = computed(() => RING_COLORS[phase.value].to);
+const phaseIcon = computed(() => PHASE_ICON[phase.value]);
 
-/* ==================== 派生 ==================== */
-
-const statusHint = computed(() => {
-  // banner 副标题：阶段 emoji + 阶段名 + 第 N 组；运行中额外标「进行中」
-  const cycle = `第 ${currentCycle.value} / ${settings.value.cyclesPerSet} 组`;
-  if (status.value === 'running') return `${phaseEmoji.value} ${phaseLabel.value} · ${cycle}`;
-  if (status.value === 'paused') return `已暂停 · ${cycle}`;
+/* ============ 状态副标题 ============ */
+const statusText = computed(() => {
+  if (status.value === 'running') return '进行中…';
+  if (status.value === 'paused') return '已暂停';
   if (status.value === 'completed') return '本轮结束';
-  return `${phaseEmoji.value} ${phaseLabel.value} · ${cycle}`;
+  return '待开始';
 });
 
-/** 空闲态才允许改时长；运行/暂停中改会掐断当前这一段（与主页面行为一致） */
-const canEditSettings = computed(() => status.value === 'idle');
+/* ============ 下一阶段预览 ============ */
+const nextPhase = computed(() => {
+  let next: PomodoroPhase;
+  if (phase.value === 'work') {
+    next = currentCycle.value >= Math.max(1, settings.value.cyclesPerSet) ? 'long_break' : 'short_break';
+  } else {
+    next = 'work';
+  }
+  const mins =
+    next === 'work'
+      ? settings.value.workMinutes
+      : next === 'short_break'
+        ? settings.value.shortBreakMinutes
+        : settings.value.longBreakMinutes;
+  const s = Math.max(0, Math.floor(mins * 60));
+  const mm = String(Math.floor(s / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return { name: PHASE_LABEL[next], time: `${mm}:${ss}` };
+});
 
-/* ==================== 时长字段（动态拼装，给模板 for 循环用） ==================== */
-
-type DurationField = {
-  key: keyof typeof settings.value;
-  label: string;
-  value: number;
-  unit: string;
-  step: number;
-};
-const durationFields = computed<DurationField[]>(() => [
-  { key: 'workMinutes', label: '工作时间', value: settings.value.workMinutes, unit: '分', step: 1 },
-  { key: 'shortBreakMinutes', label: '小憩时间', value: settings.value.shortBreakMinutes, unit: '分', step: 1 },
-  { key: 'longBreakMinutes', label: '长休息时间', value: settings.value.longBreakMinutes, unit: '分', step: 1 },
-  { key: 'cyclesPerSet', label: '一组中工作的次数', value: settings.value.cyclesPerSet, unit: '', step: 1 },
-]);
-
-/* ==================== 声音选项 ==================== */
-
-const soundOptions: { key: SoundType; label: string }[] = [
-  { key: 'tick', label: '发条声' },
-  { key: 'ding', label: '叮' },
-  { key: 'alarm', label: '滴答声' },
+/* ============ 白噪音音源选项 ============ */
+const trackOptions: { value: NoiseTrack; label: string }[] = [
+  { value: 'rain', label: '雨声 🌧️' },
+  { value: 'stream', label: '溪流 🌊' },
+  { value: 'coffee', label: '咖啡馆 ☕' },
 ];
-
-/* ==================== 通知开关（前端常驻，暂不持久化） ==================== */
-
-/**
- * 通知开关独立于提示音。store 里目前没有对应字段（后端 config schema 也未单独保留），
- * 这里用 localStorage 兜底持久化；非 Tauri 宿主下 localStorage 始终可用，try/catch 兜异常。
- */
-const NOTIF_KEY = 'kf_pomodoro_notif_enabled';
-const notifEnabled = ref<boolean>(true);
-function loadNotifEnabled(): void {
-  try {
-    const v = localStorage.getItem(NOTIF_KEY);
-    notifEnabled.value = v === null ? true : v === '1';
-  } catch {
-    notifEnabled.value = true;
-  }
+function onTrackChange(e: Event): void {
+  store.setWhiteNoiseTrack((e.target as HTMLSelectElement).value as NoiseTrack);
 }
-function setNotifEnabled(v: boolean): void {
-  notifEnabled.value = v;
-  try { localStorage.setItem(NOTIF_KEY, v ? '1' : '0'); } catch { /* 隐私模式可能抛 */ }
+function onVolume(e: Event): void {
+  store.setWhiteNoiseVolume(Number((e.target as HTMLInputElement).value));
 }
-
-/* ==================== 操作 ==================== */
-
-function onToggleTimer(): void {
-  if (isRunning.value) store.pauseTimer();
-  else store.startTimer();
-}
-
-function bump(key: keyof typeof settings.value, delta: number): void {
-  if (!canEditSettings.value) return;
-  // 单独走 store.updateSettings 而不是 Object.assign + saveSettings：前者会处理「空闲态同步倒计时」
-  const current = settings.value[key] as number;
-  const next = Math.max(1, current + delta);
-  void updateSettings({ [key]: next } as Partial<typeof settings.value>);
-}
-
-function pickSound(t: SoundType): void {
-  // store.setSoundType 内部会播一次试听，所以即使开关在关也无所谓——试听是显式行为
-  void setSoundType(t);
-}
-
-function showMain(): void {
-  void (async () => {
-    try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      await getCurrentWindow().hide();
-      // @tauri-apps/api 2.x：getByLabel 是 async
-      const main = await WebviewWindow.getByLabel('main');
-      if (main) {
-        await main.show();
-        await main.setFocus();
-      }
-    } catch {
-      /* 浏览器预览态 */
-    }
-  })();
-}
-
-async function rateUs(): Promise<void> {
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('open_external_url', { url: RATE_URL });
-  } catch {
-    /* 浏览器态：直接在新标签打开 */
-    try { window.open(RATE_URL, '_blank', 'noopener,noreferrer'); } catch { /* 忽略 */ }
-  }
-  await hideSelf();
-}
-
-async function showAbout(): Promise<void> {
-  // 跳转到主窗口的「关于」页（如果有）；先收起弹窗再显示主窗口
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    const { emit } = await import('@tauri-apps/api/event');
-    await getCurrentWindow().hide();
-    // @tauri-apps/api 2.x：getByLabel 是 async
-    const main = await WebviewWindow.getByLabel('main');
-    if (main) {
-      await main.show();
-      await main.setFocus();
-      // 主窗口的 App.vue 已 listen('navigate')，发个路径就跳
-      await emit('navigate', '/settings/about');
-    }
-  } catch {
-    /* 浏览器态：仅本地路由跳转（不影响主流程） */
-  }
-}
-
-async function quitApp(): Promise<void> {
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('quit_app');
-  } catch {
-    /* 浏览器态：忽略 */
-  }
-}
-
-async function hideSelf(): Promise<void> {
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    await getCurrentWindow().hide();
-  } catch {
-    /* 浏览器态：忽略 */
-  }
-}
-
-/* ==================== 初始化 ==================== */
 
 onMounted(() => {
   // 弹窗自身的 store 初始化（幂等）；主窗口已 init 过的情况下 inited=true 立即返回
-  void init();
-  loadNotifEnabled();
+  void store.init();
 });
 </script>
 
 <style scoped>
-/* 根容器：100% 占满 360×440 透明窗口，铺底对齐让 .pomo-card 居中且能容纳小三角 */
-.pomo-menu {
+/* 宿主：100% 占满 320×400 透明窗口，留 8px 内边距让玻璃面板阴影透气 */
+.pomo-host {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  padding: 6px 0 0; /* 顶部留 6px 让 .pomo-arrow 的小三角嵌进去 */
+  padding: 8px;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     sans-serif;
 }
-.pomo-card {
-  position: relative;
-  width: 100%;
-  max-width: 360px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-sizing: border-box;
-  overflow: hidden;
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-card {
-    background: #1f2127;
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
-  }
-}
 
-/* 小三角：定位在卡片顶部中央偏上，指向菜单栏图标。纯 CSS 三角形。 */
-.pomo-arrow {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 12px;
-  height: 6px;
-  pointer-events: none;
-  z-index: 1;
-}
-.pomo-arrow::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: #ffffff;
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  border-left: 1px solid rgba(0, 0, 0, 0.08);
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-arrow::before {
-    background: #1f2127;
-    border-top-color: rgba(255, 255, 255, 0.08);
-    border-left-color: rgba(255, 255, 255, 0.08);
-    border-right-color: rgba(255, 255, 255, 0.08);
-  }
-}
-
-/* 红色 Banner：占据视觉焦点，整块可点 */
-.pomo-banner {
+/* 四列动作按钮：无边框、极简，仅 hover/active 出现浅灰底 */
+.pomo-act {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  height: 64px;
-  margin: 8px 8px 6px;
-  border-radius: 10px;
-  background: #e5484d;
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.05s ease;
-}
-.pomo-banner:hover {
-  background: #d83d42;
-}
-.pomo-banner:active {
-  transform: scale(0.99);
-}
-.pomo-banner-time {
-  font-size: 26px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
-  line-height: 1.1;
-}
-.pomo-banner-status {
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0.92;
-  letter-spacing: 0.2px;
-}
-
-/* Tab 条：等分三段，active 有灰底胶囊 */
-.pomo-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 4px 8px 0;
-  padding: 3px;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 9px;
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-tabs {
-    background: rgba(255, 255, 255, 0.06);
-  }
-}
-.pomo-tab {
-  flex: 1;
-  height: 28px;
+  gap: 3px;
+  padding: 8px 0;
   border: none;
   background: transparent;
-  font-size: 13px;
+  border-radius: 10px;
+  color: var(--kb-foreground, #1a1d23);
+  font-size: 10px;
   font-weight: 500;
-  color: var(--kb-muted-foreground, #6b7280);
-  border-radius: 7px;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.pomo-tab:hover:not(.active) {
-  color: var(--kb-foreground, #1a1d23);
-}
-.pomo-tab.active {
-  background: #ffffff;
-  color: #1a1d23;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-tab.active {
-    background: #2a2c34;
-    color: #f0f0f2;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
-}
-
-/* 内容区 */
-.pomo-pane {
-  flex: 1;
-  min-height: 0;
-  padding: 8px 8px 4px;
-  overflow-y: auto;
-}
-.pomo-fields {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 时长字段行 */
-.pomo-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 36px;
-  padding: 0 4px;
-  border-radius: 6px;
-}
-.pomo-field + .pomo-field {
-  margin-top: 2px;
-}
-.pomo-field-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--kb-foreground, #1a1d23);
-}
-.pomo-spinner {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.pomo-spin {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--kb-muted-foreground, #6b7280);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-}
-.pomo-spin:hover:not(:disabled) {
+.pomo-act:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.06);
-  color: var(--kb-foreground, #1a1d23);
-  border-color: rgba(0, 0, 0, 0.06);
 }
-.pomo-spin:disabled {
-  opacity: 0.35;
+.pomo-act:active:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+}
+.pomo-act:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 @media (prefers-color-scheme: dark) {
-  .pomo-spin:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.08);
+  .pomo-act {
+    color: #f0f0f2;
   }
-}
-.pomo-val {
-  min-width: 56px;
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.pomo-val-num {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--kb-foreground, #1a1d23);
-}
-.pomo-val-unit {
-  font-size: 11px;
-  color: var(--kb-muted-foreground, #6b7280);
-  margin-left: 1px;
-}
-.pomo-hint {
-  margin: 6px 4px 0;
-  font-size: 11px;
-  color: var(--kb-muted-foreground, #6b7280);
-  line-height: 1.5;
-}
-
-/* 通用行：标签左、开关/链接右；用于 设置 / 声音 两个 Tab */
-.pomo-toggle-row,
-.pomo-link-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 34px;
-  padding: 0 4px;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  font-size: 13px;
-  color: var(--kb-foreground, #1a1d23);
-}
-.pomo-toggle-row + .pomo-toggle-row,
-.pomo-link-row {
-  margin-top: 2px;
-}
-.pomo-toggle-label {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-/* 胶囊开关：参考 macOS 风格，on=红/灰、off=浅灰 */
-.pomo-switch {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  transition: background 0.18s ease;
-}
-.pomo-switch.on {
-  background: #e5484d;
-}
-.pomo-switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.18s ease;
-}
-.pomo-switch.on .pomo-switch-knob {
-  transform: translateX(16px);
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-switch {
-    background: rgba(255, 255, 255, 0.18);
+  .pomo-act:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
   }
-}
-
-/* 「打开主窗口」链接行：底色微亮，区别于开关行 */
-.pomo-link-row {
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-.pomo-link-row:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-link-row:hover {
-    background: rgba(255, 255, 255, 0.05);
+  .pomo-act:active:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
   }
-}
-
-/* 底部固定菜单：标签 + 右侧快捷键；与原生 NSMenu 项高度一致 */
-.pomo-bottom {
-  margin-top: auto;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 4px 6px 6px;
-  display: flex;
-  flex-direction: column;
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-bottom {
-    border-top-color: rgba(255, 255, 255, 0.08);
-  }
-}
-.pomo-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 28px;
-  padding: 0 8px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--kb-foreground, #1a1d23);
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-.pomo-menu-item:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-.pomo-menu-item--danger:hover {
-  color: #e5484d;
-}
-@media (prefers-color-scheme: dark) {
-  .pomo-menu-item:hover {
-    background: rgba(255, 255, 255, 0.07);
-  }
-  .pomo-menu-item--danger:hover {
-    color: #ff5e62;
-  }
-}
-.pomo-shortcut {
-  font-size: 12px;
-  color: var(--kb-muted-foreground, #6b7280);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.5px;
 }
 </style>

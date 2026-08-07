@@ -319,6 +319,32 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
   }
 
   /**
+   * 跳过当前阶段（用户主动点「跳过」）：不记数据、不弹通知，仅按阶段机推进到下一阶段。
+   * 与 finishPhase 的区别在于跳过不视为「完成」，不 +1 completedToday、不上报后端。
+   */
+  function skipPhase(): void {
+    const finished = phase.value;
+    clearTimer();
+    accumulatedMs = 0;
+    runStartedAt = 0;
+    let next: PomodoroPhase;
+    if (finished === 'work') {
+      next =
+        currentCycle.value >= Math.max(1, settings.cyclesPerSet) ? 'long_break' : 'short_break';
+    } else {
+      next = 'work';
+      // 小憩结束 → 进入下一个番茄；长休息结束 → 新的一组从 1 开始
+      currentCycle.value =
+        finished === 'long_break' ? 1 : Math.min(settings.cyclesPerSet, currentCycle.value + 1);
+    }
+    phase.value = next;
+    status.value = 'idle';
+    timeLeft.value = phaseTotalSec.value;
+    whiteNoise.stop();
+    void emitToNative(true);
+  }
+
+  /**
    * 本段自然结束：上报后端 → 提示音 → 推进阶段机。
    * 上报时长用 phaseTotalSec（本段设定时长）而非墙上时间——
    * 暂停期间不该算进专注时长，而 accumulatedMs 恰好已排除暂停区间，二者在自然结束时等价。
@@ -461,6 +487,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     resetTimer,
     stopSession,
     switchPhase,
+    skipPhase,
     playSound,
     setSoundEnabled,
     setSoundType,

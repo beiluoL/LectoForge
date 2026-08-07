@@ -1,7 +1,7 @@
 <template>
   <!-- 与 Web 端 CLayout（route.meta.layout === 'c'）结构一致：
        顶部 56px 固定导航 + pt-14 内容区；工作台页为 fullscreen，取消 max-w-7xl 居中限制。
-       pomodoro_popup 窗口（菜单栏弹窗）：不渲染顶栏、去掉居中约束、背景透明，铺满 360×480。 -->
+       pomodoro_popup 窗口（菜单栏弹窗）：不渲染顶栏、去掉居中约束、背景透明，铺满 320×400。 -->
   <div
     class="kb-app-shell"
     :class="{ 'kb-popup-shell': isPopup }"
@@ -183,7 +183,7 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* 菜单栏番茄钟弹窗宿主：透明、无滚动、精确铺满 360×480 窗口（100vh 相对 WebView 视口） */
+/* 菜单栏番茄钟弹窗宿主：透明、无滚动、精确铺满 320×400 窗口（100vh 相对 WebView 视口） */
 .kb-popup-shell {
   min-height: 100vh;
   height: 100vh;

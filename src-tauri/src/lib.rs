@@ -497,7 +497,7 @@ pub fn run() {
                     WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
                 )
                 .title("KnowFlow 番茄钟")
-                .inner_size(360.0, 440.0)
+                .inner_size(320.0, 400.0)
                 .decorations(false)
                 .transparent(true)
                 .always_on_top(true)
@@ -525,7 +525,7 @@ pub fn run() {
                     WebviewUrl::External("http://localhost:5173".parse().unwrap()),
                 )
                 .title("KnowFlow 番茄钟 (dev)")
-                .inner_size(360.0, 440.0)
+                .inner_size(320.0, 400.0)
                 .decorations(false)
                 .transparent(true)
                 .always_on_top(true)
@@ -671,16 +671,23 @@ pub fn run() {
                 let _ = w.hide();
             }
 
-            // 番茄钟弹窗：点击弹窗以外的任意区域（窗口失焦）即【立即】隐藏，形成「点击外部关闭」体验；
-            // 改为同步隐藏，不再使用 200ms 延迟 + 线程。
-            // 同步校验 is_focused 以规避 macOS 在窗口刚被 set_focus 激活时的伪失焦抖动
-            // （该抖动事件下窗口实际仍处于焦点，不应隐藏）。
+            // 番茄钟弹窗：失去焦点（点击弹窗外任意区域 / 其它 App / 再次点托盘图标）后，
+            // 延迟 200ms 自动隐藏，形成 macOS 下拉面板的「点击外部关闭」体验。
+            // 延迟 + 二次焦点校验（sleep 后若窗口重新获得焦点则不再隐藏）规避：
+            // macOS 在窗口被 set_focus 激活瞬间偶发的伪失焦事件，避免「刚弹出就被抖动关掉」。
             if let Some(win) = app.get_webview_window("pomodoro_popup") {
-                win.clone().on_window_event(move |e| {
+                let win_clone = win.clone();
+                win.on_window_event(move |e| {
                     if let WindowEvent::Focused(false) = e {
-                        if !win.is_focused().unwrap_or(false) {
-                            let _ = win.hide();
-                        }
+                        let w = win_clone.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                            if let Ok(focused) = w.is_focused() {
+                                if !focused {
+                                    let _ = w.hide();
+                                }
+                            }
+                        });
                     }
                 });
             }

@@ -99,7 +99,7 @@ npm run tauri build
 - **配置持久化**：偏好落盘 `<dataDir>/pomodoro-config.json`（后端 `GET` / `PUT /api/pomodoro/config`），前端防抖保存。
 - **macOS 菜单栏（状态栏）应用形态（2026-08-07 晚间重构）**：彻底改造为原生「菜单栏应用」——启动即**只显示状态栏托盘图标 + 文本倒计时**，主窗口默认隐藏：
   - 托盘图标（复用应用图标）旁显示实时文本标题「🍅 24:59」（阶段 emoji + MM:SS），前端每秒 `emit('tray:update', { title })`，Rust `set_title` 刷新；**文本标题方案取代了早期把时间烤进图标位图导致不刷新的做法**。
-  - 左键点击托盘 → 弹出**无边框 / 透明 / 毛玻璃（backdrop-blur）下拉面板**（`pomodoro_popup` 窗口，固定 360×480，`always_on_top`，失焦 200ms 自动隐藏）；面板内提供开始 / 暂停 / 重置、切换 专注 / 小憩 / 长休息、白噪音（雨声 / 溪流 / 咖啡馆 + 音量）、提示音设置。
+  - 左键点击托盘 → 弹出**无边框 / 透明 / 毛玻璃（backdrop-blur-2xl）的 macOS 控制中心（Control Center）风格分组卡片面板**（`pomodoro_popup` 窗口，固定 320×400，`always_on_top`，失焦 200ms 自动隐藏）；面板内为纵向 4 组卡片：核心状态 + 渐变 SVG 进度环、开始 / 暂停 / 重置 / 跳过动作栏、当前循环统计、白噪音控制条（雨声🌧️ / 溪流🌊 / 咖啡馆☕ + 音量），跟随系统 light/dark。
   - 右键托盘 → 原生菜单（显示主窗口 / 退出）。
   - 关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截 + `hide()`），计时继续后台运行；macOS `activationPolicy` 设为 `Accessory`（无 Dock 图标）。
   - 阶段自然结束前端 `invoke('trigger_notification', {title, body})` 命令，Rust 经 `tauri-plugin-notification` 弹原生系统通知（即便所有窗口都隐藏也照常提醒）。
