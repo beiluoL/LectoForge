@@ -36,9 +36,8 @@ request.interceptors.response.use(
     }
     return response.data
   },
-  async (error) => {
+  async   (error) => {
     const config = error.config as RetryableConfig | undefined
-
     /* ===== 断线恢复分支 =====
      * 条件：没有 response（后端根本没应答）+ 请求可重放 + 未超过重放上限。
      * 注意 ensureBackendAlive() 是全局单例任务，并发失败的请求会共享同一轮轮询，
@@ -49,8 +48,13 @@ request.interceptors.response.use(
         const recovered = await handleDisconnected(error)
         if (recovered) {
           config.__replayCount = replayed + 1
-          // 后端已恢复：原样重放这次请求，业务层完全无感
-          return request.request(config)
+          // 后端已恢复：用与首发完全一致的方式重新派发该请求，业务层完全无感。
+          // 不直接 request.request(error.config) —— 失败请求的 config 已经被 axios
+          // 派发流程改过（baseURL 合并、url 可能被写成绝对地址等），再次原样重放
+          // 会触发「绝对地址被当成请求行原样发出 / 前缀翻倍」等坑。
+          // 这里只取 method + 原始相对 url，走公共 request.get/post/... 重新发一次，
+          // URL 组合与首发的那次请求逐字节相同。
+          return replayRequest(config)
         }
       }
       return Promise.reject(new Error('知识引擎未响应，请稍后重试'))
@@ -78,6 +82,31 @@ function shouldAttemptReconnect(error: unknown): boolean {
 async function handleDisconnected(error: unknown): Promise<boolean> {
   if (isTimeoutError(error) && (await probeHealth())) return false
   return ensureBackendAlive()
+}
+
+/**
+ * 以「首发同款」方式重新派发一个请求。
+ * 只使用 error.config 里稳定的 method / url / data / params / headers，
+ * 重新走 request.get/post/put/patch/delete，让 axios 像第一次那样
+ * 从实例默认 baseURL 继承并组合 URL（桌面端相对 /api，Node 测试绝对地址，皆可），
+ * 避免直接重放被派发流程改过的 config 导致的各种 URL 异常。
+ */
+function replayRequest(config: RetryableConfig): Promise<unknown> {
+  const method = (config.method || 'get').toLowerCase()
+  const url = config.url || ''
+  const headers = config.headers
+  switch (method) {
+    case 'post':
+      return request.post(url, config.data, { headers })
+    case 'put':
+      return request.put(url, config.data, { headers })
+    case 'patch':
+      return request.patch(url, config.data, { headers })
+    case 'delete':
+      return request.delete(url, { params: config.params, data: config.data, headers })
+    default:
+      return request.get(url, { params: config.params, headers })
+  }
 }
 
 // 类型安全的请求助手（response 已被拦截器解包为 ApiResult<T>）

@@ -78,6 +78,16 @@ export async function probeHealth(): Promise<boolean> {
 }
 
 /**
+ * 应用启动时调用一次：建立「后端实例基线」（记录当前 bootId）。
+ * 这样后续若宿主把侧车重启、bootId 变化，probeHealth 才能准确识别
+ * 「后端换了实例」并置 backendRestarted=true；否则首次重启会因没有基线
+ * 而漏判。非桌面环境（无后端）下 probeHealth 自然返回 false，无副作用。
+ */
+export async function initBackendHealth(): Promise<void> {
+  await probeHealth()
+}
+
+/**
  * 确保后端可用：
  * - 已在线 → 立即返回 true
  * - 已有重连任务在跑 → 复用同一个 Promise（并发请求共享）

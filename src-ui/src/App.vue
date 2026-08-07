@@ -23,10 +23,17 @@
 
 <script setup lang="ts">
 // 桌面端应用根组件：等价于 Web 端 App.vue + CLayout 的组合（去掉登录态恢复与番茄钟等 Web 专属逻辑）。
+import { onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
 import ToastHost from '@/components/ui/ToastHost.vue';
 import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
+import { initBackendHealth } from '@/utils/connection';
 
 const route = useRoute();
+
+// 启动即探测一次后端健康，建立 bootId 基线（用于后续识别侧车是否被宿主重启过）。
+onMounted(() => {
+  void initBackendHealth();
+});
 </script>
