@@ -158,6 +158,23 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     }
   }
 
+  /**
+   * 阶段自然结束 → 通知 Rust 侧弹原生系统通知（菜单栏应用后台运行时也能提醒，不依赖主窗口）。
+   * 与 emitToNative 一样整体 try/catch 静默（浏览器态 @tauri-apps/api 不存在）。
+   */
+  async function emitFinished(
+    finished: PomodoroPhase,
+    isSetEnd: boolean,
+    count: number,
+  ): Promise<void> {
+    try {
+      const { emit } = await import('@tauri-apps/api/event');
+      await emit('pomodoro:finished', { phase: finished, isSetEnd, count });
+    } catch {
+      /* 非桌面宿主环境，忽略 */
+    }
+  }
+
   /* ==================== 五、配置读写 ==================== */
 
   /** 从后端 pomodoro-config.json 水合配置（页面初始化调用；失败静默用默认值） */
@@ -313,8 +330,9 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
 
     // 阶段机推进
     let next: PomodoroPhase;
+    let isSetEnd = false;
     if (finished === 'work') {
-      const isSetEnd = currentCycle.value >= Math.max(1, settings.cyclesPerSet);
+      isSetEnd = currentCycle.value >= Math.max(1, settings.cyclesPerSet);
       next = isSetEnd ? 'long_break' : 'short_break';
       notify(
         isSetEnd
@@ -330,6 +348,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
       notify('休息结束，开始下一段专注 💪', 'info');
     }
 
+    void emitFinished(finished, isSetEnd, completedToday.value);
     phase.value = next;
     timeLeft.value = phaseTotalSec.value;
     status.value = 'idle';

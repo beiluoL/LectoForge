@@ -19,9 +19,12 @@ use tauri::Listener;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 #[cfg(not(debug_assertions))]
 use tauri::path::BaseDirectory;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
+
+// 菜单栏番茄钟（状态栏常驻图标 + 实时倒计时 + 快捷菜单 + 原生通知）
+mod tray;
 use serde_json::json;
 
 const DEFAULT_BACKEND_PORT: u16 = 8787;
@@ -414,6 +417,15 @@ pub fn run() {
             #[allow(unused_mut, unused_assignments)]
             let mut api_port: u16 = DEFAULT_BACKEND_PORT;
 
+            // 菜单栏形态：macOS 下设为 Accessory（无 Dock 图标，仅状态栏常驻），
+            // 配合托盘番茄钟实现「无需主窗口即可后台运行」。其它平台忽略。
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app
+                    .handle()
+                    .set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+
             // 1) 打开主窗口（生产起 Node 侧车，开发加载 vite）
             #[cfg(not(debug_assertions))]
             {
@@ -598,6 +610,22 @@ pub fn run() {
                 };
                 let _ = timer_item.set_text(&text);
             });
+
+            // 菜单栏番茄钟（状态栏常驻图标 + 实时倒计时 + 快捷菜单 + 原生通知）
+            tray::create_tray(app.handle())?;
+
+            // 关闭主窗口时不退出应用，仅隐藏——配合托盘实现「后台运行，无需主窗口」
+            let app_for_close = app.handle().clone();
+            if let Some(win) = app.get_webview_window("main") {
+                win.on_window_event(move |e| {
+                    if let WindowEvent::CloseRequested { api, .. } = e {
+                        api.prevent_close();
+                        if let Some(w) = app_for_close.get_webview_window("main") {
+                            let _ = w.hide();
+                        }
+                    }
+                });
+            }
 
             // 5) 后台复习提醒调度（每 30 分钟轮询后端，有待复习卡片则弹原生通知）
             start_reminder_scheduler(app.handle().clone(), reminder_enabled.clone(), api_port);

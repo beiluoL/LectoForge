@@ -49,6 +49,7 @@ import QuickCreateNote from '@/components/QuickCreateNote.vue';
 import { useSearchStore } from '@/stores/searchStore';
 import { useInboxStore } from '@/stores/inboxStore';
 import { useNoteStore } from '@/store/noteStore';
+import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoroStore';
 import { initBackendHealth } from '@/utils/connection';
 
 const route = useRoute();
@@ -114,6 +115,32 @@ onMounted(() => {
       await listen('navigate', (e: { payload: unknown }) => {
         if (typeof e.payload === 'string') router.push(e.payload);
       });
+    } catch {
+      /* 非桌面宿主，忽略 */
+    }
+  })();
+
+  // 番茄钟全局常驻：计时引擎在应用级 store，这里统一初始化——
+  // 即便用户从不打开番茄钟页，状态栏托盘的「开始 / 暂停」也能驱动计时。
+  // 同时接收托盘菜单的快捷操作（开始/暂停/重置/切换模式）反控计时引擎。
+  const pomo = usePomodoroStore();
+  void pomo.init();
+  void (async () => {
+    try {
+      const { listen } = await import('@tauri-apps/api/event');
+      await listen(
+        'pomodoro:control',
+        (e: { payload: { action: string; phase?: PomodoroPhase } }) => {
+          const p = e.payload;
+          if (p.action === 'toggle') {
+            if (pomo.isRunning) pomo.pauseTimer();
+            else pomo.startTimer();
+          } else if (p.action === 'start') pomo.startTimer();
+          else if (p.action === 'pause') pomo.pauseTimer();
+          else if (p.action === 'reset') pomo.resetTimer();
+          else if (p.action === 'switch' && p.phase) pomo.switchPhase(p.phase);
+        },
+      );
     } catch {
       /* 非桌面宿主，忽略 */
     }

@@ -97,7 +97,11 @@ npm run tauri build
 - **统计页 `/pomodoro/stats`**：vue-chartjs 柱状图（蓝 = 专注 / 橙 = 休息，按天聚合）+ 累计专注时长 / 日均专注 / 完成番茄数三张总结卡。
 - **计时精度**：基于 `Date.now()` 时间戳差值（`accumulatedMs + (now - runStartedAt)`），`setInterval` 仅 250ms 刷新进度环，后台节流 / 休眠不掉秒。
 - **配置持久化**：偏好落盘 `<dataDir>/pomodoro-config.json`（后端 `GET` / `PUT /api/pomodoro/config`），前端防抖保存。
-- **原生菜单栏常驻倒计时**：前端每秒 `emit('pomodoro:update', …)`，Rust 侧 `app.listen` 实时刷新 App 菜单「番茄钟」项文案；点击该项 `router.push('/pomodoro')`。
+- **macOS 菜单栏（状态栏）应用形态**：`tauri::tray` 在屏幕顶部状态栏常驻一个计时器图标——左侧阶段色点（番茄红 / 琥珀 / 绿）+ 右侧实时 `MM:SS` 剩余时间（前端每秒 `emit('pomodoro:update')`，Rust 重绘进图标与提示文案）。**无需打开主窗口即可看到倒计时**，并实现「菜单栏应用」式运行：
+  - 点击图标展开快捷菜单：开始 / 暂停（文案随状态切换）、重置、切换 专注 / 小憩 / 长休息、显示 / 隐藏主窗口、退出；菜单项 `emit('pomodoro:control')` 反向驱动前端计时引擎。
+  - 关闭主窗口不再退出应用，仅隐藏——托盘常驻、计时后台继续（`WindowEvent::CloseRequested` 拦截 + `hide()`）。
+  - 阶段自然结束前端 `emit('pomodoro:finished')`，Rust 经 `tauri-plugin-notification` 弹原生系统通知（macOS Notification Center）。
+  - macOS 下 `activationPolicy` 设为 `Accessory`（无 Dock 图标，纯状态栏常驻）；如需保留 Dock 图标改为 `Regular` 即可。
 - **复习页集成**：`/review` 顶部嵌入番茄钟状态条（阶段 + 剩余时间 + 暂停 / 继续），专注刷题中不被打断。
 
 > 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《技术架构与功能手册.md》番茄钟章节。
@@ -120,12 +124,14 @@ npm run tauri build
 
 桌面壳 `src-tauri/src/lib.rs` 在白屏壳基础上增加了四项原生能力，**业务代码零改动**：
 
-### 1. 原生菜单
+### 1. 原生菜单 + 状态栏托盘
 macOS 标准菜单栏：
 - **KnowFlow**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 番茄钟 待机（常驻倒计时，前端每秒刷新文案）/ 退出
 - **视图**：重新加载页面（等效 `location.reload()`）
 
 「去学习复习」「番茄钟」与点击复习提醒通知都会向渲染进程发 `navigate` 事件（`App.vue` 统一监听并 `router.push` 对应页：`/review` 间隔复习页或 `/pomodoro` 番茄钟页）。
+
+**状态栏托盘（菜单栏番茄钟）**：`src-tauri/src/tray.rs` 用 `tauri::tray` 在顶部状态栏常驻图标，点击展开快捷菜单（开始 / 暂停 / 重置 / 切换模式 / 显示·隐藏主窗口 / 退出），菜单项 `emit('pomodoro:control')` 反控前端 `pomodoroStore`；托盘图标由 `pomodoro:update` 实时重绘 `MM:SS`，结束经 `pomodoro:finished` 弹原生通知。关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截）。
 
 ### 2. 复习提醒通知（后台轮询）
 - 后台独立线程每 **30 分钟** 轮询后端 `GET /api/workbench/reviews/due-count`。
