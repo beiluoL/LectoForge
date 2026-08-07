@@ -147,7 +147,7 @@
 > Prompt 模板集中在 `src-api/src/lib/prompts.ts`（**882 行，15 组** `buildXxxPrompt`，如 `buildStoryClarityPrompt` / `buildRecallScorePrompt` / `buildMindMapPrompt`），各组配套 TS 输出类型，前后端类型闭环。
 
 ### 3.5 前端接入（Pinia + lucide + AI 按钮）
-- 路由 22 条（18 个业务视图）含 `/onboarding`、`/settings`、`/settings/ai`、`/insights/ai`；`main.ts` 已 `createPinia()` + `pinia-plugin-persistedstate`。
+- 路由 24 条（20 个业务视图）含 `/onboarding`、`/settings`、`/settings/ai`、`/insights/ai`、`/pomodoro`、`/pomodoro/stats`；`main.ts` 已 `createPinia()` + `pinia-plugin-persistedstate`；`pomodoroStore` 计时引擎常驻后台（番茄钟为非 AI 模块，见《技术架构与功能手册.md》§7.16）。
 - `Icon.vue` 重构为 **lucide-vue-next 包装器**，新代码统一用 lucide 图标名（如 `sparkles`/`brain`）。
 - 各 view 工具栏「✨ AI 生成」按钮：loading → 填充对应字段 → 用户可编辑后随既有自动保存落库（AI 建议、人终校）。
 - `AiAssociatePanel`（右侧）承载 `/embeddings/sync` + `/associate` 的内容关联；`AiInsights.vue` 承载周报/诊断/推荐。
@@ -193,4 +193,4 @@
 - 21 个新增端点全部走 `/api/ai` 前缀，**不改动**任何 `/api/workbench/*` 端点（共 43 个），契约与 Web 端逐字段对齐，迁移/回环兼容。
 - 复用「Node 侧车 + 同源托管 + 回环地址」部署模型，Tauri 打包无需额外改动（资源清单见《技术架构与功能手册.md》§10.3）。
 - 服务端代码位于 `src-api/src/{routes/ai.ts, lib/llm.ts, lib/prompts.ts}`；前端位于 `src-ui/src/{views/AiSettings.vue, views/AiInsights.vue, store/memoryPalace.ts, components/ui/Icon.vue}`。
-- 端点总量以《技术架构与功能手册.md》§4.1 为准（应用合计 106 个，其中 AI 21 个；v1.1.0 新增 6 个非 AI 端点为间隔复习 2 / 搜索 1 / 看板 1 / 配置 2，收集箱 `/api/inbox` 10 个、其「5 大体验升级」再增 metadata 2 个，「间隔复习体验升级」再增 `/api/reviews` 的 snooze / heatmap / forgetting-curve 3 个）。
+- 端点总量以《技术架构与功能手册.md》§4.1 为准（应用合计 111 个，其中 AI 21 个；v1.1.0 新增 6 个非 AI 端点为间隔复习 2 / 搜索 1 / 看板 1 / 配置 2，收集箱 `/api/inbox` 10 个、其「5 大体验升级」再增 metadata 2 个，「间隔复习体验升级」再增 `/api/reviews` 的 snooze / heatmap / forgetting-curve 3 个；2026-08-07 番茄钟 `/api/pomodoro` 再增 5 个非 AI 端点）。

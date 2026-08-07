@@ -15,6 +15,7 @@ use std::time::Instant;
 use std::time::Duration;
 
 use tauri::Emitter;
+use tauri::Listener;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 #[cfg(not(debug_assertions))]
 use tauri::path::BaseDirectory;
@@ -500,6 +501,9 @@ pub fn run() {
             let check_update = MenuItemBuilder::with_id("check_update", "检查更新…").build(app)?;
             let go_review = MenuItemBuilder::with_id("go_review", "去学习复习").build(app)?;
             let toggle_reminder = MenuItemBuilder::with_id("toggle_reminder", "复习提醒：开").build(app)?;
+            // 番茄钟常驻菜单项：id 固定为 timer_menu（前端 emit 的 pomodoro:update 事件据此 set_text 刷新文案）。
+            // 初始文案为待机态，运行/暂停时由前端实时推「🍅 专注中 12:34」这类倒计时。
+            let timer_status = MenuItemBuilder::with_id("timer_menu", "🍅 番茄钟 待机").build(app)?;
             let reload = MenuItemBuilder::with_id("reload", "重新加载页面").build(app)?;
 
             let app_menu = SubmenuBuilder::new(app, "KnowFlow")
@@ -509,6 +513,7 @@ pub fn run() {
                 .item(&go_review)
                 .item(&toggle_reminder)
                 .separator()
+                .item(&timer_status)
                 .item(&quit)
                 .build()?;
 
@@ -559,12 +564,39 @@ pub fn run() {
                     let label = if *en { "复习提醒：开" } else { "复习提醒：关" };
                     let _ = toggle_item.set_text(label);
                 }
+                "timer_menu" => {
+                    // 点番茄钟菜单项 → 跳转到番茄钟页面（与「去学习复习」同款跳转逻辑）
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                    let _ = app.emit("navigate", "/pomodoro");
+                }
                 "reload" => {
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.eval("location.reload()");
                     }
                 }
                 _ => {}
+            });
+
+            // 番茄钟常驻倒计时：前端每次秒级 tick 都 emit pomodoro:update，
+            // 这里把 title（运行/暂停时为「🍅 专注中 12:34」，空闲时为空串）刷到菜单文案上。
+            // 用 timer_item 克隆体调用 set_text，与 toggle_reminder 模式一致。
+            let timer_item = timer_status.clone();
+            app.listen("pomodoro:update", move |event| {
+                let payload: serde_json::Value =
+                    serde_json::from_str(event.payload()).unwrap_or(serde_json::Value::Null);
+                let title = payload
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let text = if title.is_empty() {
+                    "🍅 番茄钟 待机".to_string()
+                } else {
+                    title.to_string()
+                };
+                let _ = timer_item.set_text(&text);
             });
 
             // 5) 后台复习提醒调度（每 30 分钟轮询后端，有待复习卡片则弹原生通知）

@@ -176,6 +176,23 @@ export const wbStory = sqliteTable('wb_story', {
   updatedAt: text('updated_at').notNull(),
 });
 
+// ===== 模块五：番茄钟专注日志（每完成一段专注/休息落一行，统计图表的唯一数据源）=====
+// 设计取舍：只记「已完成的时段」，不记进行中的状态——进行中的倒计时是前端内存态，
+// 崩溃/退出后没有保留价值，落库只会产生一堆需要清理的僵尸行。
+export const wbPomodoroLog = sqliteTable('wb_pomodoro_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  /** 时段开始时刻（ISO UTC，由 endTime - duration 反推，保证与 endTime 严格自洽） */
+  startTime: text('start_time').notNull(),
+  /** 时段结束时刻（ISO UTC，即客户端上报的那一刻） */
+  endTime: text('end_time').notNull(),
+  /** 时段类型：work / short_break / long_break（与前端 phase 同名，避免两侧再做映射） */
+  type: text('type').notNull(),
+  /** 实际时长（秒）：以「真实经过时间」为准，中途暂停不计入 */
+  durationSeconds: integer('duration_seconds').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+});
+
 // ===== P3-G3：内容向量索引（本地 embedding 存储，相似度在应用层计算）=====
 export const wbEmbedding = sqliteTable('wb_embedding', {
   id: integer('id').primaryKey({ autoIncrement: true }),

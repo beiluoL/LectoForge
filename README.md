@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 106 个端点（含 AI 21 个；其中收集箱 `/api/inbox` 10 个 + 「5 大体验升级」metadata 2 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 111 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 21 个；其中收集箱 `/api/inbox` 10 个 + 「5 大体验升级」metadata 2 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -27,7 +27,7 @@ desktopApp/
 │   ├── src/routes/  # 10 张表对应 106 个端点（学习工作台 53 [含 收集箱 /api/inbox 10 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve）+ SM-2 + 遗忘曲线
 │   ├── src/services/sm2.ts  # SM-2 算法（与 Web 端逐位一致）
 │   └── src/db/      # schema + 建表 + WAL
-├── src-ui/          # Vue 3 前端（18 个业务视图 / 22 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理 + lucide-vue-next 图标体系
+├── src-ui/          # Vue 3 前端（20 个业务视图 / 24 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎）+ lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本
@@ -89,6 +89,19 @@ npm run tauri build
 
 > 两模块的前后端接口、关键技术取舍详见《技术架构与功能手册.md》§7.10 / §7.11。
 
+## 番茄钟模块（2026-08-07 新增）
+
+独立的专注计时模块，计时引擎常驻后台（Pinia `pomodoroStore`），切去任意页面都不会中断：
+
+- **主页面 `/pomodoro`**：conic-gradient 圆形进度环 + 四参数配置（专注 / 小憩 / 长休息 / 每组番茄数）+ 开始 / 暂停 / 重置 / 跳过 / 退出 + 白噪音 Mini 播放器（雨声 / 溪流 / 咖啡馆，Howler 播放 `public/audio/white-noise/*.mp3`，资源缺失自动降级为 Web Audio 合成）+ 提示音设置（Web Audio 实时合成 ding / tick / alarm）。
+- **统计页 `/pomodoro/stats`**：vue-chartjs 柱状图（蓝 = 专注 / 橙 = 休息，按天聚合）+ 累计专注时长 / 日均专注 / 完成番茄数三张总结卡。
+- **计时精度**：基于 `Date.now()` 时间戳差值（`accumulatedMs + (now - runStartedAt)`），`setInterval` 仅 250ms 刷新进度环，后台节流 / 休眠不掉秒。
+- **配置持久化**：偏好落盘 `<dataDir>/pomodoro-config.json`（后端 `GET` / `PUT /api/pomodoro/config`），前端防抖保存。
+- **原生菜单栏常驻倒计时**：前端每秒 `emit('pomodoro:update', …)`，Rust 侧 `app.listen` 实时刷新 App 菜单「番茄钟」项文案；点击该项 `router.push('/pomodoro')`。
+- **复习页集成**：`/review` 顶部嵌入番茄钟状态条（阶段 + 剩余时间 + 暂停 / 继续），专注刷题中不被打断。
+
+> 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《技术架构与功能手册.md》番茄钟章节。
+
 ## v1.1.0 新增能力（本次更新）
 
 在原有四模块闭环 + 文档库 + 思维导图之上，本次更新补齐了**稳定性基建**与**四个体验型功能**：
@@ -109,10 +122,10 @@ npm run tauri build
 
 ### 1. 原生菜单
 macOS 标准菜单栏：
-- **KnowFlow**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 退出
+- **KnowFlow**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 番茄钟 待机（常驻倒计时，前端每秒刷新文案）/ 退出
 - **视图**：重新加载页面（等效 `location.reload()`）
 
-「去学习复习」与点击复习提醒通知都会向渲染进程发 `navigate` 事件，前端监听后 `router.push('/review')`（间隔复习页）。
+「去学习复习」「番茄钟」与点击复习提醒通知都会向渲染进程发 `navigate` 事件（`App.vue` 统一监听并 `router.push` 对应页：`/review` 间隔复习页或 `/pomodoro` 番茄钟页）。
 
 ### 2. 复习提醒通知（后台轮询）
 - 后台独立线程每 **30 分钟** 轮询后端 `GET /api/workbench/reviews/due-count`。

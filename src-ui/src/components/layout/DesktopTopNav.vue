@@ -146,6 +146,8 @@ const navItems: NavItem[] = [
   { path: '/workbench/recall', label: '主动回忆', icon: 'edit-2' },
   { path: '/workbench/story', label: '费曼故事', icon: 'wand-2' },
   { path: '/mindmap', label: '思维导图', icon: 'list-tree' },
+  // 番茄钟 2026-08-07 新增：计时常驻后台，match 让 /pomodoro 与 /pomodoro/stats 都高亮同一项。
+  { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'] },
 ];
 
 function isActive(item: NavItem) {

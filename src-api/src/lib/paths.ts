@@ -31,6 +31,8 @@ const FILE_AI_CONFIG = 'ai-config.json';
 const FILE_WORKSPACE = 'library-workspace.json';
 /** 应用级配置（新手引导状态 + 用户偏好的数据目录），与 ai-config.json 分开存放 */
 const FILE_APP_CONFIG = 'config.json';
+/** 番茄钟偏好（时长 / 循环数 / 提示音 / 白噪音），与应用外壳配置分开存放 */
+const FILE_POMODORO_CONFIG = 'pomodoro-config.json';
 
 /** 数据目录下的固定子目录名 */
 const DIR_MINDMAPS = 'mindmaps';
@@ -162,6 +164,15 @@ export function getAiConfigPath(): string {
  */
 export function getAppConfigPath(): string {
   return dataFile(FILE_APP_CONFIG);
+}
+
+/**
+ * 番茄钟配置：<dataDir>/pomodoro-config.json
+ * 存工作/休息时长、循环数、提示音与白噪音偏好。刻意与 config.json 分开：
+ * 番茄钟设置改动频繁（用户随手拖时长就写一次），混进应用外壳配置会互相污染。
+ */
+export function getPomodoroConfigPath(): string {
+  return dataFile(FILE_POMODORO_CONFIG);
 }
 
 /** 文档库工作区配置：<dataDir>/library-workspace.json */

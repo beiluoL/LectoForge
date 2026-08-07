@@ -159,6 +159,16 @@ CREATE TABLE IF NOT EXISTS wb_story (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS wb_pomodoro_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  type TEXT NOT NULL,
+  duration_seconds INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_pomodoro_end ON wb_pomodoro_log (end_time);
 CREATE TABLE IF NOT EXISTS wb_embedding (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   entity_type TEXT NOT NULL,

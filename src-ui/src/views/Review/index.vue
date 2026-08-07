@@ -3,6 +3,22 @@
        2026-08-07 架构收敛后本页只做刷卡一件事——进度条 + 卡型徽章 + 3D 翻转飞出 + 挂起 + 全屏专注 + 键盘盲操。
        热力图与遗忘趋势已上移到复习驾驶舱（/workbench/review），此处不再重复展示，避免刷题时被数据分心。 -->
   <div class="rv-wrap" :class="{ 'is-immersive': isImmersive }">
+    <!-- 番茄钟状态条：跨页面常驻，专注时随时可见剩余时间，一键暂停/继续（计时引擎在 pomodoroStore，复习中被掐不断） -->
+    <div class="rv-pomo" :class="{ 'is-active': isRunning || status === 'paused' }">
+      <Icon name="timer" :size="14" style="color: var(--kb-primary)" />
+      <span class="rv-pomo-phase">{{ phaseEmoji }} {{ phaseLabel }}</span>
+      <span class="rv-pomo-time">{{ timeText }}</span>
+      <button
+        v-if="status !== 'idle'"
+        class="rv-pomo-btn"
+        @click="isRunning ? pomoStore.pauseTimer() : pomoStore.startTimer()"
+      >
+        <Icon :name="isRunning ? 'pause' : 'play'" :size="13" />
+        {{ isRunning ? '暂停' : '继续' }}
+      </button>
+      <router-link to="/pomodoro" class="rv-pomo-link">打开番茄钟</router-link>
+    </div>
+
     <!-- 顶部：返回 / 标题 / 卡型 / 进度 / 全屏 / 退出（视觉与复习驾驶舱对齐） -->
     <header class="rv-top">
       <div class="rv-title">
@@ -145,10 +161,14 @@ import { onKeyStroke } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import FlashCard from './FlashCard.vue';
 import { useReviewStore } from '@/store/reviewStore';
+import { usePomodoroStore } from '@/store/pomodoroStore';
 import type { ReviewCard, ReviewRating } from '@/api/review';
 
 const router = useRouter();
 const store = useReviewStore();
+// 番茄钟状态条：复用全局 pomodoroStore（常驻单例），复习页只展示 + 提供暂停/继续。
+const pomoStore = usePomodoroStore();
+const { phaseEmoji, phaseLabel, timeText, status, isRunning } = storeToRefs(pomoStore);
 const {
   current,
   isLoading,
@@ -310,6 +330,8 @@ onMounted(() => {
   // 每次进入都重新拉队列（loadQueue 内部已先 resetSession），
   // 保证从驾驶舱 ↔ 传统卡组来回切换时不会读到上一轮残留进度。
   void store.loadQueue();
+  // 番茄钟配置水合（idempotent：若已在番茄钟页 init 过则直接跳过），让状态条拿到最新设置
+  void pomoStore.init();
   document.addEventListener('fullscreenchange', syncImmersive);
 });
 
@@ -629,6 +651,65 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .rv-rate-btn { min-width: 46%; }
+}
+
+/* 番茄钟状态条：常驻于复习页顶部，专注时高亮，空闲时收起为中性灰 */
+.rv-pomo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border-radius: var(--kb-radius-md);
+  background: var(--kb-muted);
+  border: 1px solid transparent;
+  font-size: var(--kb-fs-body-sm);
+  color: var(--kb-muted-foreground);
+  margin-bottom: 18px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.rv-pomo.is-active {
+  background: color-mix(in srgb, var(--kb-primary) 8%, var(--kb-card));
+  border-color: color-mix(in srgb, var(--kb-primary) 30%, var(--kb-border));
+  color: var(--kb-foreground);
+}
+.rv-pomo-phase {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rv-pomo-time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--kb-foreground);
+}
+.rv-pomo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  color: var(--kb-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.rv-pomo-btn:hover {
+  border-color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 8%, var(--kb-card));
+}
+.rv-pomo-link {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.rv-pomo-link:hover {
+  color: var(--kb-primary);
 }
 </style>
 

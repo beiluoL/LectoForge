@@ -22,6 +22,7 @@ import review from './routes/review';
 import search from './routes/search';
 import dashboard from './routes/dashboard';
 import inbox from './routes/inbox';
+import pomodoro from './routes/pomodoro';
 
 const app = Fastify({ logger: false });
 
@@ -105,6 +106,11 @@ app.register(dashboard, { prefix: '/api' });
  * 存储复用 wb_capture 表（与 /api/workbench/captures 同一张表，两套契约并存：
  * 老接口用大写状态 + starred 语义，新接口对外收敛为小写三态 unprocessed/archived/trashed）。 */
 app.register(inbox, { prefix: '/api' });
+
+/* ===== 番茄钟（专注计时 + 白噪音 + 历史统计）=====
+ * 独立前缀 /api：端点 /pomodoro/record、/pomodoro/stats、/pomodoro/config、/pomodoro/today。
+ * 已完成时段落 wb_pomodoro_log（新表，不复用任何复习表），用户偏好落 pomodoro-config.json。 */
+app.register(pomodoro, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });

@@ -83,6 +83,20 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 番茄钟：专注计时 + 白噪音 + 提示音设置（计时引擎在 pomodoroStore，跨页面常驻）。
+    path: '/pomodoro',
+    name: 'Pomodoro',
+    component: () => import('@/views/Pomodoro/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    // 番茄钟历史统计：vue-chartjs 柱状图 + 三张总结卡。
+    path: '/pomodoro/stats',
+    name: 'PomodoroStats',
+    component: () => import('@/views/Pomodoro/Stats.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     path: '/workbench/palace',
     name: 'WorkbenchPalace',
     component: () => import('@/views/MemoryPalace/index.vue'),

@@ -39,7 +39,7 @@
 // 桌面端应用根组件：等价于 Web 端 App.vue + CLayout 的组合（去掉登录态恢复与番茄钟等 Web 专属逻辑）。
 import { onMounted, onUnmounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
 import ToastHost from '@/components/ui/ToastHost.vue';
 import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
@@ -52,6 +52,7 @@ import { useNoteStore } from '@/store/noteStore';
 import { initBackendHealth } from '@/utils/connection';
 
 const route = useRoute();
+const router = useRouter();
 const searchStore = useSearchStore();
 const inboxStore = useInboxStore();
 const noteStore = useNoteStore();
@@ -105,6 +106,18 @@ function handleKeydown(e: KeyboardEvent) {
 onMounted(() => {
   void initBackendHealth();
   window.addEventListener('keydown', handleKeydown);
+  // 原生菜单项（去学习复习 / 番茄钟）点击后由 Rust 侧 emit("navigate", path)，
+  // 此处统一接管路由跳转；浏览器预览态下 @tauri-apps/api 不存在，静默跳过。
+  void (async () => {
+    try {
+      const { listen } = await import('@tauri-apps/api/event');
+      await listen('navigate', (e: { payload: unknown }) => {
+        if (typeof e.payload === 'string') router.push(e.payload);
+      });
+    } catch {
+      /* 非桌面宿主，忽略 */
+    }
+  })();
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);
