@@ -263,8 +263,8 @@ import { useRouter } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
 import AiAssociatePanel from '@/components/AiAssociatePanel.vue'
 import { notify, confirmDialog, getApiError } from '@/utils/toast'
-import './workbench-shared.css'
-import './ai-shared.css'
+import '../workbench-shared.css'
+import '../ai-shared.css'
 import {
   listCaptures,
   createCapture,

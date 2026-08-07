@@ -162,7 +162,7 @@ function snippetOf(text: string): string {
 
 /** 关联结果的可点击前端路由 */
 function entityRoute(type: string, id: number): string {
-  if (type === 'capture') return '/workbench/capture';
+  if (type === 'capture') return '/inbox';
   if (type === 'note') return `/workbench/notes/${id}`;
   if (type === 'story') return `/workbench/story/${id}`;
   return '/workbench';

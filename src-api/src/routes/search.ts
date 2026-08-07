@@ -38,7 +38,7 @@ function mapCapture(row: any): SearchResult {
     id: row.id,
     title: (row.title || '').trim() || '未命名收集项',
     content: summarize(row.content),
-    path: `/workbench/capture?highlightId=${row.id}`,
+    path: `/inbox?highlightId=${row.id}`,
   };
 }
 

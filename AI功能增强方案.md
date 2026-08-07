@@ -30,6 +30,7 @@
 - 痛点：长文难提炼、标签几乎为空、长期停在 INBOX。
 - AI 机会：A1 提炼要点、A2 标签+分类、A3 起草笔记。
 - **交付状态：✅ 已实现** —— `/capture/summarize`、`/tags`、`/capture/draft-note`。
+- **入口迁移**：收集箱前端页面已从 `/workbench/capture` 迁移至 `/inbox`（旧路径 301 重定向），后端新增 `/api/inbox/*` 共 8 个端点（复用 `wb_capture` 表，状态机 `INBOX/ARCHIVED/TRASHED` ↔ `unprocessed/archived/trashed`），旧 `/api/workbench/captures` 保留为遗留接口。
 
 ### 模块二：康奈尔笔记（Notes）
 - 痛点：线索栏问题 / 总结栏最易被跳过，建复习卡费时。
@@ -191,4 +192,4 @@
 - 21 个新增端点全部走 `/api/ai` 前缀，**不改动**任何 `/api/workbench/*` 端点（共 43 个），契约与 Web 端逐字段对齐，迁移/回环兼容。
 - 复用「Node 侧车 + 同源托管 + 回环地址」部署模型，Tauri 打包无需额外改动（资源清单见《技术架构与功能手册.md》§10.3）。
 - 服务端代码位于 `src-api/src/{routes/ai.ts, lib/llm.ts, lib/prompts.ts}`；前端位于 `src-ui/src/{views/AiSettings.vue, views/AiInsights.vue, store/memoryPalace.ts, components/ui/Icon.vue}`。
-- 端点总量以《技术架构与功能手册.md》§4.1 为准（应用合计 93 个，其中 AI 21 个；v1.1.0 新增的 6 个非 AI 端点为间隔复习 2 / 搜索 1 / 看板 1 / 配置 2）。
+- 端点总量以《技术架构与功能手册.md》§4.1 为准（应用合计 101 个，其中 AI 21 个；v1.1.0 新增 6 个非 AI 端点为间隔复习 2 / 搜索 1 / 看板 1 / 配置 2，本次新增 收集箱 `/api/inbox` 8 个）。

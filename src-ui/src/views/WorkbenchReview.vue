@@ -282,7 +282,7 @@ const showCreate = ref(false)
 const cardForm = reactive({ front: '', back: '', cardType: 'BASIC' })
 
 const loopSteps = [
-  { key: 'input', num: '01', name: '输入', path: '/workbench/capture' },
+  { key: 'input', num: '01', name: '输入', path: '/inbox' },
   { key: 'organize', num: '02', name: '整理', path: '/workbench/notes' },
   { key: 'review', num: '03', name: '复习', path: '/workbench/review' },
   { key: 'output', num: '04', name: '输出', path: '/workbench/story' },

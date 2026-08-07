@@ -28,10 +28,19 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
-    path: '/workbench/capture',
-    name: 'WorkbenchCapture',
-    component: () => import('@/views/WorkbenchCapture.vue'),
+    // 收集箱（知识闭环第一步）：极速输入 → 先积累再沉淀。
+    // 与 /library、/mindmap 同理，刻意不挂在 /workbench 下——顶栏 isActive 用
+    // startsWith 判断，挂进去会和「工作台」互相误高亮。
+    path: '/inbox',
+    name: 'Inbox',
+    component: () => import('@/views/Inbox/index.vue'),
     meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    // 旧收集箱路径（WorkbenchCapture）已于 2026-08-07 迁移到 /inbox，
+    // 这里保留重定向兜住历史链接与外部书签，旧组件已归档到 views/archive/。
+    path: '/workbench/capture',
+    redirect: '/inbox',
   },
   {
     path: '/workbench/notes',

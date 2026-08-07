@@ -135,7 +135,7 @@ onMounted(async () => {
 
 const navItems = [
   { path: '/workbench', label: '工作台', icon: 'brain' },
-  { path: '/workbench/capture', label: '收集箱', icon: 'inbox' },
+  { path: '/inbox', label: '收集箱', icon: 'inbox' },
   { path: '/workbench/notes', label: '笔记', icon: 'notebook-pen' },
   { path: '/library', label: '文档库', icon: 'library' },
   { path: '/workbench/review', label: '复习', icon: 'repeat' },

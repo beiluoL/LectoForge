@@ -29,32 +29,51 @@
   <ConnectionOverlay />
   <!-- 全局命令面板（Cmd/Ctrl+K）：始终挂载，由 store.isOpen 控制显隐 -->
   <CommandPalette />
+  <!-- 全局速记弹窗（Cmd/Ctrl+Shift+I）：任意页面「想到就记下」，不必先跳收集箱 -->
+  <QuickCaptureModal v-model:open="quickCaptureOpen" />
 </template>
 
 <script setup lang="ts">
 // 桌面端应用根组件：等价于 Web 端 App.vue + CLayout 的组合（去掉登录态恢复与番茄钟等 Web 专属逻辑）。
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
 import ToastHost from '@/components/ui/ToastHost.vue';
 import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
+import QuickCaptureModal from '@/components/QuickCaptureModal.vue';
 import { useSearchStore } from '@/stores/searchStore';
 import { initBackendHealth } from '@/utils/connection';
 
 const route = useRoute();
 const searchStore = useSearchStore();
 
-// 全局快捷键：Cmd/Ctrl+K 切换命令面板，Esc 关闭。
+/** 全局速记弹窗开关（Cmd/Ctrl+Shift+I） */
+const quickCaptureOpen = ref(false);
+
+// 全局快捷键：Cmd/Ctrl+K 切换命令面板，Cmd/Ctrl+Shift+I 切换速记弹窗，Esc 关闭。
 // 不论在哪个页面（含 standalone 全屏页），keydown 都挂在 window 上，始终可用。
 function handleKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+  const mod = e.metaKey || e.ctrlKey;
+
+  // 速记弹窗要先于命令面板判断：带 Shift 时 e.key 在部分布局下会变成大写，统一转小写比较
+  if (mod && e.shiftKey && e.key.toLowerCase() === 'i') {
+    e.preventDefault(); // 阻止 Chromium 系把 Ctrl+Shift+I 吃掉去开 DevTools
+    quickCaptureOpen.value = !quickCaptureOpen.value;
+    if (quickCaptureOpen.value) searchStore.closePalette();
+    return;
+  }
+
+  if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') {
     e.preventDefault(); // 阻止浏览器把焦点跳到地址栏
     if (searchStore.isOpen) searchStore.closePalette();
     else searchStore.openPalette();
+    return;
   }
-  if (e.key === 'Escape' && searchStore.isOpen) {
-    searchStore.closePalette();
+
+  if (e.key === 'Escape') {
+    if (quickCaptureOpen.value) quickCaptureOpen.value = false;
+    if (searchStore.isOpen) searchStore.closePalette();
   }
 }
 

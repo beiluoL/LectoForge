@@ -201,7 +201,7 @@ const modules = computed(() => {
     {
       key: 'input', step: '01 输入', title: '知识输入',
       desc: '收集箱快速捕获灵感、摘录与碎片，先积累再沉淀。', icon: 'inbox', color: '#3B6FE0',
-      path: '/workbench/capture', metric: ls.step1Count,
+      path: '/inbox', metric: ls.step1Count,
       sub: o ? `${o.captureInbox} 条待整理` : '', subIcon: 'inbox',
     },
     {
@@ -230,8 +230,8 @@ const modules = computed(() => {
 const focusItems = computed(() => {
   const d = dashboard.value
   return [
-    { key: 'today', label: '今日新增灵感', value: d.todayCaptures, icon: 'sparkles', color: '#3B6FE0', path: '/workbench/capture', urgent: false },
-    { key: 'pending', label: '待整理碎片', value: d.pendingCaptures, icon: 'inbox', color: '#6366F1', path: '/workbench/capture', urgent: d.pendingCaptures > 0 },
+    { key: 'today', label: '今日新增灵感', value: d.todayCaptures, icon: 'sparkles', color: '#3B6FE0', path: '/inbox', urgent: false },
+    { key: 'pending', label: '待整理碎片', value: d.pendingCaptures, icon: 'inbox', color: '#6366F1', path: '/inbox', urgent: d.pendingCaptures > 0 },
     { key: 'review', label: '待复习卡片', value: d.dueReviews, icon: 'repeat', color: '#F59E0B', path: '/review', urgent: d.dueReviews > 0 },
     { key: 'story', label: '故事草稿', value: d.storyDrafts, icon: 'wand-2', color: '#10B981', path: '/workbench/story', urgent: false },
   ]
@@ -279,7 +279,7 @@ const tips = [
 ]
 
 function goCapture() {
-  router.push('/workbench/capture')
+  router.push('/inbox')
 }
 
 onMounted(async () => {

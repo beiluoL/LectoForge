@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS wb_capture (
   tags TEXT,
   status TEXT NOT NULL DEFAULT 'INBOX',
   starred INTEGER NOT NULL DEFAULT 0,
+  cover_image TEXT,
+  processed_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -183,6 +185,9 @@ addColumn('wb_capture', 'source_type', 'TEXT');
 addColumn('wb_capture', 'source_url', 'TEXT');
 addColumn('wb_capture', 'doc_id', 'INTEGER');
 addColumn('wb_capture', 'tags', 'TEXT');
+// 收集箱增强：网页剪藏封面图 + 流转时间（旧库幂等补列）
+addColumn('wb_capture', 'cover_image', 'TEXT');
+addColumn('wb_capture', 'processed_at', 'TEXT');
 addColumn('wb_note', 'cue_column', "TEXT NOT NULL DEFAULT ''");
 addColumn('wb_note', 'note_column', "TEXT NOT NULL DEFAULT ''");
 addColumn('wb_note', 'summary_column', "TEXT NOT NULL DEFAULT ''");
@@ -256,6 +261,60 @@ const catCount = (sqlite.prepare('SELECT COUNT(*) AS c FROM categories').get() a
 if (catCount === 0) {
   const insert = sqlite.prepare('INSERT INTO categories (name, parent_id, sort) VALUES (?, 0, ?)');
   ['未分类', '工作', '学习', '生活'].forEach((name, i) => insert.run(name, i));
+}
+
+/* 收集箱示例数据：**仅在 wb_capture 整表为空时**注入，绝不覆盖用户已有数据。
+ * 目的是让新用户首次打开 /inbox 就能看到「速记 / 网页剪藏 / 待读链接」三种形态，
+ * 而不是一个空列表。created_at 刻意错开，用于验证时间线倒序。 */
+{
+  const capCount = (sqlite.prepare('SELECT COUNT(*) AS c FROM wb_capture').get() as { c: number }).c;
+  if (capCount === 0) {
+    const now = Date.now();
+    const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
+    const seed = sqlite.prepare(
+      `INSERT INTO wb_capture
+         (user_id, title, content, source_type, source_url, cover_image, tags, status, starred, created_at, updated_at)
+       VALUES (1, ?, ?, ?, ?, NULL, ?, 'INBOX', 0, ?, ?)`,
+    );
+    const rows: Array<[string, string, string, string | null, string, string]> = [
+      [
+        '今晚思考一下微服务的熔断机制如何抽象',
+        '今晚思考一下微服务的熔断机制如何抽象。\n\n关键问题：熔断器的状态机（Closed / Open / Half-Open）能否抽出一层与具体传输协议无关的通用接口？如果能，Sentinel 和 Resilience4j 的差异就只剩配置层了。',
+        'text',
+        null,
+        JSON.stringify(['灵感', '架构']),
+        minutesAgo(6),
+      ],
+      [
+        'Vue.js - 渐进式 JavaScript 框架',
+        'Vue 是一款用于构建用户界面的 JavaScript 框架。它基于标准 HTML、CSS 和 JavaScript 构建，并提供了一套声明式的、组件化的编程模型。',
+        'link',
+        'https://cn.vuejs.org/',
+        JSON.stringify(['网页剪藏', '前端']),
+        minutesAgo(95),
+      ],
+      [
+        'SQLite 的 WAL 模式到底快在哪',
+        '写前日志（Write-Ahead Logging）让读写不再互斥，读事务可以和写事务并发执行。回头补一篇对比测试。',
+        'link',
+        'https://www.sqlite.org/wal.html',
+        JSON.stringify(['待读']),
+        minutesAgo(60 * 26),
+      ],
+      [
+        '费曼学习法的第四步最容易被跳过',
+        '大多数人做到「用简单语言复述」就停了，但真正拉开差距的是第四步——回到原始材料，补上复述时卡壳的地方。',
+        'text',
+        null,
+        JSON.stringify(['灵感', '学习方法']),
+        minutesAgo(60 * 50),
+      ],
+    ];
+    for (const [title, content, type, url, tags, ts] of rows) {
+      seed.run(title, content, type, url, tags, ts, ts);
+    }
+    console.log(`[knowflow-desktop] 收集箱示例数据已注入 (${rows.length} 条)`);
+  }
 }
 
 export const db = drizzle(sqlite, { schema });

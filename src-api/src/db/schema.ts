@@ -20,9 +20,15 @@ export const wbCapture = sqliteTable('wb_capture', {
   docId: integer('doc_id'),
   categoryId: integer('category_id'),
   tags: text('tags'),
-  // 状态大写对齐 Web：INBOX / PROCESSED / ARCHIVED
+  // 状态大写对齐 Web：INBOX / PROCESSED / ARCHIVED / TRASHED
+  // 收集箱（/api/inbox）对外暴露小写三态：unprocessed / archived / trashed，
+  // 映射关系集中在 routes/inbox.ts 的 toStatusVO / toStatusDb，勿在别处硬编码。
   status: text('status').notNull().default('INBOX'),
   starred: integer('starred').notNull().default(0),
+  // 网页剪藏封面图（og:image / favicon），仅收集箱卡片展示用
+  coverImage: text('cover_image'),
+  // 流转时间：条目被「沉淀为笔记 / 文档」的时刻，未流转为 null
+  processedAt: text('processed_at'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

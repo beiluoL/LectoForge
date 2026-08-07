@@ -21,6 +21,7 @@ import config from './routes/config';
 import review from './routes/review';
 import search from './routes/search';
 import dashboard from './routes/dashboard';
+import inbox from './routes/inbox';
 
 const app = Fastify({ logger: false });
 
@@ -98,6 +99,12 @@ app.register(search, { prefix: '/api' });
  * 独立前缀 /api：端点 /dashboard/stats，跨表实时聚合，与 /api/workbench/overview 并存
  * （overview 服务于 6 指标数据看板，dashboard 服务于闭环四步 + 今日聚焦）。 */
 app.register(dashboard, { prefix: '/api' });
+
+/* ===== 收集箱（知识闭环第一步：极速输入，先积累再沉淀）=====
+ * 独立前缀 /api：端点 /inbox/list、/inbox、/inbox/clip、/inbox/:id、/inbox/:id/process。
+ * 存储复用 wb_capture 表（与 /api/workbench/captures 同一张表，两套契约并存：
+ * 老接口用大写状态 + starred 语义，新接口对外收敛为小写三态 unprocessed/archived/trashed）。 */
+app.register(inbox, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });
