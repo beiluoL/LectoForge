@@ -965,16 +965,15 @@ fn quit_app(app: tauri::AppHandle) {
 }
 
 /// 菜单栏标题刷新命令：番茄钟 store 每秒把当前倒计时（如「🍅 24:59」）通过此命令推给 Rust，
-/// 由 Rust 调用 `TrayIcon::set_title` 实时更新 macOS 状态栏文本，实现逐秒倒计时。
+/// 由 Rust 把「阶段色圆点 + MM:SS」烤进托盘图标位图并 `set_icon`，实现逐秒倒计时。
 ///
-/// 为什么用「命令」而不是「事件」：Tauri 2 不同版本下，前端 webview 通过 `emit` 发出的全局事件
-/// 是否一定触达 Rust 侧的全局 `app.listen` 存在实现差异（已知坑，直接导致菜单栏标题不刷新）。
-/// 命令通道由 `invoke` 直接调用 Rust 函数，无事件路由歧义、必然触达，是最可靠的刷新方式。
-/// 事件通道（tray.rs 的 `tray:update` 监听）仍作为兜底保留。
+/// 为什么画进图标而不是用 `set_title`：Tauri 2 在部分 macOS 版本上，托盘初始标题能显示、
+/// 但运行时反复 `set_title` 不一定触发状态栏重绘（已知坑，正是此前「菜单栏永远停在 🍅 25:00」
+/// 的根因）。而「更换图标」(`set_icon`) 在 macOS 上必然触发 NSStatusItem 重绘，是最可靠的通道。
+/// 命令通道由 `invoke` 直接调用 Rust 函数，无事件路由歧义、必然触达；
+/// 事件通道（tray.rs 的 `tray:update` 监听）仍作兜底，二者都走同一套图标渲染逻辑。
 #[tauri::command]
 fn update_tray_title(app: tauri::AppHandle, title: String) {
-    // "pomodoro_tray" 须与 tray.rs 中 TRAY_ID 保持一致
-    if let Some(t) = app.tray_by_id("pomodoro_tray") {
-        let _ = t.set_title(Some(title.as_str()));
-    }
+    // 渲染逻辑与 tray id 收敛在 tray.rs 的 paint_tray_title，避免两处不一致
+    crate::tray::paint_tray_title(&app, &title);
 }
