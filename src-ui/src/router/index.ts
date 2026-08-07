@@ -1,9 +1,26 @@
 // 桌面端路由：与 Web 端 /workbench/* 路由表逐条对齐（同 path、同 name、同组件），
 // 差异仅在于桌面端为本机单用户场景，去掉 requiresAuth 登录守卫。
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useAppStore } from '@/store/appStore';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/workbench' },
+  {
+    // 新手引导：首启 / 重新运行专用，全屏无顶栏（standalone）。
+    // rerun=1 时由设置中心跳入，守卫需放行（见 beforeEach）。
+    path: '/onboarding',
+    name: 'Onboarding',
+    component: () => import('@/views/Onboarding/index.vue'),
+    meta: { standalone: true },
+  },
+  {
+    // 全局设置中心：数据目录 + AI 服务 + 关于，同样无顶栏聚焦展示。
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/Settings/index.vue'),
+    meta: { standalone: true },
+  },
   {
     path: '/workbench',
     name: 'Workbench',
@@ -32,6 +49,13 @@ const routes: RouteRecordRaw[] = [
     path: '/workbench/review',
     name: 'WorkbenchReview',
     component: () => import('@/views/WorkbenchReview.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    // 间隔重复闪卡复习系统：跨 notes + loci 的沉浸式 SM-2 卡牌（独立路由，非 standalone，保留顶栏）。
+    path: '/review',
+    name: 'Review',
+    component: () => import('@/views/Review/index.vue'),
     meta: { layout: 'c', fullscreen: true },
   },
   {
@@ -102,6 +126,27 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior: () => ({ top: 0 }),
+});
+
+// 全局前置守卫：首次引导门禁。
+// - 未引导且目标不是 /onboarding → 强制定向到引导页；
+// - 已引导且目标是 /onboarding（非 rerun）→ 回工作台，避免重复引导；
+// - rerun=1 由设置中心「重新运行新手引导」带出，需放行。
+// 进入守卫前先与后端 /api/config 对齐一次（后端为权威来源），覆盖 localStorage 水合值，
+// 处理「本地缓存被清但后端 config.json 已标记完成」的边界情况。
+router.beforeEach(async (to) => {
+  const store = useAppStore();
+  if (!store.initialized) {
+    await store.initFromBackend();
+  }
+  const { hasOnboarded } = storeToRefs(store);
+
+  if (!hasOnboarded.value && to.path !== '/onboarding') {
+    return '/onboarding';
+  }
+  if (hasOnboarded.value && to.path === '/onboarding' && to.query.rerun !== '1') {
+    return '/workbench';
+  }
 });
 
 export default router;

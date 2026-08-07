@@ -40,6 +40,14 @@ export const wbNote = sqliteTable('wb_note', {
   summaryColumn: text('summary_column').notNull().default(''),
   tags: text('tags'),
   mastery: integer('mastery').notNull().default(0),
+  // SRS 间隔重复（本表直接作为复习卡源，字段与 wb_review_card 的 SM-2 对齐）
+  dueDate: text('due_date').notNull().default('1970-01-01T00:00:00.000Z'),
+  easeFactor: integer('ease_factor').notNull().default(250),
+  repetitions: integer('repetitions').notNull().default(0),
+  intervalDay: integer('interval_day').notNull().default(0),
+  lapseCount: integer('lapse_count').notNull().default(0),
+  reviewCount: integer('review_count').notNull().default(0),
+  lastReviewedAt: text('last_reviewed_at'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
@@ -107,6 +115,13 @@ export const wbPalaceLoci = sqliteTable('wb_palace_loci', {
   // SRS 复习：熟练度 0-5（越高越熟），lastReviewedAt 记录最近一次打分时间
   masteredLevel: integer('mastered_level').notNull().default(0),
   lastReviewedAt: text('last_reviewed_at'),
+  // SRS 间隔重复（字段与 wb_review_card 的 SM-2 对齐）
+  dueDate: text('due_date').notNull().default('1970-01-01T00:00:00.000Z'),
+  easeFactor: integer('ease_factor').notNull().default(250),
+  repetitions: integer('repetitions').notNull().default(0),
+  intervalDay: integer('interval_day').notNull().default(0),
+  lapseCount: integer('lapse_count').notNull().default(0),
+  reviewCount: integer('review_count').notNull().default(0),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

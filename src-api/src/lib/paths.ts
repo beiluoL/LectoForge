@@ -29,6 +29,8 @@ export const DATA_DIR_ENV = 'KNOWFLOW_DATA_DIR';
 const FILE_DB = 'workbench.db';
 const FILE_AI_CONFIG = 'ai-config.json';
 const FILE_WORKSPACE = 'library-workspace.json';
+/** 应用级配置（新手引导状态 + 用户偏好的数据目录），与 ai-config.json 分开存放 */
+const FILE_APP_CONFIG = 'config.json';
 
 /** 数据目录下的固定子目录名 */
 const DIR_MINDMAPS = 'mindmaps';
@@ -151,6 +153,15 @@ export function getDbPath(): string {
 /** AI 配置（含 API Key，写盘后 chmod 600）：<dataDir>/ai-config.json */
 export function getAiConfigPath(): string {
   return dataFile(FILE_AI_CONFIG);
+}
+
+/**
+ * 应用级配置：<dataDir>/config.json
+ * 记录首次引导是否完成（hasOnboarded）与用户在引导页选择的数据目录偏好（dataDir）。
+ * 生产环境下该文件落在 ~/Library/Application Support/com.knowflow.desktop/config.json。
+ */
+export function getAppConfigPath(): string {
+  return dataFile(FILE_APP_CONFIG);
 }
 
 /** 文档库工作区配置：<dataDir>/library-workspace.json */

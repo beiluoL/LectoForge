@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS wb_note (
   summary_column TEXT NOT NULL DEFAULT '',
   tags TEXT,
   mastery INTEGER NOT NULL DEFAULT 0,
+  due_date TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z',
+  ease_factor INTEGER NOT NULL DEFAULT 250,
+  repetitions INTEGER NOT NULL DEFAULT 0,
+  interval_day INTEGER NOT NULL DEFAULT 0,
+  lapse_count INTEGER NOT NULL DEFAULT 0,
+  review_count INTEGER NOT NULL DEFAULT 0,
+  last_reviewed_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -104,6 +111,12 @@ CREATE TABLE IF NOT EXISTS wb_palace_loci (
   capture_id INTEGER,
   note_id INTEGER,
   category_id INTEGER,
+  due_date TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z',
+  ease_factor INTEGER NOT NULL DEFAULT 250,
+  repetitions INTEGER NOT NULL DEFAULT 0,
+  interval_day INTEGER NOT NULL DEFAULT 0,
+  lapse_count INTEGER NOT NULL DEFAULT 0,
+  review_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -192,6 +205,19 @@ addColumn('wb_palace_loci', 'note_id', 'INTEGER');
 addColumn('wb_palace_loci', 'category_id', 'INTEGER');
 addColumn('wb_palace_loci', 'mastered_level', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('wb_palace_loci', 'last_reviewed_at', 'TEXT');
+addColumn('wb_palace_loci', 'due_date', "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'");
+addColumn('wb_palace_loci', 'ease_factor', 'INTEGER NOT NULL DEFAULT 250');
+addColumn('wb_palace_loci', 'repetitions', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_palace_loci', 'interval_day', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_palace_loci', 'lapse_count', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_palace_loci', 'review_count', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_note', 'due_date', "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'");
+addColumn('wb_note', 'ease_factor', 'INTEGER NOT NULL DEFAULT 250');
+addColumn('wb_note', 'repetitions', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_note', 'interval_day', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_note', 'lapse_count', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_note', 'review_count', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('wb_note', 'last_reviewed_at', 'TEXT');
 addColumn('wb_palace_loci', 'created_at', 'TEXT');
 addColumn('wb_palace_loci', 'updated_at', 'TEXT');
 addColumn('wb_recall_session', 'note_id', 'INTEGER');

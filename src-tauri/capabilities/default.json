@@ -8,6 +8,7 @@
     "shell:allow-execute",
     "shell:allow-spawn",
     "notification:default",
-    "updater:default"
+    "updater:default",
+    "dialog:default"
   ]
 }

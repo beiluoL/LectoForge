@@ -66,6 +66,11 @@
 
     <!-- Right: 桌面端专属操作 -->
     <div class="flex items-center gap-2">
+      <!-- 全局搜索触发（Cmd/Ctrl+K 同款动作，提升命令面板可发现性） -->
+      <button type="button" class="wb-icon-btn wb-search-trigger" title="搜索 (⌘K)" @click="openSearch">
+        <Icon name="search" size="md" />
+        <kbd class="wb-kbd">⌘K</kbd>
+      </button>
       <span
         class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
         :style="{
@@ -78,6 +83,10 @@
         <Icon name="hard-drive" size="xs" />
         本地离线
       </span>
+      <!-- 通用设置中心入口：数据目录 / AI 服务 / 关于 -->
+      <router-link to="/settings" class="wb-icon-btn" title="设置">
+        <Icon name="settings" size="md" />
+      </router-link>
       <!-- AI 设置入口：就绪时以高光色点亮，未配置时保持中性灰 -->
       <router-link
         to="/settings/ai"
@@ -102,12 +111,19 @@ import { useRoute } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import { notify } from '@/utils/toast';
 import { getAiStatus } from '@/api/ai';
+import { useSearchStore } from '@/stores/searchStore';
 
 const route = useRoute();
 const menuOpen = ref(false);
 const updating = ref(false);
 /** AI 是否已配置就绪，仅用于点亮顶栏入口图标，失败静默（不打扰主流程） */
 const aiReady = ref(false);
+/** 全局搜索面板 store（顶栏搜索按钮与 Cmd/Ctrl+K 共用同一入口） */
+const searchStore = useSearchStore();
+
+function openSearch() {
+  searchStore.openPalette();
+}
 
 onMounted(async () => {
   try {
@@ -123,6 +139,7 @@ const navItems = [
   { path: '/workbench/notes', label: '笔记', icon: 'notebook-pen' },
   { path: '/library', label: '文档库', icon: 'library' },
   { path: '/workbench/review', label: '复习', icon: 'repeat' },
+  { path: '/review', label: '间隔复习', icon: 'rotate-cw' },
   { path: '/workbench/palace', label: '记忆宫殿', icon: 'map-pin' },
   { path: '/workbench/recall', label: '主动回忆', icon: 'edit-2' },
   { path: '/workbench/story', label: '费曼故事', icon: 'wand-2' },
@@ -182,5 +199,22 @@ async function checkUpdate() {
 }
 .nav-dropdown a:hover {
   background: var(--kb-muted);
+}
+
+/* 顶栏搜索触发按钮（与 .wb-icon-btn 叠加）：图标 + ⌘K kbd 横向排布 */
+.wb-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.wb-kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--kb-border);
+  background: var(--kb-muted);
+  color: var(--kb-muted-foreground);
 }
 </style>

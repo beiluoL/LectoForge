@@ -52,8 +52,8 @@
       </div>
     </section>
 
-    <!-- ============ 今日聚焦：智能引导 ============ -->
-    <section v-if="overview" class="wb-focus">
+    <!-- ============ 今日聚焦：智能引导（dashboard 实时数据驱动）============ -->
+    <section class="wb-focus">
       <h2 class="wb-section-title">
         <Icon name="target" :size="18" style="color: var(--kb-highlight);" />
         今日聚焦
@@ -178,55 +178,63 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import Icon from '@/components/ui/Icon.vue'
 import { getWorkbenchOverview } from '@/api/workbench'
 import type { WorkbenchOverview } from '@/api/types'
+import { useDashboardStore } from '@/store/dashboardStore'
 
 const router = useRouter()
 const overview = ref<WorkbenchOverview | null>(null)
 const loading = ref(true)
 
+// 首页聚合统计：顶部「学习闭环四步」数字气泡 + 「今日聚焦」四卡的唯一数据源（实时反映 SQLite）。
+// 注意 storeToRefs 别名 dashboard，避免与本组件既有的 stats(computed)/loading(ref) 命名冲突。
+const dashboardStore = useDashboardStore()
+const { stats: dashboard } = storeToRefs(dashboardStore)
+
 const modules = computed(() => {
   const o = overview.value
+  // 顶部数字气泡 metric 一律取自 dashboard.loopSteps（闭环四步总量），实时反映 SQLite。
+  const ls = dashboard.value.loopSteps
   return [
     {
       key: 'input', step: '01 输入', title: '知识输入',
       desc: '收集箱快速捕获灵感、摘录与碎片，先积累再沉淀。', icon: 'inbox', color: '#3B6FE0',
-      path: '/workbench/capture', metric: o?.captureInbox ?? null,
+      path: '/workbench/capture', metric: ls.step1Count,
       sub: o ? `${o.captureInbox} 条待整理` : '', subIcon: 'inbox',
     },
     {
       key: 'organize', step: '02 整理', title: '知识整理',
       desc: '康奈尔笔记三栏结构化：线索自测 + 笔记记录 + 总结复述。', icon: 'notebook-pen', color: '#8B5CF6',
-      path: '/workbench/notes', metric: o?.noteTotal ?? null,
+      path: '/workbench/notes', metric: ls.step2Count,
       sub: o ? `${o.noteTotal} 篇笔记` : '', subIcon: 'notebook-pen',
     },
     {
       key: 'review', step: '03 复习', title: '间隔复习',
       desc: 'SM-2 遗忘曲线自动排程 + 记忆宫殿空间记忆，对抗遗忘。', icon: 'repeat', color: '#F59E0B',
-      path: '/workbench/review', metric: o?.reviewDue ?? null,
+      path: '/workbench/review', metric: ls.step3Count,
       sub: o ? `${o.reviewDue} 张待复习` : '', subIcon: 'repeat',
     },
     {
       key: 'output', step: '04 输出', title: '知识输出',
       desc: '费曼故事以教代学，讲不通的卡点就是下一步要补的洞。', icon: 'wand-2', color: '#10B981',
-      path: '/workbench/story', metric: o?.storyDraft ?? null,
+      path: '/workbench/story', metric: ls.step4Count,
       sub: o ? `${o.storyDraft} 篇草稿` : '', subIcon: 'wand-2',
     },
   ]
 })
 
-// 今日聚焦：依据 overview 数据智能排序
+// 今日聚焦：四卡严格对应 dashboard 的 todayCaptures/pendingCaptures/dueReviews/storyDrafts。
+// 「待复习卡片」入口指向新版 /review（间隔重复系统），保证数字↔页面同源一致。
 const focusItems = computed(() => {
-  const o = overview.value
-  if (!o) return []
-  const items = [
-    { key: 'review', label: '待复习卡片', value: o.reviewDue, icon: 'repeat', color: '#F59E0B', path: '/workbench/review', urgent: o.reviewDue > 0 },
-    { key: 'inbox', label: '待整理碎片', value: o.captureInbox, icon: 'inbox', color: '#3B6FE0', path: '/workbench/capture', urgent: false },
-    { key: 'story', label: '故事草稿', value: o.storyDraft, icon: 'wand-2', color: '#10B981', path: '/workbench/story', urgent: false },
-    { key: 'palace', label: '记忆宫殿', value: o.palaceTotal, icon: 'map-pin', color: '#8B5CF6', path: '/workbench/palace', urgent: false },
+  const d = dashboard.value
+  return [
+    { key: 'today', label: '今日新增灵感', value: d.todayCaptures, icon: 'sparkles', color: '#3B6FE0', path: '/workbench/capture', urgent: false },
+    { key: 'pending', label: '待整理碎片', value: d.pendingCaptures, icon: 'inbox', color: '#6366F1', path: '/workbench/capture', urgent: d.pendingCaptures > 0 },
+    { key: 'review', label: '待复习卡片', value: d.dueReviews, icon: 'repeat', color: '#F59E0B', path: '/review', urgent: d.dueReviews > 0 },
+    { key: 'story', label: '故事草稿', value: d.storyDrafts, icon: 'wand-2', color: '#10B981', path: '/workbench/story', urgent: false },
   ]
-  return items
 })
 
 const stats = computed(() => {
@@ -275,6 +283,8 @@ function goCapture() {
 }
 
 onMounted(async () => {
+  // 首页聚合统计（闭环气泡 + 今日聚焦）与 6 指标看板 overview 并行拉取，互不阻塞。
+  void dashboardStore.fetchStats()
   try {
     overview.value = await getWorkbenchOverview()
   } finally {

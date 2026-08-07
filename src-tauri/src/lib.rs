@@ -407,6 +407,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // 后端实际监听端口：生产由宿主协商后写入，开发固定用默认值（dev:api 监听它）
             #[allow(unused_mut, unused_assignments)]
@@ -571,7 +572,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app_handle, _event| {
@@ -739,5 +740,21 @@ fn restart_sidecar(_app: tauri::AppHandle) -> Result<serde_json::Value, String> 
     #[cfg(debug_assertions)]
     {
         Ok(json!({ "restarting": false, "reason": "开发模式下后端由 npm run dev:api 托管" }))
+    }
+}
+
+/// 供前端调用的「选择文件夹」命令（引导页 / 设置中心的数据目录选择使用）。
+///
+/// 用 tauri-plugin-dialog 打开系统原生的目录选择弹窗，返回选中目录的绝对路径；
+/// 用户取消选择时返回 Err，前端据此静默处理（不视为错误提示）。
+///
+/// 实现说明：命令声明为 async，Tauri 会在其异步运行时线程池上执行（非 UI 主线程），
+/// 因此这里用 blocking_pick_folder 阻塞等待用户结果是安全的，弹窗仍由插件在主线程正确弹出。
+#[tauri::command]
+async fn select_directory(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    match app.dialog().file().blocking_pick_folder() {
+        Some(folder) => Ok(folder.to_string()),
+        None => Err("用户取消了选择".to_string()),
     }
 }

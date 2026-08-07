@@ -17,6 +17,10 @@ import migration from './routes/migration';
 import ai from './routes/ai';
 import library from './routes/library';
 import mindmaps, { mindmapAiRoutes } from './routes/mindmap';
+import config from './routes/config';
+import review from './routes/review';
+import search from './routes/search';
+import dashboard from './routes/dashboard';
 
 const app = Fastify({ logger: false });
 
@@ -76,6 +80,24 @@ for (const r of [overview, captures, notes, reviews, palaces, recall, stories, m
   app.register(r, { prefix: wbPrefix });
 }
 app.register(categories, { prefix: '/api/categories' });
+
+/* ===== 应用级配置路由（新手引导 + 全局设置中心）=====
+ * 前缀 /api：内部路由为 /config 与 /config/init，避免 register 前缀带来的尾斜杠匹配问题。 */
+app.register(config, { prefix: '/api' });
+
+/* ===== 间隔重复复习系统（跨 notes + loci 的 SM-2 卡牌）=====
+ * 独立前缀 /api：端点 /reviews/due 与 /reviews/submit（与 /api/workbench/reviews/* 的
+ * wb_review_card 旧系统互不干扰）。 */
+app.register(review, { prefix: '/api' });
+
+/* ===== 全局搜索（Cmd+K 命令面板后端）=====
+ * 独立前缀 /api：端点 /search 跨 收集箱/笔记/故事 三表模糊检索，与既有 workbench 契约互不干扰。 */
+app.register(search, { prefix: '/api' });
+
+/* ===== 首页聚合统计（工作台数字气泡 + 今日聚焦的唯一数据源）=====
+ * 独立前缀 /api：端点 /dashboard/stats，跨表实时聚合，与 /api/workbench/overview 并存
+ * （overview 服务于 6 指标数据看板，dashboard 服务于闭环四步 + 今日聚焦）。 */
+app.register(dashboard, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });
