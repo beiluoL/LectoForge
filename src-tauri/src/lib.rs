@@ -671,20 +671,16 @@ pub fn run() {
                 let _ = w.hide();
             }
 
-            // 番茄钟弹窗：失焦（点击弹窗外区域）后延迟 200ms 自动隐藏，形成「下拉面板」体验；
-            // 延迟 + 二次焦点校验避免「刚弹出就被自己的激活抖动关掉」。
+            // 番茄钟弹窗：点击弹窗以外的任意区域（窗口失焦）即【立即】隐藏，形成「点击外部关闭」体验；
+            // 改为同步隐藏，不再使用 200ms 延迟 + 线程。
+            // 同步校验 is_focused 以规避 macOS 在窗口刚被 set_focus 激活时的伪失焦抖动
+            // （该抖动事件下窗口实际仍处于焦点，不应隐藏）。
             if let Some(win) = app.get_webview_window("pomodoro_popup") {
                 win.clone().on_window_event(move |e| {
                     if let WindowEvent::Focused(false) = e {
-                        let w = win.clone();
-                        std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(200));
-                            if let Ok(focused) = w.is_focused() {
-                                if !focused {
-                                    let _ = w.hide();
-                                }
-                            }
-                        });
+                        if !win.is_focused().unwrap_or(false) {
+                            let _ = win.hide();
+                        }
                     }
                 });
             }
