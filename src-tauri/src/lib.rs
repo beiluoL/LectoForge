@@ -502,14 +502,14 @@ pub fn run() {
                 .inner_size(1200.0, 800.0)
                 .build()?;
 
-                // 番茄钟菜单栏弹窗（无边框 / 透明 / 毛玻璃 / 置顶 / 固定 360×480 / 默认隐藏）
+                // 番茄钟菜单栏弹窗（无边框 / 透明 / 毛玻璃 / 置顶 / 固定 380×460 / 默认隐藏）
                 WebviewWindowBuilder::new(
                     app,
                     "pomodoro_popup",
                     WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
                 )
                 .title("KnowFlow 番茄钟")
-                .inner_size(320.0, 400.0)
+                .inner_size(380.0, 460.0)
                 .decorations(false)
                 .transparent(true)
                 .always_on_top(true)
@@ -537,7 +537,7 @@ pub fn run() {
                     WebviewUrl::External("http://localhost:5173".parse().unwrap()),
                 )
                 .title("KnowFlow 番茄钟 (dev)")
-                .inner_size(320.0, 400.0)
+                .inner_size(380.0, 460.0)
                 .decorations(false)
                 .transparent(true)
                 .always_on_top(true)

@@ -1,165 +1,127 @@
 <!--
-  菜单栏番茄钟弹窗（pomodoro_popup 窗口，320×400 无边框透明，macOS 毛玻璃）
-  仿 macOS 控制中心（Control Center）：悬浮玻璃面板 + 纵向 4 组独立卡片。
+  菜单栏番茄钟弹窗（pomodoro_popup 窗口，380×460 无边框透明，macOS 毛玻璃）
+  ──「Harmony Glow / 光影辉光」设计语言 ──
+  · 三重毛玻璃：环境动态光晕层(blur) → 玻璃面板(backdrop-blur) → 内高光描边
+  · 主视觉「时光之环」：4px 深色底座环 + 4px 亮色进度环 + 进度点「太阳耀斑」光晕
+  · 倒计时巨数字：font-thin + tabular-nums + 多层 text-shadow 辉光，平滑过渡不闪烁
+  · 极小化顶栏：左状态点+阶段文字 / 右 一个透明圆底图标按钮（hover 才显底）
+  · 底部悬浮无边框图标按钮（播放/暂停/重置/跳过）+ 左下角白噪音状态浮标
+  · 阶段色映射：专注=珊瑚橙 / 小憩=海洋蓝 / 长休=薄荷绿，切换时整屏 0.8s 无缝过渡
 
-  所有计时逻辑都在 pomodoroStore（应用级单例，跨窗口常驻）；本组件只是它的「遥控器」。
-  窗口被隐藏（window.hide）时 WebView 的 JS 仍在跑，计时照常后台运行、状态栏标题照常更新。
-
-  交互：
-  - 卡片 1：阶段 + 大号倒计时 + 渐变 SVG 进度环（环中央显示阶段图标）
-  - 卡片 2：开始 / 暂停 / 重置 / 跳过当前阶段（四列无缝按钮）
-  - 卡片 3：当前循环进度（第 X 组 / 共 Y 组）+ 下一阶段预览
-  - 卡片 4：白噪音控制条（图标一键播放/静音 · 下拉选音源 · 音量滑块）
-  - 点击弹窗外部：Rust 侧 WindowEvent::Focused(false) 延迟 200ms 同步隐藏
+  计时逻辑全部在 pomodoroStore（应用级单例、跨窗口常驻），本组件只是「遥控器」。
+  菜单栏联动：store 内部 emit('tray:update') 已把 🍅 24:59 推给 Rust set_title，
+  本组件只消费 store 的 timeText/phase/progress，无需自己发事件。
 -->
 <template>
-  <div class="pomo-host">
-    <!-- 玻璃面板外层：极致毛玻璃 + 圆角 + 阴影 + 细边框 -->
-    <div
-      class="pomo-glass flex h-full w-full flex-col gap-4 rounded-2xl border border-white/20 bg-white/85 p-4 shadow-2xl backdrop-blur-2xl dark:border-black/20 dark:bg-black/85"
-    >
-      <!-- ============ 卡片 1：核心状态 + 计时大圆环 ============ -->
-      <div class="flex items-center gap-3">
-        <div class="flex min-w-0 flex-1 flex-col">
-          <span class="truncate text-xs font-medium text-gray-500 dark:text-gray-400">
-            {{ phaseEmoji }} {{ phaseLabel }}
-          </span>
-          <span
-            class="tabular-nums text-[40px] font-bold leading-none tracking-tight text-gray-900 dark:text-white"
-          >
-            {{ timeText }}
-          </span>
-          <span class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {{ statusText }}
-          </span>
-        </div>
+  <div
+    class="harmony"
+    :style="{ '--glow': accent.glow, '--glow-soft': accent.soft }"
+  >
+    <!-- 环境动态光晕层（三重毛玻璃之第一层）：色随手阶段走，0.8s 无缝过渡 -->
+    <div class="ambient" aria-hidden="true" />
 
-        <!-- 渐变 SVG 进度环 -->
-        <div class="relative h-[88px] w-[88px] shrink-0">
-          <svg viewBox="0 0 100 100" class="h-full w-full -rotate-90">
-            <defs>
-              <linearGradient :id="RING_ID" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" :stop-color="ringFrom" />
-                <stop offset="100%" :stop-color="ringTo" />
-              </linearGradient>
-            </defs>
-            <circle
-              cx="50"
-              cy="50"
-              :r="RING_R"
-              fill="none"
-              stroke="rgba(120,120,120,0.18)"
-              :stroke-width="RING_STROKE"
-            />
-            <circle
-              cx="50"
-              cy="50"
-              :r="RING_R"
-              fill="none"
-              :stroke="`url(#${RING_ID})`"
-              :stroke-width="RING_STROKE"
-              stroke-linecap="round"
-              :stroke-dasharray="ringCircumference"
-              :stroke-dashoffset="ringDashoffset"
-              style="transition: stroke-dashoffset 0.3s linear"
-            />
-          </svg>
-          <div class="absolute inset-0 flex items-center justify-center">
-            <component :is="phaseIcon" class="h-7 w-7" :style="{ color: ringTo }" />
-          </div>
+    <!-- 玻璃面板（第二层 + 第三层内高光） -->
+    <div class="glass">
+      <!-- ============ 顶栏：极小化 ============ -->
+      <header class="topbar">
+        <div class="flex items-center gap-2">
+          <span class="status-dot" />
+          <span class="phase-text">{{ headerLabel }}</span>
         </div>
-      </div>
-
-      <!-- ============ 卡片 2：核心动作栏（四列无缝按钮） ============ -->
-      <div class="grid grid-cols-4 gap-1 rounded-xl bg-gray-100/50 p-1 dark:bg-gray-800/50">
         <button
-          class="pomo-act"
-          :disabled="isRunning"
-          title="开始"
-          @click="store.startTimer()"
-        >
-          <Play class="h-5 w-5" />
-          <span>开始</span>
-        </button>
-        <button
-          class="pomo-act"
-          :disabled="!isRunning"
-          title="暂停"
-          @click="store.pauseTimer()"
-        >
-          <Pause class="h-5 w-5" />
-          <span>暂停</span>
-        </button>
-        <button class="pomo-act" title="重置" @click="store.resetTimer()">
-          <RotateCcw class="h-5 w-5" />
-          <span>重置</span>
-        </button>
-        <button class="pomo-act" title="跳过当前阶段" @click="store.skipPhase()">
-          <SkipForward class="h-5 w-5" />
-          <span>跳过</span>
-        </button>
-      </div>
-
-      <!-- ============ 卡片 3：当前阶段统计（独立分组卡片） ============ -->
-      <div
-        class="flex items-center justify-between rounded-xl bg-gray-100/60 px-3 py-2.5 dark:bg-gray-800/60"
-      >
-        <div class="flex flex-col">
-          <span class="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            当前循环
-          </span>
-          <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-            第 {{ currentCycle }} / {{ settings.cyclesPerSet }} 组
-          </span>
-        </div>
-        <div class="flex flex-col items-end">
-          <span class="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            下一阶段
-          </span>
-          <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-            {{ nextPhase.name }} {{ nextPhase.time }}
-          </span>
-        </div>
-      </div>
-
-      <!-- ============ 卡片 4：专注与白噪音设置（底部折叠分组卡片） ============ -->
-      <div
-        class="flex items-center gap-3 rounded-xl bg-gray-100/50 p-3 dark:bg-gray-800/50"
-      >
-        <!-- 左：白噪音图标（点击一键播放/静音） -->
-        <button
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/80 transition hover:bg-white dark:bg-white/10 dark:hover:bg-white/20"
-          :title="whiteNoise.enabled ? '点击静音' : '点击播放'"
+          class="icon-btn icon-btn--ghost"
+          :title="whiteNoise.enabled ? '关闭白噪音' : '开启白噪音'"
           @click="store.toggleWhiteNoise()"
         >
+          <component :is="whiteNoise.enabled ? Volume2 : VolumeX" class="h-[18px] w-[18px]" />
+        </button>
+      </header>
+
+      <!-- ============ 主视觉：时光之环 + 巨型数字 ============ -->
+      <main class="stage">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 200 200" class="ring-svg">
+            <defs>
+              <radialGradient id="hg-glow">
+                <stop offset="0%" style="stop-color: var(--glow)" stop-opacity="0.95" />
+                <stop offset="100%" style="stop-color: var(--glow)" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+
+            <!-- 深色底座环 -->
+            <circle
+              class="ring-track"
+              cx="100"
+              cy="100"
+              :r="RING"
+              fill="none"
+              :stroke-width="RING_STROKE"
+            />
+            <!-- 亮色进度环（从顶部顺时针「充满」，stroke-dashoffset 线性连续） -->
+            <circle
+              class="ring-progress"
+              cx="100"
+              cy="100"
+              :r="RING"
+              fill="none"
+              :stroke-width="RING_STROKE"
+              stroke-linecap="round"
+              :stroke-dasharray="C"
+              :stroke-dashoffset="ringDashoffset"
+              transform="rotate(-90 100 100)"
+            />
+            <!-- 进度点「太阳耀斑」：跟随进度旋转，自带柔光 + 高亮核 -->
+            <g class="glow" :class="{ 'is-running': isRunning }" :style="glowStyle">
+              <circle class="glow-flare" cx="100" cy="10" r="13" fill="url(#hg-glow)" />
+              <circle cx="100" cy="10" r="3" fill="#ffffff" opacity="0.92" />
+            </g>
+          </svg>
+
+          <!-- 环中央内容：巨数字 + 胶囊状态标签 -->
+          <div class="ring-center">
+            <div class="countdown">{{ timeText }}</div>
+            <div class="capsule">{{ capsuleLabel }}</div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ============ 底部：悬浮控制区 ============ -->
+      <footer class="controls">
+        <!-- 白噪音状态浮标（左下角）：点击切换音轨（未开则顺带开启） -->
+        <button class="noise-float" title="切换白噪音音轨" @click="cycleTrack">
           <component
             :is="whiteNoise.enabled ? Volume2 : VolumeX"
-            class="h-4 w-4"
-            :class="whiteNoise.enabled ? 'text-[#FF6B35]' : 'text-gray-400'"
+            class="h-3.5 w-3.5"
           />
+          <span>{{ whiteNoise.enabled ? trackLabel : '白噪音关' }}</span>
         </button>
 
-        <!-- 中：音源下拉选择 -->
-        <select
-          :value="whiteNoise.track"
-          class="min-w-0 flex-1 cursor-pointer rounded-lg bg-transparent px-2 py-1.5 text-sm font-medium text-gray-700 outline-none hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/10"
-          @change="onTrackChange"
-        >
-          <option v-for="o in trackOptions" :key="o.value" :value="o.value" class="text-black">
-            {{ o.label }}
-          </option>
-        </select>
-
-        <!-- 右：音量滑块 -->
-        <input
-          type="range"
-          min="0"
-          max="100"
-          :value="whiteNoise.volume"
-          class="w-16 cursor-pointer accent-[#FF6B35]"
-          @input="onVolume"
-        />
-      </div>
+        <!-- 四枚悬浮无边框图标按钮 -->
+        <div class="actions">
+          <button
+            class="icon-btn"
+            :disabled="isRunning"
+            title="开始"
+            @click="store.startTimer()"
+          >
+            <Play class="h-5 w-5" />
+          </button>
+          <button
+            class="icon-btn"
+            :disabled="!isRunning"
+            title="暂停"
+            @click="store.pauseTimer()"
+          >
+            <Pause class="h-5 w-5" />
+          </button>
+          <button class="icon-btn" title="重置" @click="store.resetTimer()">
+            <RotateCcw class="h-[18px] w-[18px]" />
+          </button>
+          <button class="icon-btn" title="切换阶段" @click="store.skipPhase()">
+            <SkipForward class="h-5 w-5" />
+          </button>
+        </div>
+      </footer>
     </div>
   </div>
 </template>
@@ -167,11 +129,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import type { Component } from 'vue';
 import {
-  Timer,
-  Coffee,
-  Sun,
   Play,
   Pause,
   RotateCcw,
@@ -179,14 +137,12 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-vue-next';
-import { usePomodoroStore, PHASE_LABEL, type PomodoroPhase } from '@/store/pomodoroStore';
+import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoroStore';
 import type { NoiseTrack } from '@/api/pomodoro';
 
 const store = usePomodoroStore();
 const {
   phase,
-  phaseLabel,
-  phaseEmoji,
   status,
   currentCycle,
   settings,
@@ -196,123 +152,339 @@ const {
   whiteNoise,
 } = storeToRefs(store);
 
-/* ============ 进度环几何 ============ */
-const RING_ID = 'pomo-ring-grad';
-const RING_R = 42;
-const RING_STROKE = 8;
-const ringCircumference = 2 * Math.PI * RING_R;
-// 剩余比例 = 1 - 已用比例；dashoffset 越大可见弧越短（环随倒计时收缩）
-const ringDashoffset = computed(() => ringCircumference * (progress.value / 100));
-
-/* ============ 阶段配色（渐变两端）+ 阶段图标 ============ */
-const RING_COLORS: Record<PomodoroPhase, { from: string; to: string }> = {
-  work: { from: '#FFB380', to: '#FF6B35' }, // 番茄红
-  short_break: { from: '#6EE7B7', to: '#10B981' }, // 休息绿
-  long_break: { from: '#93B3F5', to: '#3B6FE0' }, // 长休蓝
+/* ============ 阶段辉光色（单点定义，模板只引用 var，杜绝硬编码散落） ============ */
+const ACCENTS: Record<PomodoroPhase, { glow: string; soft: string }> = {
+  // 专注：珊瑚橙（暖）
+  work: { glow: '#FF6B35', soft: '#FFB380' },
+  // 小憩：海洋蓝（冷）
+  short_break: { glow: '#4A90D9', soft: '#9DC1F5' },
+  // 长休：薄荷绿（生机）
+  long_break: { glow: '#34C759', soft: '#8FE3AE' },
 };
-const PHASE_ICON: Record<PomodoroPhase, Component> = {
-  work: Timer,
-  short_break: Coffee,
-  long_break: Sun,
-};
-const ringFrom = computed(() => RING_COLORS[phase.value].from);
-const ringTo = computed(() => RING_COLORS[phase.value].to);
-const phaseIcon = computed(() => PHASE_ICON[phase.value]);
+const accent = computed(() => ACCENTS[phase.value]);
 
-/* ============ 状态副标题 ============ */
-const statusText = computed(() => {
-  if (status.value === 'running') return '进行中…';
-  if (status.value === 'paused') return '已暂停';
-  if (status.value === 'completed') return '本轮结束';
-  return '待开始';
+/* ============ 时光之环几何 ============ */
+const RING = 90;
+const RING_STROKE = 4;
+const C = 2 * Math.PI * RING;
+// 进度环「充满」式：进度 0 → 空，100 → 满（耀斑领跑于填充前沿）
+const ringDashoffset = computed(() => C * (1 - progress.value / 100));
+// 耀斑角度：从顶部(0°)随进度顺时针旋转
+const glowStyle = computed(() => ({
+  transform: `rotate(${progress.value * 360}deg)`,
+  transformOrigin: '100px 100px',
+  transformBox: 'view-box' as const,
+  transition: 'transform 0.3s linear',
+}));
+
+/* ============ 文案 ============ */
+const headerLabel = computed(
+  () => ({ work: '专注', short_break: '小憩', long_break: '长休' })[phase.value],
+);
+const capsuleLabel = computed(() => {
+  if (phase.value === 'work') return `正在专注 · 第 ${currentCycle.value} 组`;
+  if (phase.value === 'short_break') return '小憩时光';
+  return '长休时光';
 });
 
-/* ============ 下一阶段预览 ============ */
-const nextPhase = computed(() => {
-  let next: PomodoroPhase;
-  if (phase.value === 'work') {
-    next = currentCycle.value >= Math.max(1, settings.value.cyclesPerSet) ? 'long_break' : 'short_break';
-  } else {
-    next = 'work';
-  }
-  const mins =
-    next === 'work'
-      ? settings.value.workMinutes
-      : next === 'short_break'
-        ? settings.value.shortBreakMinutes
-        : settings.value.longBreakMinutes;
-  const s = Math.max(0, Math.floor(mins * 60));
-  const mm = String(Math.floor(s / 60)).padStart(2, '0');
-  const ss = String(s % 60).padStart(2, '0');
-  return { name: PHASE_LABEL[next], time: `${mm}:${ss}` };
-});
-
-/* ============ 白噪音音源选项 ============ */
+/* ============ 白噪音音轨 ============ */
 const trackOptions: { value: NoiseTrack; label: string }[] = [
-  { value: 'rain', label: '雨声 🌧️' },
-  { value: 'stream', label: '溪流 🌊' },
-  { value: 'coffee', label: '咖啡馆 ☕' },
+  { value: 'rain', label: '雨声' },
+  { value: 'stream', label: '溪流' },
+  { value: 'coffee', label: '咖啡馆' },
 ];
-function onTrackChange(e: Event): void {
-  store.setWhiteNoiseTrack((e.target as HTMLSelectElement).value as NoiseTrack);
-}
-function onVolume(e: Event): void {
-  store.setWhiteNoiseVolume(Number((e.target as HTMLInputElement).value));
+const trackLabel = computed(
+  () => trackOptions.find((o) => o.value === whiteNoise.value.track)?.label ?? '雨声',
+);
+function cycleTrack(): void {
+  const idx = trackOptions.findIndex((o) => o.value === whiteNoise.value.track);
+  const next = trackOptions[(idx + 1) % trackOptions.length].value;
+  store.setWhiteNoiseTrack(next);
+  if (!whiteNoise.value.enabled) store.toggleWhiteNoise();
 }
 
 onMounted(() => {
-  // 弹窗自身的 store 初始化（幂等）；主窗口已 init 过的情况下 inited=true 立即返回
+  // 弹窗自身的 store 初始化（幂等）；主窗口已 init 过则立即返回
   void store.init();
 });
 </script>
 
 <style scoped>
-/* 宿主：100% 占满 320×400 透明窗口，留 8px 内边距让玻璃面板阴影透气 */
-.pomo-host {
+/* 注册为 <color> 类型自定义属性，使其可被 transition 插值 → 阶段切换时整屏 0.8s 无缝变色 */
+@property --glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ff6b35;
+}
+@property --glow-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffb380;
+}
+
+/* 宿主：100% 占满 380×460 透明窗口，留 14px 内边距让辉光 halo 透气 */
+.harmony {
+  position: relative;
   width: 100%;
   height: 100%;
-  padding: 8px;
+  padding: 14px;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 关键：阶段色随时间 0.8s 平滑过渡（影响光晕/进度环/数字辉光等所有引用处） */
+  transition: --glow 0.8s ease, --glow-soft 0.8s ease;
 }
 
-/* 四列动作按钮：无边框、极简，仅 hover/active 出现浅灰底 */
-.pomo-act {
+/* 第一层：环境动态光晕（模糊、半透明，色随阶段流动） */
+.ambient {
+  position: absolute;
+  inset: -16%;
+  z-index: 0;
+  background:
+    radial-gradient(48% 42% at 50% 16%, var(--glow) 0%, transparent 70%),
+    radial-gradient(42% 50% at 82% 92%, var(--glow-soft) 0%, transparent 72%);
+  filter: blur(48px) saturate(135%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* 第二层：毛玻璃面板（超大圆角 + 弥散阴影 + 细描边） + 第三层内高光 */
+.glass {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  box-shadow:
+    0 24px 60px -12px rgba(0, 0, 0, 0.18),
+    0 8px 24px -8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  padding: 16px 18px 18px;
+  box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) {
+  .glass {
+    border-color: rgba(115, 115, 115, 0.3);
+    background: rgba(23, 23, 23, 0.6);
+    box-shadow:
+      0 24px 60px -12px rgba(0, 0, 0, 0.55),
+      0 8px 24px -8px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ============ 顶栏 ============ */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--glow);
+  box-shadow: 0 0 8px var(--glow);
+  transition: background 0.8s ease, box-shadow 0.8s ease;
+}
+.phase-text {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #3f3f46;
+}
+@media (prefers-color-scheme: dark) {
+  .phase-text {
+    color: #e5e7eb;
+  }
+}
+
+/* ============ 主视觉 ============ */
+.stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.ring-wrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+.ring-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ring-track {
+  stroke: rgba(120, 120, 120, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  .ring-track {
+    stroke: rgba(255, 255, 255, 0.14);
+  }
+}
+.ring-progress {
+  stroke: var(--glow);
+  filter: drop-shadow(0 0 6px var(--glow));
+  transition: stroke 0.8s ease, stroke-dashoffset 0.3s linear;
+}
+
+/* 太阳耀斑：未运行时静止，运行时缓慢呼吸 */
+.glow .glow-flare {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.glow.is-running .glow-flare {
+  animation: hg-pulse 2.6s ease-in-out infinite;
+}
+@keyframes hg-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.7;
+  }
+}
+
+/* 环中央：巨数字 + 胶囊标签 */
+.ring-center {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 8px 0;
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  color: var(--kb-foreground, #1a1d23);
-  font-size: 10px;
+  gap: 10px;
+  pointer-events: none;
+}
+.countdown {
+  font-size: 58px;
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #18181b;
+  /* 多层 text-shadow 制造辉光，避免闪烁：仅过渡颜色（数字内容本身不变形） */
+  text-shadow:
+    0 0 10px var(--glow),
+    0 0 28px color-mix(in srgb, var(--glow) 45%, transparent);
+  transition: text-shadow 0.8s ease, color 0.8s ease;
+}
+@media (prefers-color-scheme: dark) {
+  .countdown {
+    color: #fafafa;
+  }
+}
+.capsule {
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  color: var(--glow);
+  background: color-mix(in srgb, var(--glow) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glow) 30%, transparent);
+  transition: color 0.8s ease, background 0.8s ease, border-color 0.8s ease;
+  white-space: nowrap;
+}
+
+/* ============ 底部控制区 ============ */
+.controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 4px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 悬浮无边框图标按钮：hover 弹性放大 + 微弱底；active 物理回弹 */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: #3f3f46;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease;
 }
-.pomo-act:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.06);
+.icon-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.1);
 }
-.pomo-act:active:not(:disabled) {
-  background: rgba(0, 0, 0, 0.1);
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.95);
 }
-.pomo-act:disabled {
-  opacity: 0.3;
+.icon-btn:disabled {
+  opacity: 0.28;
   cursor: not-allowed;
 }
 @media (prefers-color-scheme: dark) {
-  .pomo-act {
-    color: #f0f0f2;
+  .icon-btn {
+    color: #e5e7eb;
   }
-  .pomo-act:hover:not(:disabled) {
+  .icon-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.1);
   }
-  .pomo-act:active:not(:disabled) {
-    background: rgba(255, 255, 255, 0.16);
+}
+/* 顶栏幽灵按钮：默认无底，hover 才显极淡背景 */
+.icon-btn--ghost {
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+}
+
+/* 白噪音状态浮标（左下角） */
+.noise-float {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #52525b;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.noise-float:hover {
+  background: rgba(0, 0, 0, 0.08);
+  transform: scale(1.04);
+}
+.noise-float:active {
+  transform: scale(0.95);
+}
+@media (prefers-color-scheme: dark) {
+  .noise-float {
+    background: rgba(255, 255, 255, 0.08);
+    color: #d4d4d8;
+  }
+  .noise-float:hover {
+    background: rgba(255, 255, 255, 0.14);
   }
 }
 </style>

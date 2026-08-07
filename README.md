@@ -99,7 +99,7 @@ npm run tauri build
 - **配置持久化**：偏好落盘 `<dataDir>/pomodoro-config.json`（后端 `GET` / `PUT /api/pomodoro/config`），前端防抖保存。
 - **macOS 菜单栏（状态栏）应用形态（2026-08-07 晚间重构）**：彻底改造为原生「菜单栏应用」——启动即**只显示状态栏托盘图标 + 文本倒计时**，主窗口默认隐藏：
   - 托盘图标（复用应用图标）旁显示实时文本标题「🍅 24:59」（阶段 emoji + MM:SS），前端每秒 `emit('tray:update', { title })`，Rust `set_title` 刷新；**文本标题方案取代了早期把时间烤进图标位图导致不刷新的做法**。
-  - 左键点击托盘 → 弹出**无边框 / 透明 / 毛玻璃（backdrop-blur-2xl）的 macOS 控制中心（Control Center）风格分组卡片面板**（`pomodoro_popup` 窗口，固定 320×400，`always_on_top`，失焦 200ms 自动隐藏）；面板内为纵向 4 组卡片：核心状态 + 渐变 SVG 进度环、开始 / 暂停 / 重置 / 跳过动作栏、当前循环统计、白噪音控制条（雨声🌧️ / 溪流🌊 / 咖啡馆☕ + 音量），跟随系统 light/dark。
+  - 左键点击托盘 → 弹出**无边框 / 透明 / 三重毛玻璃（环境光晕 blur + backdrop-blur + 内高光）的「Harmony Glow / 光影辉光」风格面板**（`pomodoro_popup` 窗口，固定 380×460，`always_on_top`，失焦自动隐藏）；主视觉为「时光之环」（4px 底座环 + 4px 亮色进度环 + 进度点太阳耀斑光晕）与极细化巨型倒计时数字，下方胶囊状态标签；顶栏极小化（状态点 + 阶段文字 / 幽灵图标按钮），底部悬浮无边框图标按钮（开始 / 暂停 / 重置 / 跳过）+ 左下角白噪音状态浮标；阶段色映射：专注珊瑚橙 / 小憩海洋蓝 / 长休薄荷绿，切换时整屏 0.8s 无缝过渡，跟随系统 light/dark。
   - 右键托盘 → 原生菜单（显示主窗口 / 退出）。
   - 关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截 + `hide()`），计时继续后台运行；macOS `activationPolicy` 设为 `Accessory`（无 Dock 图标）。
   - 阶段自然结束前端 `invoke('trigger_notification', {title, body})` 命令，Rust 经 `tauri-plugin-notification` 弹原生系统通知（即便所有窗口都隐藏也照常提醒）。
