@@ -98,7 +98,7 @@ npm run tauri build
 - **计时精度**：基于 `Date.now()` 时间戳差值（`accumulatedMs + (now - runStartedAt)`），`setInterval` 仅 250ms 刷新进度环，后台节流 / 休眠不掉秒。
 - **配置持久化**：偏好落盘 `<dataDir>/pomodoro-config.json`（后端 `GET` / `PUT /api/pomodoro/config`），前端防抖保存。
 - **macOS 菜单栏（状态栏）应用形态（2026-08-07 晚间重构）**：彻底改造为原生「菜单栏应用」——启动即**只显示状态栏托盘图标 + 文本倒计时**，主窗口默认隐藏：
-  - 托盘图标（复用应用图标）旁显示实时文本标题「🍅 24:59」（阶段 emoji + MM:SS），前端每秒 `emit('tray:update', { title })`，Rust `set_title` 刷新；**文本标题方案取代了早期把时间烤进图标位图导致不刷新的做法**。
+  - 托盘图标（复用应用图标）旁显示实时文本标题「🍅 24:59」（阶段 emoji + MM:SS），前端每秒主用 `invoke('update_tray_title', { title })` 命令（emit `tray:update` 事件兜底），Rust `set_title` 刷新；**文本标题方案取代了早期把时间烤进图标位图导致不刷新的做法**。
   - 左键点击托盘 → 弹出**无边框 / 透明 / 三重毛玻璃（环境光晕 blur + backdrop-blur + 内高光）的「Harmony Glow / 光影辉光」风格面板**（`pomodoro_popup` 窗口，固定 380×460，`always_on_top`，失焦自动隐藏）；主视觉为「时光之环」（4px 底座环 + 4px 亮色进度环 + 进度点太阳耀斑光晕）与极细化巨型倒计时数字，下方胶囊状态标签；顶栏极小化（状态点 + 阶段文字 / 幽灵图标按钮），底部悬浮无边框图标按钮（开始 / 暂停 / 重置 / 跳过）+ 左下角白噪音状态浮标；阶段色映射：专注珊瑚橙 / 小憩海洋蓝 / 长休薄荷绿，切换时整屏 0.8s 无缝过渡，跟随系统 light/dark。
   - 右键托盘 → 原生菜单（显示主窗口 / 退出）。
   - 关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截 + `hide()`），计时继续后台运行；macOS `activationPolicy` 设为 `Accessory`（无 Dock 图标）。
@@ -133,7 +133,7 @@ macOS 标准菜单栏：
 
 「去学习复习」与点击复习提醒通知向渲染进程发 `navigate` 事件（`App.vue` 统一监听并 `router.push`）；「番茄钟」菜单项左键与状态栏托盘同款——切换 `pomodoro_popup` 弹窗。
 
-**状态栏托盘（菜单栏番茄钟）**：`src-tauri/src/tray.rs` 用核心 `tauri::tray` 在顶部状态栏常驻图标 + 文本标题（🍅 MM:SS），左键切换 `pomodoro_popup` 毛玻璃弹窗、右键原生菜单（显示主窗口 / 退出）；标题由 `tray:update` 实时刷新，结束经 `trigger_notification` 命令弹原生通知。关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截）。
+**状态栏托盘（菜单栏番茄钟）**：`src-tauri/src/tray.rs` 用核心 `tauri::tray` 在顶部状态栏常驻图标 + 文本标题（🍅 MM:SS），左键切换 `pomodoro_popup` 毛玻璃弹窗、右键原生菜单（显示主窗口 / 退出）；标题由 `update_tray_title` 命令实时刷新（emit `tray:update` 兜底），结束经 `trigger_notification` 命令弹原生通知。关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截）。
 
 ### 2. 复习提醒通知（后台轮询）
 - 后台独立线程每 **30 分钟** 轮询后端 `GET /api/workbench/reviews/due-count`。

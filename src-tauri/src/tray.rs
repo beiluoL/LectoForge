@@ -1,7 +1,8 @@
 // src-tauri/src/tray.rs
 //
 // macOS 菜单栏（状态栏）番茄钟 —— 纯菜单栏应用形态：
-// - 状态栏常驻一个图标 + 文本标题（如「🍅 24:59」），文本每秒由前端 emit `tray:update` 刷新；
+// - 状态栏常驻一个图标 + 文本标题（如「🍅 24:59」），文本每秒由前端 invoke `update_tray_title`
+//   命令（emit `tray:update` 事件兜底）刷新；
 // - 左键点击：展开/收起毛玻璃弹窗（pomodoro_popup 窗口），核心操作都在弹窗里完成；
 // - 右键点击：弹出原生菜单（显示主窗口 / 退出）；
 // - 计时结束的原生通知由前端直接 invoke `trigger_notification` 命令，不经过此模块。

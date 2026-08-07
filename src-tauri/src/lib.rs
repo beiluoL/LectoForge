@@ -734,7 +734,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app, update_tray_title])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app_handle, _event| {
@@ -962,4 +962,19 @@ fn open_external_url(url: String) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+/// 菜单栏标题刷新命令：番茄钟 store 每秒把当前倒计时（如「🍅 24:59」）通过此命令推给 Rust，
+/// 由 Rust 调用 `TrayIcon::set_title` 实时更新 macOS 状态栏文本，实现逐秒倒计时。
+///
+/// 为什么用「命令」而不是「事件」：Tauri 2 不同版本下，前端 webview 通过 `emit` 发出的全局事件
+/// 是否一定触达 Rust 侧的全局 `app.listen` 存在实现差异（已知坑，直接导致菜单栏标题不刷新）。
+/// 命令通道由 `invoke` 直接调用 Rust 函数，无事件路由歧义、必然触达，是最可靠的刷新方式。
+/// 事件通道（tray.rs 的 `tray:update` 监听）仍作为兜底保留。
+#[tauri::command]
+fn update_tray_title(app: tauri::AppHandle, title: String) {
+    // "pomodoro_tray" 须与 tray.rs 中 TRAY_ID 保持一致
+    if let Some(t) = app.tray_by_id("pomodoro_tray") {
+        let _ = t.set_title(Some(title.as_str()));
+    }
 }

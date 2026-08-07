@@ -145,19 +145,32 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
   /* ==================== 四、原生菜单栏联动 ==================== */
 
   /**
-   * 向 Rust 侧发射 pomodoro:update。
-   * 浏览器预览态（非 Tauri 宿主）下 @tauri-apps/api 的 emit 会抛错，
-   * 这里整体 try/catch 静默吞掉——番茄钟本身在浏览器里也要能正常跑。
+   * 向 Rust 侧推送菜单栏标题（阶段 emoji + MM:SS，如「🍅 24:59」）。
+   * 浏览器预览态（非 Tauri 宿主）下 @tauri-apps/api 会抛错，整体 try/catch 静默——
+   * 番茄钟在浏览器里也要能正常跑。
+   *
+   * 双通道推送，任一生效即可刷新状态栏，规避 Tauri 2 不同版本下 webview 的 emit
+   * 是否触达 Rust 全局 app.listen 的实现差异：
+   *  ① 命令通道 `update_tray_title`：由 invoke 直接调用 Rust 函数，无歧义、必然触达（主）；
+   *  ② 事件通道 `tray:update`：tray.rs 的全局监听兜底（次）。
+   * 命令失败会 console.error，便于在 tauri:dev 下的 DevTools 真机排查。
    */
   async function emitToNative(force = false): Promise<void> {
     const sec = timeLeft.value;
     if (!force && sec === lastEmittedSec) return;
     lastEmittedSec = sec;
+    const title = trayTitle.value;
+    // ① 命令通道（主）
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('update_tray_title', { title });
+    } catch (e) {
+      console.error('[pomodoro] update_tray_title 命令失败（事件通道兜底）:', e);
+    }
+    // ② 事件通道（兜底）
     try {
       const { emit } = await import('@tauri-apps/api/event');
-      // 菜单栏状态栏文本：阶段 emoji + MM:SS；无论空闲/运行/暂停都推送当前倒计时，
-      // Rust 侧 set_title 后状态栏即实时刷新（修复此前把时间烤进图标位图导致不刷新的问题）。
-      await emit('tray:update', { title: trayTitle.value });
+      await emit('tray:update', { title });
     } catch {
       /* 非桌面宿主环境，忽略 */
     }
