@@ -343,6 +343,71 @@ export function buildFlashcardsPrompt(input: FlashcardsInput): ChatMessage[] {
   ];
 }
 
+// ============================ 康奈尔笔记 · AI 自测题 ============================
+
+export interface QuizInput {
+  title?: string | null
+  noteColumn: string
+  /** 期望题目数量，默认 5，收敛到 3~8 */
+  count?: number
+}
+
+/** 单题原始结构（模型输出未清洗前，字段一律按可选处理） */
+export interface QuizItemRaw {
+  type?: string
+  question?: string
+  options?: string[]
+  answer?: string
+  explain?: string
+}
+
+export interface QuizOutput {
+  quiz: QuizItemRaw[]
+}
+
+/**
+ * 由笔记正文生成结构化自测题（单选 choice + 填空 fill 混合）。
+ *
+ * 与 buildFlashcardsPrompt 的差别：后者只要 front/back 两段文本，
+ * 这里要求模型给出可判分的题型结构（选项 + 标准答案），
+ * 便于路由层直接转成 wb_review_card 并进入复习队列。
+ */
+export function buildQuizPrompt(input: QuizInput): ChatMessage[] {
+  const n = Math.max(3, Math.min(8, input.count || 5))
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是命题老师，负责把一段学习笔记出成可自测的题目，用于间隔重复复习。',
+        '要求：',
+        '- 共出 ' + n + ' 道题，单选题（type="choice"）与填空题（type="fill"）混合，单选题占多数；',
+        '- 单选题必须给 4 个 options，其中恰有 1 个正确；干扰项要似是而非，不能明显荒谬；',
+        '- 单选题的 answer 只写正确选项的字母（A/B/C/D），不要写选项原文；',
+        '- 填空题的 question 用连续下划线 ___ 表示待填空位，answer 写应填入的内容；',
+        '- 一题只考一个知识点，题干自足（不依赖「上文」「如图」这类指代）；',
+        '- explain 用一句话说明为什么，不超过 40 字；',
+        '- 所有内容必须来自给定笔记，不得杜撰笔记里没有的事实。只输出 JSON。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【主题】${input.title || '（未填写）'}`,
+        '【笔记正文】',
+        truncate(input.noteColumn, 8000),
+        '',
+        '请按以下 JSON 结构输出：',
+        '{',
+        '  "quiz": [',
+        '    {"type": "choice", "question": "题干", "options": ["选项A", "选项B", "选项C", "选项D"], "answer": "A", "explain": "一句话解析"},',
+        '    {"type": "fill", "question": "___ 是一种过程。", "answer": "应填内容", "explain": "一句话解析"}',
+        '  ]',
+        '}',
+      ].join('\n'),
+    },
+  ]
+}
+
 export interface InsightReportInput {
   overview: Record<string, unknown>
   forgettingCurve: Record<string, unknown>

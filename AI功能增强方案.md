@@ -35,7 +35,8 @@
 ### 模块二：康奈尔笔记（Notes）
 - 痛点：线索栏问题 / 总结栏最易被跳过，建复习卡费时。
 - AI 机会：B1 线索栏问题、B2 总结栏、B4 批量复习卡。
-- **交付状态：✅ 已实现** —— `/note/generate`（线索+总结）、`/note/flashcards`（批量建卡入库）。
+- **交付状态：✅ 已实现** —— `/note/generate`（线索+总结）、`/note/flashcards`（批量建卡自动入库 `wb_review_card`，`next_review_time=now` 立即进复习队列）。前端 `generateNoteQuiz` 返回 `NoteQuizResult`。
+- **UI 升级（2026-08-07）**：列表页网格卡片/紧凑列表双模式 + 掌握度进度条 + 到期「需复习」徽章；编辑页倒 T 形三栏比例可拖拽（持久化）+ 划词悬浮工具栏（转线索）+ 自动保存竞态保护；全局 ⌘/Ctrl+Shift+F 极速新建笔记（`QuickCreateNote`）。
 
 ### 模块三：间隔重复（Review，SM-2）
 - 痛点：建卡费时；复习只有 quality，无"为什么错/怎么补"。

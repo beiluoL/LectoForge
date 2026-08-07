@@ -31,6 +31,8 @@
   <CommandPalette />
   <!-- 全局速记弹窗（Cmd/Ctrl+Shift+I）：任意页面「想到就记下」，不必先跳收集箱；开关收敛到收集箱 store -->
   <QuickCaptureModal v-model:open="quickOpen" />
+  <!-- 极速新建笔记（Cmd/Ctrl+Shift+F）：始终挂载，由 noteStore.quickCreateOpen 控制显隐 -->
+  <QuickCreateNote />
 </template>
 
 <script setup lang="ts">
@@ -43,40 +45,60 @@ import ToastHost from '@/components/ui/ToastHost.vue';
 import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
 import QuickCaptureModal from '@/components/QuickCaptureModal.vue';
+import QuickCreateNote from '@/components/QuickCreateNote.vue';
 import { useSearchStore } from '@/stores/searchStore';
 import { useInboxStore } from '@/stores/inboxStore';
+import { useNoteStore } from '@/store/noteStore';
 import { initBackendHealth } from '@/utils/connection';
 
 const route = useRoute();
 const searchStore = useSearchStore();
 const inboxStore = useInboxStore();
+const noteStore = useNoteStore();
 /** 全局速记弹窗开关（Cmd/Ctrl+Shift+I）—— 收敛到收集箱 store，与页面内状态同源 */
 const { quickOpen } = storeToRefs(inboxStore);
 
-// 全局快捷键：Cmd/Ctrl+K 切换命令面板，Cmd/Ctrl+Shift+I 切换速记弹窗，Esc 关闭。
+/** 三个全局弹层互斥：新开一个就把其余的收起来，避免遮罩叠遮罩 */
+function closeAllOverlays() {
+  inboxStore.closeQuickCapture();
+  searchStore.closePalette();
+  noteStore.closeQuickCreate();
+}
+
+// 全局快捷键：Cmd/Ctrl+K 命令面板，Cmd/Ctrl+Shift+I 速记，Cmd/Ctrl+Shift+F 极速新建笔记，Esc 关闭。
 // 不论在哪个页面（含 standalone 全屏页），keydown 都挂在 window 上，始终可用。
 function handleKeydown(e: KeyboardEvent) {
   const mod = e.metaKey || e.ctrlKey;
 
-  // 速记弹窗要先于命令面板判断：带 Shift 时 e.key 在部分布局下会变成大写，统一转小写比较
+  // 带 Shift 的组合要先于命令面板判断：Shift 会让 e.key 在部分布局下变大写，统一转小写比较
   if (mod && e.shiftKey && e.key.toLowerCase() === 'i') {
     e.preventDefault(); // 阻止 Chromium 系把 Ctrl+Shift+I 吃掉去开 DevTools
-    inboxStore.toggleQuickCapture();
-    if (inboxStore.quickOpen) searchStore.closePalette();
+    const next = !inboxStore.quickOpen;
+    closeAllOverlays();
+    if (next) inboxStore.openQuickCapture();
+    return;
+  }
+
+  // 极速新建笔记：Cmd/Ctrl+Shift+F（F = File/新笔记），与浏览器查找 Cmd+F 不冲突
+  if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    const next = !noteStore.quickCreateOpen;
+    closeAllOverlays();
+    if (next) noteStore.openQuickCreate();
     return;
   }
 
   if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') {
     e.preventDefault(); // 阻止浏览器把焦点跳到地址栏
     if (searchStore.isOpen) searchStore.closePalette();
-    else searchStore.openPalette();
+    else {
+      closeAllOverlays();
+      searchStore.openPalette();
+    }
     return;
   }
 
-  if (e.key === 'Escape') {
-    if (inboxStore.quickOpen) inboxStore.closeQuickCapture();
-    if (searchStore.isOpen) searchStore.closePalette();
-  }
+  if (e.key === 'Escape') closeAllOverlays();
 }
 
 // 启动即探测一次后端健康，建立 bootId 基线（用于后续识别侧车是否被宿主重启过）。

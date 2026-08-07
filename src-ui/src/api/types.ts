@@ -1606,6 +1606,15 @@ export interface WbNote {
   summaryColumn?: string
   tags?: string
   mastery?: number
+  /** SRS 排程：下次复习时间（ISO 字符串）；从未复习过时为 1970 纪元默认值 */
+  dueDate?: string
+  easeFactor?: number
+  repetitions?: number
+  intervalDay?: number
+  lapseCount?: number
+  /** 已复习次数；为 0 表示这条笔记还没进过复习队列（列表页据此区分「新笔记」与「需复习」） */
+  reviewCount?: number
+  lastReviewedAt?: string
   createTime?: string
   updateTime?: string
 }

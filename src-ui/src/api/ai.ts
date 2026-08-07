@@ -193,6 +193,47 @@ export function generateFlashcards(payload: { title?: string; noteColumn: string
   return apiPost<FlashcardsResult>('/ai/note/flashcards', payload, { timeout: AI_TIMEOUT })
 }
 
+// ============================ 康奈尔笔记 · AI 自测题（连通复习系统） ============================
+
+export type QuizItemType = 'choice' | 'fill'
+
+export interface QuizItem {
+  type: QuizItemType
+  /** 题干；填空题用 ___ 表示空位 */
+  question: string
+  /** 单选题的 4 个选项；填空题为空数组 */
+  options: string[]
+  /** 单选题为选项字母（A/B/C/D），填空题为应填内容 */
+  answer: string
+  explain: string
+}
+
+export interface NoteQuizResult {
+  quiz: QuizItem[]
+  /** 同一批题目转成的复习卡正反面，便于直接预览 */
+  cards: Flashcard[]
+  /** 实际写入 wb_review_card 的条数（autoSave 为 false 时恒为 0） */
+  created: number
+  model: string
+  latencyMs: number
+}
+
+/**
+ * 生成结构化自测题。
+ * 传 `autoSave: true` 时服务端直接入库并把 next_review_time 置为当前时间，
+ * 题目立刻出现在复习队列里；否则只返回题目不落库（与 generateFlashcards 行为一致）。
+ */
+export function generateNoteQuiz(payload: {
+  title?: string
+  noteColumn: string
+  count?: number
+  noteId?: number
+  categoryId?: number
+  autoSave?: boolean
+}) {
+  return apiPost<NoteQuizResult>('/ai/note/flashcards', payload, { timeout: AI_TIMEOUT })
+}
+
 // ============================ P2-A3：收集箱 → 起草笔记 ============================
 
 export interface DraftNoteResult {

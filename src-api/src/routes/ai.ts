@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
-import { db, CURRENT_USER } from '../db';
+import { db, CURRENT_USER, nowIso } from '../db';
 import { categories, wbCapture, wbNote, wbReviewCard, wbReviewLog, wbStory, wbEmbedding, wbRecallSession } from '../db/schema';
 import { eq, and, gte, sql } from 'drizzle-orm';
 
@@ -24,11 +24,11 @@ import {
   buildCaptureSummarizePrompt,
   buildDraftNotePrompt,
   buildDraftStoryPrompt,
-  buildFlashcardsPrompt,
   buildInsightReportPrompt,
   buildNoteGeneratePrompt,
   buildPalaceLociPrompt,
   buildPalaceLociImageHintPrompt,
+  buildQuizPrompt,
   buildRecallAdvicePrompt,
   buildRecallScorePrompt,
   buildReviewRecommendPrompt,
@@ -38,11 +38,11 @@ import {
   type CaptureSummarizeOutput,
   type DraftNoteOutput,
   type DraftStoryOutput,
-  type FlashcardsOutput,
   type InsightReportOutput,
   type NoteGenerateOutput,
   type PalaceLociOutput,
   type PalaceLociImageHintOutput,
+  type QuizOutput,
   type RecallAdviceOutput,
   type RecallScoreOutput,
   type ReviewRecommendOutput,
@@ -93,6 +93,76 @@ function normalizeList(v: unknown, max = 5): string[] {
       .slice(0, max);
   }
   return [];
+}
+
+// ===== 康奈尔笔记 · AI 自测题：清洗与卡面转换 =====
+
+const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+/** 清洗后的题目结构（对前端与建卡逻辑的唯一契约） */
+interface QuizItem {
+  type: 'choice' | 'fill';
+  question: string;
+  /** 填空题为空数组 */
+  options: string[];
+  /** 单选题为选项字母（A/B/C…），填空题为应填内容 */
+  answer: string;
+  explain: string;
+}
+
+/**
+ * 把模型输出收敛成可判分的题目数组。
+ * 模型常见的三种不规范：answer 写成选项原文、type 缺失、options 少于 2 项，这里逐一兜底。
+ */
+function normalizeQuiz(v: unknown, max = 8): QuizItem[] {
+  if (!Array.isArray(v)) return [];
+  const out: QuizItem[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== 'object') continue;
+    const o = raw as Record<string, unknown>;
+    const question = String(o.question ?? '').trim();
+    let answer = String(o.answer ?? '').trim();
+    if (!question || !answer) continue;
+
+    const opts = Array.isArray(o.options)
+      ? (o.options as unknown[]).map((x) => String(x ?? '').trim()).filter(Boolean)
+      : [];
+    const declaredChoice = String(o.type ?? '').toLowerCase() === 'choice';
+    const type: 'choice' | 'fill' = declaredChoice || opts.length >= 2 ? 'choice' : 'fill';
+    if (type === 'choice' && opts.length < 2) continue;
+
+    const options = type === 'choice' ? opts.slice(0, CHOICE_LETTERS.length) : [];
+    if (type === 'choice') {
+      // answer 可能是 "B" / "B. xxx" / 选项原文，统一收敛成字母
+      const letter = /^\s*([A-Fa-f])\b/.exec(answer)?.[1]?.toUpperCase();
+      let idx = letter ? CHOICE_LETTERS.indexOf(letter) : -1;
+      if (idx < 0 || idx >= options.length) {
+        idx = options.findIndex((op) => op === answer || answer.includes(op));
+      }
+      if (idx < 0) idx = 0;
+      answer = CHOICE_LETTERS[idx];
+    }
+
+    out.push({ type, question, options, answer, explain: String(o.explain ?? '').trim() });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/**
+ * 题目 → 复习卡正反面。
+ * 单选题把选项一并写进正面，答案页给「字母 + 原文 + 解析」，
+ * 这样卡片脱离原笔记也能独立作答，符合 wb_review_card 的纯文本卡面约定。
+ */
+function quizToCard(q: QuizItem): { front: string; back: string } {
+  if (q.type === 'choice') {
+    const front = [q.question, ...q.options.map((op, i) => `${CHOICE_LETTERS[i]}. ${op}`)].join('\n');
+    const idx = CHOICE_LETTERS.indexOf(q.answer);
+    const text = idx >= 0 && idx < q.options.length ? q.options[idx] : '';
+    const back = [`正确答案：${q.answer}${text ? `. ${text}` : ''}`, q.explain].filter(Boolean).join('\n');
+    return { front, back };
+  }
+  return { front: q.question, back: [q.answer, q.explain].filter(Boolean).join('\n') };
 }
 
 /** 规则法字面命中分：与 routes/recall.ts 的 scoreRecall 保持同一算法，作为 AI 的对照锚点。 */
@@ -398,27 +468,64 @@ export default async function (app: FastifyInstance) {
   // ===== P2-B4/C1：批量生成间隔重复卡片 =====
 
   /**
-   * 由笔记/收集箱内容生成一组 Q/A 复习卡。仅返回卡片，由前端逐张走 POST /reviews 创建，
-   * 绝不改动 SM-2 排程或既有卡片。
+   * 由笔记/收集箱内容生成一组自测题（单选 + 填空）。
+   *
+   * 两种用法，靠 autoSave 区分，互不影响：
+   * - autoSave 缺省（旧契约，「AI 生成复习卡」按钮）：只返回 { cards }，
+   *   由前端预览后逐张走 POST /api/workbench/reviews 创建；
+   * - autoSave = true（新契约，「生成自测题」按钮）：题目直接写入 wb_review_card，
+   *   next_review_time 置为当前时间，立刻进入复习队列；同时仍返回 cards 供前端预览。
+   *
+   * 落库选的是 wb_review_card（旧复习系统）——它本来就有 noteId 外键与 front/back 卡面，
+   * 兼容性最好；新复习系统（wb_note 内嵌 SM-2）按笔记粒度排程，不适合装一题一卡。
    */
   app.post('/note/flashcards', async (req, reply) => {
-    const b = (req.body || {}) as { title?: string; noteColumn?: string; count?: number };
+    const b = (req.body || {}) as {
+      title?: string;
+      noteColumn?: string;
+      count?: number;
+      noteId?: number;
+      categoryId?: number;
+      autoSave?: boolean;
+    };
     const note = stripHtml(b.noteColumn);
     if (!note || note.length < 30) {
       return reply.code(400).send({ code: 400, message: '内容太短（至少 30 字），先写充实一点', aiCode: 'AI_BAD_INPUT' });
     }
     try {
-      const { data, raw } = await chatJson<FlashcardsOutput>(
-        buildFlashcardsPrompt({ title: b.title, noteColumn: note, count: b.count }),
+      const { data, raw } = await chatJson<QuizOutput>(
+        buildQuizPrompt({ title: b.title, noteColumn: note, count: b.count }),
         { temperature: 0.3 },
       );
-      const cards = Array.isArray(data.cards)
-        ? data.cards
-            .filter((c: any) => c && String(c.front || '').trim() && String(c.back || '').trim())
-            .map((c: any) => ({ front: String(c.front).trim(), back: String(c.back).trim() }))
-            .slice(0, 8)
-        : [];
-      return { cards, model: raw.model, latencyMs: raw.latencyMs };
+      const quiz = normalizeQuiz(data.quiz);
+      if (!quiz.length) {
+        return reply
+          .code(502)
+          .send({ code: 502, message: 'AI 没有产出可用题目，请重试或换个模型', aiCode: 'AI_BAD_RESPONSE' });
+      }
+      const cards = quiz.map(quizToCard);
+
+      let created = 0;
+      if (b.autoSave) {
+        const now = nowIso();
+        quiz.forEach((q, i) => {
+          db.insert(wbReviewCard)
+            .values({
+              userId: CURRENT_USER,
+              noteId: b.noteId ?? null,
+              categoryId: b.categoryId ?? null,
+              front: cards[i].front,
+              back: cards[i].back,
+              cardType: q.type,
+              // 立即到期：生成完就能在复习模块作答，不用等 SM-2 首轮排程
+              nextReviewTime: now,
+            })
+            .run();
+          created += 1;
+        });
+      }
+
+      return { quiz, cards, created, model: raw.model, latencyMs: raw.latencyMs };
     } catch (e) {
       return fail(reply, e);
     }
