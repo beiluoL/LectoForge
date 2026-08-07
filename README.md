@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 87 个端点（含 AI 21 个） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 93 个端点（含 AI 21 个） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -24,10 +24,10 @@
 ```
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle）
-│   ├── src/routes/  # 10 张表对应 87 个端点（学习工作台 43 + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1）+ SM-2 + 遗忘曲线
+│   ├── src/routes/  # 10 张表对应 93 个端点（学习工作台 43 + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2）+ SM-2 + 遗忘曲线
 │   ├── src/services/sm2.ts  # SM-2 算法（与 Web 端逐位一致）
 │   └── src/db/      # schema + 建表 + WAL
-├── src-ui/          # Vue 3 前端（14 个业务视图 / 16 条路由：总览/收集箱/笔记/笔记编辑/复习/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图）；已引入 Pinia 4 状态管理 + lucide-vue-next 图标体系
+├── src-ui/          # Vue 3 前端（17 个业务视图 / 19 条路由：总览/收集箱/笔记/笔记编辑/复习/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习）；已引入 Pinia 4 状态管理 + lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本
@@ -89,16 +89,30 @@ npm run tauri build
 
 > 两模块的前后端接口、关键技术取舍详见《技术架构与功能手册.md》§7.10 / §7.11。
 
+## v1.1.0 新增能力（本次更新）
+
+在原有四模块闭环 + 文档库 + 思维导图之上，本次更新补齐了**稳定性基建**与**四个体验型功能**：
+
+- **侧车自愈重启（Rust 宿主）**：`SidecarManager` 在独立线程监控 Node 侧车，异常退出后**无限退避重启**（2s 起翻倍、封顶 30s），应用退出时 `SIGTERM→SIGKILL` 回收，杜绝僵尸后端堆积。
+- **前端断线重连**：网络抖动 / 侧车重启期间，连接状态机自动探测、用公共 `replayRequest` 重放进行中的请求，并弹出毛玻璃「重新连接」遮罩，恢复后无感续接。
+- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析出可写目录 `~/Library/Application Support/com.knowflow.desktop/`，以 `KNOWFLOW_DATA_DIR` 环境变量 + `--data-dir` 注入侧车，数据库/配置/日志全部落在可写区，绝不写进只读的 `.app` 包。
+- **间隔复习系统 `/review`**（新）：基于 SM-2 的卡片复习，SRS 列下沉到 `wb_note` / `wb_palace_loci` 源表，首屏「待复习」直达此页。
+- **命令面板 `⌘K`**：跨收集箱 / 笔记 / 故事三表的全局模糊搜索，回车直达对应条目。
+- **首页动态化**：总览页双数据源（`/api/workbench/overview` 供 6 指标看板、`/api/dashboard/stats` 供「学习闭环四步」气泡 + 今日聚焦四卡）。
+- **新手引导与设置中心**：首次启动走 `/onboarding` 引导（含 AI Key 配置），`/settings` 可改主题、重跑引导、选择数据目录。
+
+> 详细接口、表结构、启动链路见《技术架构与功能手册.md》 §4.4 / §6.6 / §7.12–§7.15 / §9.4。
+
 ## 原生能力（Tauri，macOS）
 
-桌面壳 `src-tauri/src/lib.rs` 在白屏壳基础上增加了三项原生能力，**业务代码零改动**：
+桌面壳 `src-tauri/src/lib.rs` 在白屏壳基础上增加了四项原生能力，**业务代码零改动**：
 
 ### 1. 原生菜单
 macOS 标准菜单栏：
 - **KnowFlow**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 退出
 - **视图**：重新加载页面（等效 `location.reload()`）
 
-「去学习复习」与点击复习提醒通知都会向渲染进程发 `navigate` 事件，前端 `App.vue` 监听后 `router.push('/reviews')`。
+「去学习复习」与点击复习提醒通知都会向渲染进程发 `navigate` 事件，前端监听后 `router.push('/review')`（间隔复习页）。
 
 ### 2. 复习提醒通知（后台轮询）
 - 后台独立线程每 **30 分钟** 轮询后端 `GET /api/workbench/reviews/due-count`。
@@ -127,9 +141,15 @@ npx tauri signer generate
 #    "endpoints": ["https://github.com/<你>/<仓库>/releases/latest/download/latest.json"]
 ```
 
+### 4. 侧车自愈重启与数据目录注入（v1.1.0）
+
+- **自愈重启**：`SidecarManager` 在独立线程阻塞 `child.wait()`，侧车异常退出后按 2s→30s 退避无限重启；存活满 30s 自动重置退避；退出码 0（含孤儿自检）不重启。应用退出时 `shutdown()` 发 `SIGTERM`、2s 未退则 `SIGKILL`。
+- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析 `~/Library/Application Support/com.knowflow.desktop/`，以 `KNOWFLOW_DATA_DIR` 环境变量 + `--data-dir` 注入侧车；同时 `cwd` 设为数据目录，防止任何库按相对路径落盘到只读 `.app`。
+- 连接遮罩上的「重启服务」按钮调用 `restart_sidecar` 命令，对当前 pid 发 `SIGTERM`，由监控线程接管自愈。
+
 ## 已知说明
 
-- 端口默认 `8787`（开发）并仅绑定 `127.0.0.1`；生产由 Rust 宿主 `pick_free_port` 动态探测空闲端口后传给侧车，Tauri 单实例锁避免重复启动。
+- 生产由 Rust 宿主协商端口后传给侧车，**宿主模式下端口恒定不漂移**（已加载页面的断线重连依赖恒定 origin）；独立开发模式 `npm run dev:api` 才保留 +1 漂移，仅绑 `127.0.0.1`。Tauri 单实例锁避免重复启动。
 - macOS 分发需 Apple Developer ID 签名 + 公证（`notarytool`），否则 Gatekeeper 拦截；本仓库未包含证书。
 - Mac App Store 暂不推荐（本地 SQLite + 文件访问受沙箱限制）。
 
