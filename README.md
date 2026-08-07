@@ -27,7 +27,7 @@ desktopApp/
 │   ├── src/routes/  # 10 张表对应 106 个端点（学习工作台 53 [含 收集箱 /api/inbox 10 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve）+ SM-2 + 遗忘曲线
 │   ├── src/services/sm2.ts  # SM-2 算法（与 Web 端逐位一致）
 │   └── src/db/      # schema + 建表 + WAL
-├── src-ui/          # Vue 3 前端（17 个业务视图 / 20 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习；旧 /workbench/capture 已重定向到 /inbox）；已引入 Pinia 4 状态管理 + lucide-vue-next 图标体系
+├── src-ui/          # Vue 3 前端（18 个业务视图 / 22 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理 + lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本

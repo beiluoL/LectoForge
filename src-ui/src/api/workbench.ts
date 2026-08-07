@@ -11,6 +11,7 @@ import type {
   WbReviewCardPayload,
   WbReviewGradePayload,
   WbReviewGradeResult,
+  WbReviewDueCount,
   WbPalace,
   WbPalacePayload,
   WbPalaceLoci,
@@ -90,6 +91,14 @@ export function gradeReview(id: number, payload: WbReviewGradePayload) {
 }
 export function toggleReviewSuspend(id: number) {
   return apiPut<void>(`/workbench/reviews/${id}/suspend`)
+}
+/**
+ * 旧系统（wb_review_card）待复习计数。
+ * 复习驾驶舱用它区分「传统卡组」与「SM-2 自动排期」两条队列的待办量，
+ * 后端端点早已存在（原供桌面端通知调度轮询），此处只是复用，无需改后端。
+ */
+export function getReviewDueCount() {
+  return apiGet<WbReviewDueCount>('/workbench/reviews/due-count')
 }
 
 // ============================ 模块三扩展：记忆宫殿 ============================

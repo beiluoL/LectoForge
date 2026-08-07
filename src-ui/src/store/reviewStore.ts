@@ -1,17 +1,25 @@
 /**
- * useReviewStore —— 间隔重复闪卡复习会话状态。
+ * useReviewStore —— 复习模块统一状态（闪卡会话 + 复习驾驶舱看板）。
  *
- * 设计：单次复习会话（session）内的状态，不持久化（下次进入重新拉取）。
- * queue 是一份「待复习快照」，每评完一张就 splice 掉当前卡，currentIndex 指向队列头部，
- * 这样「移除当前卡 + 跳到下一张」天然统一（下一张会滑落到 index 0）。
+ * 2026-08-07 架构收敛后本 store 承担两类职责，刻意合并在一起以共用热力图/遗忘曲线缓存：
+ *
+ * 1) 闪卡会话（/review）：
+ *    queue 是一份「待复习快照」，每评完一张就 splice 掉当前卡，currentIndex 恒指向队列头部，
+ *    这样「移除当前卡 + 跳到下一张」天然统一（下一张会滑落到 index 0）。会话状态不持久化。
+ *
+ * 2) 复习驾驶舱（/workbench/review）：
+ *    heatmap / forgettingCurve / legacyDueCount 三份看板数据，由 loadDashboard() 并行拉取。
+ *    新系统待复习数直接复用 useDashboardStore().stats.dueReviews（同源 SQLite，不重复请求）。
  *
  * 组件用法：
  * ```ts
  * import { storeToRefs } from 'pinia'
  * import { useReviewStore } from '@/store/reviewStore'
  * const store = useReviewStore()
- * const { queue, current, isLoading, isFinished, cardSide, stats, totalCount } = storeToRefs(store)
+ * const { queue, current, isLoading, cardSide, stats, totalCount } = storeToRefs(store)
  * store.loadQueue(); store.flipCard(); store.submitRating('good'); store.restartSession()
+ * // 驾驶舱侧
+ * store.loadDashboard()
  * ```
  */
 import { defineStore } from 'pinia';
@@ -28,9 +36,12 @@ import {
   type ReviewHeatmapResult,
   type ReviewForgettingCurveResult,
 } from '@/api/review';
+import { getReviewDueCount } from '@/api/workbench';
 import { notify, getApiError } from '@/utils/toast';
 
 export const useReviewStore = defineStore('review', () => {
+  /* ==================== 一、闪卡会话状态 ==================== */
+
   /** 待复习卡片队列（后端已按紧急度裁剪，最多 20 张） */
   const queue = ref<ReviewCard[]>([]);
   /** 当前卡片在队列中的索引（始终指向队列头，评完即 splice 移除） */
@@ -54,27 +65,42 @@ export const useReviewStore = defineStore('review', () => {
     totalCount.value > 0 ? Math.round((processedCount.value / totalCount.value) * 100) : 0,
   );
 
-  /** 热力图数据（底部展示用） */
+  /* ==================== 二、驾驶舱看板状态 ==================== */
+
+  /** 热力图数据（驾驶舱顶部展示用） */
   const heatmap = ref<ReviewHeatmapResult | null>(null);
   const heatmapLoading = ref(false);
-  /** 遗忘曲线数据（底部折叠面板用） */
+  /** 遗忘曲线数据（驾驶舱折叠面板用） */
   const forgettingCurve = ref<ReviewForgettingCurveResult | null>(null);
   const curveLoading = ref(false);
   const curveDays = ref(30);
+  /** 旧系统（wb_review_card 传统卡组）待复习张数，驾驶舱摘要标签用 */
+  const legacyDueCount = ref(0);
+  const legacyDueLoading = ref(false);
+
+  /* ==================== 三、闪卡会话 actions ==================== */
+
+  /** 清空会话状态（不发请求）：路由在驾驶舱 ↔ 闪卡之间来回切时防止读到上一轮残留 */
+  function resetSession(): void {
+    queue.value = [];
+    currentIndex.value = 0;
+    cardSide.value = 'front';
+    totalCount.value = 0;
+    isFinished.value = false;
+    stats.reviewed = 0;
+    stats.hard = stats.good = stats.easy = stats.perfect = 0;
+    stats.snoozed = 0;
+  }
 
   /** 拉取待复习卡片，重置会话状态 */
   async function loadQueue(): Promise<void> {
     isLoading.value = true;
+    resetSession();
     try {
       const list = await getDueReviews();
       queue.value = Array.isArray(list) ? list : [];
       totalCount.value = queue.value.length;
-      currentIndex.value = 0;
-      cardSide.value = 'front';
       isFinished.value = queue.value.length === 0;
-      stats.reviewed = 0;
-      stats.hard = stats.good = stats.easy = stats.perfect = 0;
-      stats.snoozed = 0;
     } catch (e) {
       notify(getApiError(e, '加载待复习卡片失败'), 'error');
       queue.value = [];
@@ -125,6 +151,13 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
+  /** 重新开始：清空并重新拉取 */
+  async function restartSession(): Promise<void> {
+    await loadQueue();
+  }
+
+  /* ==================== 四、驾驶舱看板 actions ==================== */
+
   /** 加载复习热力图（默认近 30 天） */
   async function loadHeatmap(days = 30): Promise<void> {
     heatmapLoading.value = true;
@@ -151,12 +184,29 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
-  /** 重新开始：清空并重新拉取 */
-  async function restartSession(): Promise<void> {
-    await loadQueue();
+  /** 加载旧系统待复习数；失败静默降级为 0，不打断驾驶舱渲染 */
+  async function loadLegacyDueCount(): Promise<void> {
+    legacyDueLoading.value = true;
+    try {
+      const res = await getReviewDueCount();
+      legacyDueCount.value = res?.count ?? 0;
+    } catch {
+      legacyDueCount.value = 0;
+    } finally {
+      legacyDueLoading.value = false;
+    }
+  }
+
+  /**
+   * 驾驶舱首屏聚合加载：热力图由 ReviewHeatmap 组件自行按格子数请求，
+   * 这里只补齐「旧系统计数」，遗忘曲线留给折叠面板懒加载（省一次请求）。
+   */
+  async function loadDashboard(): Promise<void> {
+    await loadLegacyDueCount();
   }
 
   return {
+    // 闪卡会话
     queue,
     currentIndex,
     isLoading,
@@ -167,17 +217,23 @@ export const useReviewStore = defineStore('review', () => {
     current,
     processedCount,
     progressPct,
+    resetSession,
+    loadQueue,
+    flipCard,
+    submitRating,
+    snoozeCard,
+    restartSession,
+    // 驾驶舱看板
     heatmap,
     heatmapLoading,
     forgettingCurve,
     curveLoading,
     curveDays,
-    loadQueue,
-    flipCard,
-    submitRating,
-    snoozeCard,
+    legacyDueCount,
+    legacyDueLoading,
     loadHeatmap,
     loadForgettingCurve,
-    restartSession,
+    loadLegacyDueCount,
+    loadDashboard,
   };
 });

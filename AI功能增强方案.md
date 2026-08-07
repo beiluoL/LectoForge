@@ -147,7 +147,7 @@
 > Prompt 模板集中在 `src-api/src/lib/prompts.ts`（**882 行，15 组** `buildXxxPrompt`，如 `buildStoryClarityPrompt` / `buildRecallScorePrompt` / `buildMindMapPrompt`），各组配套 TS 输出类型，前后端类型闭环。
 
 ### 3.5 前端接入（Pinia + lucide + AI 按钮）
-- 路由 19 条（17 个业务视图）含 `/onboarding`、`/settings`、`/settings/ai`、`/insights/ai`；`main.ts` 已 `createPinia()` + `pinia-plugin-persistedstate`。
+- 路由 22 条（18 个业务视图）含 `/onboarding`、`/settings`、`/settings/ai`、`/insights/ai`；`main.ts` 已 `createPinia()` + `pinia-plugin-persistedstate`。
 - `Icon.vue` 重构为 **lucide-vue-next 包装器**，新代码统一用 lucide 图标名（如 `sparkles`/`brain`）。
 - 各 view 工具栏「✨ AI 生成」按钮：loading → 填充对应字段 → 用户可编辑后随既有自动保存落库（AI 建议、人终校）。
 - `AiAssociatePanel`（右侧）承载 `/embeddings/sync` + `/associate` 的内容关联；`AiInsights.vue` 承载周报/诊断/推荐。

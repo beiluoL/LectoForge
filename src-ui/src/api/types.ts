@@ -1658,6 +1658,18 @@ export interface WbReviewGradeResult {
   lapsed: boolean
 }
 
+/**
+ * 旧复习系统（wb_review_card）待复习计数。
+ * 复习驾驶舱用它渲染「待复习（传统卡组）：N 张」摘要标签，
+ * 与新系统（notes + loci 的 SM-2 到期数，取自 dashboard.dueReviews）并列展示。
+ */
+export interface WbReviewDueCount {
+  /** 到期且未暂停的卡片总数 */
+  count: number
+  /** 前 3 张卡片的正面文案，可用于提示预览 */
+  sample: string[]
+}
+
 /** 记忆宫殿（知识复习扩展） */
 export interface WbPalace {
   id: number

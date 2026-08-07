@@ -1,11 +1,19 @@
 <template>
-  <!-- 间隔重复闪卡复习主页：进度看板 + 飞出动效卡牌 + 键盘盲操打分 + 挂起 + 全屏专注 + 热力图/遗忘曲线 -->
+  <!-- 间隔复习「闪卡专注模式」（/review、/review/flashcard）：
+       2026-08-07 架构收敛后本页只做刷卡一件事——进度条 + 卡型徽章 + 3D 翻转飞出 + 挂起 + 全屏专注 + 键盘盲操。
+       热力图与遗忘趋势已上移到复习驾驶舱（/workbench/review），此处不再重复展示，避免刷题时被数据分心。 -->
   <div class="rv-wrap" :class="{ 'is-immersive': isImmersive }">
-    <!-- 顶部：标题 / 进度 / 全屏 / 退出 -->
+    <!-- 顶部：返回 / 标题 / 卡型 / 进度 / 全屏 / 退出（视觉与复习驾驶舱对齐） -->
     <header class="rv-top">
       <div class="rv-title">
-        <Icon name="repeat" :size="18" style="color: var(--kb-primary)" />
+        <!-- 返回驾驶舱：沉浸模式下隐藏，保持画面干净 -->
+        <button v-if="!isImmersive" class="rv-back" title="返回复习中心" @click="backToCockpit">
+          <Icon name="arrow-left" :size="16" />
+        </button>
+        <Icon name="brain" :size="18" style="color: var(--kb-primary)" />
         间隔复习
+        <!-- 当前卡型徽章：与卡面右上角同源，方便沉浸模式下扫一眼就知道难度 -->
+        <span v-if="currentBadge" class="rv-type" :class="currentBadge.cls">{{ currentBadge.text }}</span>
       </div>
 
       <!-- 沉浸模式下隐藏进度条，只留卡片 -->
@@ -110,99 +118,13 @@
           <button class="kb-btn" @click="restart">
             <Icon name="rotate-ccw" :size="15" /> 重新开始
           </button>
-          <button class="kb-btn kb-btn-primary" @click="exit">
-            <Icon name="arrow-right" :size="15" /> 返回工作台
+          <!-- 结束后回驾驶舱看热力图/遗忘曲线，形成「刷完 → 看战绩」的闭环 -->
+          <button class="kb-btn kb-btn-primary" @click="backToCockpit">
+            <Icon name="gauge" :size="15" /> 查看复习战绩
           </button>
         </div>
       </div>
     </main>
-
-    <!-- ===== 底部统计区（沉浸模式下隐藏） ===== -->
-    <section v-if="!isImmersive" class="rv-bottom">
-      <ReviewHeatmap />
-
-      <!-- 遗忘曲线折叠面板 -->
-      <div class="rv-panel">
-        <button class="rv-panel-head" @click="toggleCurve">
-          <span class="rv-panel-title">
-            <Icon name="trending-down" :size="15" />
-            📊 近 {{ curveDays }} 天遗忘趋势
-          </span>
-          <span class="rv-panel-meta">
-            <template v-if="forgettingCurve">
-              复习 {{ forgettingCurve.totalReviews }} 次 · 遗忘率
-              {{ (forgettingCurve.overallLapseRate * 100).toFixed(1) }}%
-            </template>
-            <Icon :name="curveOpen ? 'chevron-up' : 'chevron-down'" :size="16" />
-          </span>
-        </button>
-
-        <div v-if="curveOpen" class="rv-panel-body">
-          <div class="rv-curve-toolbar">
-            <div class="rv-range">
-              <button
-                v-for="d in [14, 30, 90]"
-                :key="d"
-                class="rv-range-btn"
-                :class="{ 'is-active': curveDays === d }"
-                @click="switchCurveDays(d)"
-              >{{ d }}天</button>
-            </div>
-            <div v-if="forgettingCurve" class="rv-legend">
-              <span class="rv-legend-item"><span class="rv-legend-bar"></span>每日复习量</span>
-              <span class="rv-legend-item"><span class="rv-legend-line"></span>遗忘率</span>
-            </div>
-          </div>
-
-          <div v-if="curveLoading" class="rv-curve-state">
-            <Icon name="loader" :size="20" class="rv-spin" />
-          </div>
-          <div v-else-if="!forgettingCurve || forgettingCurve.points.length === 0" class="rv-curve-state">
-            <Icon name="bar-chart-2" :size="28" style="opacity: 0.4" />
-            <p>暂无复习记录，完成复习后这里会呈现记忆巩固趋势</p>
-          </div>
-          <svg v-else :viewBox="`0 0 ${SVG_W} ${SVG_H}`" class="rv-curve-svg">
-            <line
-              v-for="g in yTicks"
-              :key="'g' + g.label"
-              :x1="PAD_L" :y1="g.y" :x2="SVG_W - PAD_R" :y2="g.y"
-              stroke="var(--kb-border)" stroke-width="1" stroke-dasharray="3 4"
-            />
-            <text
-              v-for="g in yTicks"
-              :key="'gt' + g.label"
-              :x="PAD_L - 8" :y="g.y + 4" text-anchor="end"
-              font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)"
-            >{{ g.label }}</text>
-
-            <rect
-              v-for="(p, i) in chartPoints"
-              :key="'b' + i"
-              :x="p.x - p.barW / 2" :y="p.barY" :width="p.barW" :height="p.barH"
-              rx="2" fill="var(--kb-primary)" fill-opacity="0.28"
-            />
-
-            <polyline
-              :points="chartPoints.map((p) => `${p.x},${p.lineY}`).join(' ')"
-              fill="none" stroke="var(--kb-destructive)" stroke-width="2.5" stroke-linejoin="round"
-            />
-            <circle
-              v-for="(p, i) in chartPoints"
-              :key="'c' + i"
-              :cx="p.x" :cy="p.lineY" r="3" fill="var(--kb-destructive)"
-            />
-
-            <text
-              v-for="(p, i) in chartPoints"
-              :key="'x' + i"
-              v-show="i % xLabelStep === 0"
-              :x="p.x" :y="SVG_H - 8" text-anchor="middle"
-              font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)"
-            >{{ p.dateLabel }}</text>
-          </svg>
-        </div>
-      </div>
-    </section>
 
     <!-- 屏幕中央反馈浮层：飞出瞬间弹出，500ms 后淡出 -->
     <Teleport to="body">
@@ -221,7 +143,6 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { onKeyStroke } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
-import ReviewHeatmap from '@/components/ReviewHeatmap.vue';
 import FlashCard from './FlashCard.vue';
 import { useReviewStore } from '@/store/reviewStore';
 import type { ReviewCard, ReviewRating } from '@/api/review';
@@ -236,10 +157,16 @@ const {
   stats,
   processedCount,
   progressPct,
-  forgettingCurve,
-  curveLoading,
-  curveDays,
 } = storeToRefs(store);
+
+/** 顶栏卡型徽章：与 FlashCard 内的判定口径保持一致（易忘 > 新卡 > 复习卡） */
+const currentBadge = computed(() => {
+  const c = current.value;
+  if (!c) return null;
+  if (c.lapseCount > 2) return { text: '⚠️ 易忘卡', cls: 'rv-type--risk' };
+  if (c.repetitions === 0) return { text: '💡 新卡', cls: 'rv-type--new' };
+  return { text: '🔄 复习卡', cls: 'rv-type--review' };
+});
 
 /* ============ 飞出动画编排 ============
  * 点评分 → 立即播放飞出动画 + 弹反馈浮层；动画结束（flyEnd）才真正调接口 + splice。
@@ -360,67 +287,28 @@ async function toggleFullscreen() {
   }
 }
 
-/* ============ 遗忘曲线折叠面板 ============ */
-const curveOpen = ref(false);
-const SVG_W = 720;
-const SVG_H = 220;
-const PAD_L = 36;
-const PAD_R = 16;
-const PAD_T = 16;
-const PAD_B = 28;
-
-const chartPoints = computed(() => {
-  const c = forgettingCurve.value;
-  if (!c) return [];
-  const pts = c.points;
-  const n = pts.length;
-  if (n === 0) return [];
-  const innerW = SVG_W - PAD_L - PAD_R;
-  const innerH = SVG_H - PAD_T - PAD_B;
-  const maxReviews = Math.max(1, ...pts.map((p) => p.reviews));
-  const barW = Math.max(2, Math.min(14, innerW / n - 2));
-  return pts.map((p, i) => {
-    const x = PAD_L + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
-    const barH = (p.reviews / maxReviews) * innerH;
-    return {
-      x,
-      barY: PAD_T + innerH - barH,
-      barH,
-      barW,
-      lineY: PAD_T + innerH - p.lapseRate * innerH,
-      dateLabel: p.date.slice(5),
-    };
-  });
-});
-const yTicks = [
-  { y: PAD_T, label: '0%' },
-  { y: PAD_T + (SVG_H - PAD_T - PAD_B) * 0.25, label: '25%' },
-  { y: PAD_T + (SVG_H - PAD_T - PAD_B) * 0.5, label: '50%' },
-  { y: PAD_T + (SVG_H - PAD_T - PAD_B) * 0.75, label: '75%' },
-  { y: SVG_H - PAD_B, label: '100%' },
-];
-const xLabelStep = computed(() =>
-  Math.max(1, Math.ceil((forgettingCurve.value?.points.length || 1) / 10)),
-);
-
-function toggleCurve() {
-  curveOpen.value = !curveOpen.value;
-  if (curveOpen.value && !forgettingCurve.value) void store.loadForgettingCurve();
-}
-function switchCurveDays(d: number) {
-  store.curveDays = d;
-  void store.loadForgettingCurve(d);
-}
-
 /* ============ 生命周期 ============ */
+/** 退出全屏（若在）后再跳转，避免留在全屏态导致目标页顶栏被 body 类名藏起来 */
+async function leaveTo(path: string) {
+  if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+  document.body.classList.remove(IMMERSIVE_CLASS);
+  isImmersive.value = false;
+  router.push(path);
+}
 function exit() {
-  router.push('/workbench');
+  void leaveTo('/workbench');
+}
+/** 返回复习驾驶舱：热力图与遗忘曲线都在那边 */
+function backToCockpit() {
+  void leaveTo('/workbench/review');
 }
 function restart() {
   void store.restartSession();
 }
 
 onMounted(() => {
+  // 每次进入都重新拉队列（loadQueue 内部已先 resetSession），
+  // 保证从驾驶舱 ↔ 传统卡组来回切换时不会读到上一轮残留进度。
   void store.loadQueue();
   document.addEventListener('fullscreenchange', syncImmersive);
 });
@@ -472,6 +360,52 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: var(--kb-foreground);
   white-space: nowrap;
+}
+/* 返回复习驾驶舱按钮（与顶栏/结束页返回按钮视觉对齐） */
+.rv-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.rv-back:hover {
+  color: var(--kb-primary);
+  border-color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 8%, var(--kb-card));
+}
+/* 当前卡型徽章：与卡面右上角同源（易忘 > 新卡 > 复习卡），统一用 --kb-* 语义色收敛，禁止硬编码 */
+.rv-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.rv-type--new {
+  color: var(--kb-accent);
+  border-color: color-mix(in srgb, var(--kb-accent) 35%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-accent) 10%, var(--kb-card));
+}
+.rv-type--review {
+  color: var(--kb-primary);
+  border-color: color-mix(in srgb, var(--kb-primary) 35%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-primary) 10%, var(--kb-card));
+}
+.rv-type--risk {
+  color: var(--kb-destructive);
+  border-color: color-mix(in srgb, var(--kb-destructive) 35%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-destructive) 10%, var(--kb-card));
 }
 .rv-progress {
   flex: 1;
@@ -691,124 +625,6 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 10px;
   margin-top: 16px;
-}
-
-/* ===== 底部统计区 ===== */
-.rv-bottom {
-  margin-top: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.rv-panel {
-  border-radius: var(--kb-radius-md);
-  background: var(--kb-card);
-  border: 1px solid var(--kb-border);
-  overflow: hidden;
-}
-.rv-panel-head {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 13px 18px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--kb-foreground);
-  text-align: left;
-}
-.rv-panel-head:hover {
-  background: var(--kb-muted);
-}
-.rv-panel-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 700;
-}
-.rv-panel-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--kb-muted-foreground);
-}
-.rv-panel-body {
-  padding: 4px 18px 18px;
-  border-top: 1px solid var(--kb-border);
-}
-.rv-curve-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 14px 0;
-  flex-wrap: wrap;
-}
-.rv-range {
-  display: inline-flex;
-  gap: 4px;
-  padding: 3px;
-  border-radius: var(--kb-radius-sm);
-  background: var(--kb-background);
-  border: 1px solid var(--kb-border);
-}
-.rv-range-btn {
-  padding: 5px 12px;
-  border-radius: var(--kb-radius-sm);
-  background: transparent;
-  border: none;
-  color: var(--kb-muted-foreground);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.rv-range-btn.is-active {
-  background: var(--kb-primary);
-  color: var(--kb-primary-foreground, #fff);
-  font-weight: 600;
-}
-.rv-legend {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 11px;
-  color: var(--kb-muted-foreground);
-}
-.rv-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.rv-legend-bar {
-  width: 12px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--kb-primary);
-  opacity: 0.28;
-}
-.rv-legend-line {
-  width: 14px;
-  height: 2px;
-  background: var(--kb-destructive);
-}
-.rv-curve-svg {
-  width: 100%;
-  height: auto;
-}
-.rv-curve-state {
-  height: 170px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--kb-muted-foreground);
 }
 
 @media (max-width: 640px) {

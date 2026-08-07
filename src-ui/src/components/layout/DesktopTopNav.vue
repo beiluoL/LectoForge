@@ -23,11 +23,11 @@
         :key="it.path"
         :to="it.path"
         class="flex items-center gap-2 transition-colors"
-        :class="isActive(it.path) ? '' : 'hover:opacity-80'"
+        :class="isActive(it) ? '' : 'hover:opacity-80'"
         :style="{
-          color: isActive(it.path) ? 'var(--kb-primary)' : 'var(--kb-muted-foreground)',
+          color: isActive(it) ? 'var(--kb-primary)' : 'var(--kb-muted-foreground)',
           fontSize: 'var(--kb-nav-text-fs)',
-          fontWeight: isActive(it.path) ? 600 : 'var(--kb-nav-text-fw)',
+          fontWeight: isActive(it) ? 600 : 'var(--kb-nav-text-fw)',
         }"
       >
         <Icon :name="it.icon" size="md" />
@@ -133,26 +133,29 @@ onMounted(async () => {
   }
 });
 
-const navItems = [
+type NavItem = { path: string; label: string; icon: string; match?: string[] };
+const navItems: NavItem[] = [
   { path: '/workbench', label: '工作台', icon: 'brain' },
   { path: '/inbox', label: '收集箱', icon: 'inbox' },
   { path: '/workbench/notes', label: '笔记', icon: 'notebook-pen' },
   { path: '/library', label: '文档库', icon: 'library' },
-  { path: '/workbench/review', label: '复习', icon: 'repeat' },
-  { path: '/review', label: '间隔复习', icon: 'rotate-cw' },
+  // 复习模块 2026-08-07 收敛后，新旧两套复习系统（/workbench/review 驾驶舱 + /review 闪卡）统一归属「复习」菜单，
+  // match 让处在 /review、/review/flashcard 闪卡页时顶栏「复习」也保持高亮。
+  { path: '/workbench/review', label: '复习', icon: 'repeat', match: ['/workbench/review', '/review'] },
   { path: '/workbench/palace', label: '记忆宫殿', icon: 'map-pin' },
   { path: '/workbench/recall', label: '主动回忆', icon: 'edit-2' },
   { path: '/workbench/story', label: '费曼故事', icon: 'wand-2' },
   { path: '/mindmap', label: '思维导图', icon: 'list-tree' },
 ];
 
-function isActive(path: string) {
-  if (path === '/workbench') return route.path === '/workbench';
-  return route.path.startsWith(path);
+function isActive(item: NavItem) {
+  if (item.path === '/workbench') return route.path === '/workbench';
+  const prefixes = item.match ?? [item.path];
+  return prefixes.some((p) => route.path.startsWith(p));
 }
 
 const currentLabel = computed(
-  () => navItems.find((it) => isActive(it.path))?.label ?? '工作台',
+  () => navItems.find((it) => isActive(it))?.label ?? '工作台',
 );
 
 async function checkUpdate() {

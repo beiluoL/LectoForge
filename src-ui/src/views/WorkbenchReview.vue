@@ -1,4 +1,8 @@
 <template>
+  <!-- 复习驾驶舱（/workbench/review）：复习模块唯一总入口。
+       2026-08-07 架构收敛：顶栏「间隔复习」项已删除，新旧两套复习系统统一从这里分流——
+       上半屏是「看数据」（双系统待办摘要 + 热力图 + 遗忘曲线），下半屏是「去刷题」（双入口卡片）。
+       热力图与遗忘曲线直接复用新系统的 /api/reviews/heatmap 与 /api/reviews/forgetting-curve，后端零改动。 -->
   <div class="wb-page animate-fade-in" :style="{ '--mc': themeColor }">
     <!-- ============ Module Hero ============ -->
     <section class="wb-hero">
@@ -11,17 +15,44 @@
           <div class="wb-hero-text">
             <span class="wb-eyebrow">
               <span class="wb-eyebrow-dot"></span>
-              Step 03 · 复习 · Spaced Repetition
+              Step 03 · 复习 · Review Cockpit
             </span>
             <h1 class="wb-title">
               <Icon name="repeat" :size="28" class="wb-title-icon" />
-              知识复习 · 间隔重复
+              复习中心
             </h1>
             <p class="wb-subtitle">
               基于 <strong>SM-2 遗忘曲线</strong>自动排程，按反馈动态拉长复习间隔。
-              记忆宫殿用空间锚定让抽象知识具象、牢固。
+              两条队列并行：自动排期负责「系统推给你」，自定义卡组负责「你自己安排」。
             </p>
+
+            <!-- 双系统待复习摘要标签 -->
+            <div class="rc-summary">
+              <button
+                class="rc-pill rc-pill--smart"
+                :title="'点击进入间隔复习闪卡'"
+                @click="goFlashcard"
+              >
+                <Icon name="zap" :size="13" />
+                今日待复习（自动排期）
+                <b>{{ smartDue }}</b> 张
+              </button>
+              <button
+                class="rc-pill rc-pill--legacy"
+                :title="'点击进入传统卡组'"
+                @click="goLegacy()"
+              >
+                <Icon name="wallet-cards" :size="13" />
+                待复习（传统卡组）
+                <b>{{ legacyDueCount }}</b> 张
+              </button>
+              <span v-if="totalDue === 0" class="rc-pill rc-pill--calm">
+                <Icon name="check-circle" :size="13" />
+                今日任务已清空，去沉淀新知识吧
+              </span>
+            </div>
           </div>
+
           <div class="wb-hero-actions">
             <router-link to="/workbench/recall" class="kb-btn wb-ghost-btn">
               <Icon name="edit-2" :size="14" /> 主动回忆
@@ -29,15 +60,21 @@
             <router-link to="/workbench/palace" class="kb-btn wb-ghost-btn">
               <Icon name="map-pin" :size="14" /> 记忆宫殿
             </router-link>
-            <button class="kb-btn kb-btn-primary wb-cta" @click="startReview">
-              <Icon name="play" :size="14" /> 开始抽查
+            <button class="kb-btn kb-btn-primary wb-cta" @click="goFlashcard">
+              <Icon name="play" :size="14" /> 开始今日复习
             </button>
           </div>
         </div>
 
         <!-- 闭环导航条 -->
         <nav class="wb-loop-nav" aria-label="学习闭环">
-          <router-link v-for="s in loopSteps" :key="s.key" :to="s.path" class="wb-loop-step" :class="{ 'is-current': s.key === 'review' }">
+          <router-link
+            v-for="s in loopSteps"
+            :key="s.key"
+            :to="s.path"
+            class="wb-loop-step"
+            :class="{ 'is-current': s.key === 'review' }"
+          >
             <span class="wb-loop-num">{{ s.num }}</span>
             <span class="wb-loop-name">{{ s.name }}</span>
           </router-link>
@@ -45,241 +82,194 @@
       </div>
     </section>
 
-    <!-- ============ 遗忘曲线可视化 ============ -->
+    <!-- ============ 数据区：热力图 + 遗忘曲线 ============ -->
     <section>
       <h2 class="wb-section-title">
-        <Icon name="trending-down" :size="18" style="color: var(--mc);" />
-        遗忘曲线
-        <span class="wb-section-hint">近 {{ curveDays }} 天复习 {{ curve?.totalReviews || 0 }} 次 · 遗忘率 {{ ((curve?.overallLapseRate || 0) * 100).toFixed(1) }}%</span>
+        <Icon name="gauge" :size="18" style="color: var(--mc);" />
+        记忆健康度
+        <span class="wb-section-hint">
+          全局复习行为统计 · 覆盖笔记与记忆宫殿两类卡源
+        </span>
       </h2>
-      <div class="wb-curve-card">
-        <div class="wb-curve-toolbar">
-          <div class="wb-curve-range">
-            <button
-              v-for="d in [14, 30, 90]"
-              :key="d"
-              class="wb-range-btn"
-              :class="{ 'is-active': curveDays === d }"
-              @click="curveDays = d; loadCurve()"
-            >{{ d }}天</button>
-          </div>
-          <div v-if="curve" class="wb-curve-legend">
-            <span class="wb-legend-item">
-              <span class="wb-legend-bar"></span>每日复习量
+
+      <div class="rc-stats">
+        <!-- 复习热力图（从原 /review 页面迁移而来，组件本身零改动） -->
+        <ReviewHeatmap />
+
+        <!-- 遗忘曲线折叠面板（懒加载：展开时才请求） -->
+        <div class="rc-panel">
+          <button class="rc-panel-head" @click="toggleCurve">
+            <span class="rc-panel-title">
+              <Icon name="trending-down" :size="15" />
+              近 {{ curveDays }} 天遗忘趋势
             </span>
-            <span class="wb-legend-item">
-              <span class="wb-legend-line"></span>遗忘率
+            <span class="rc-panel-meta">
+              <template v-if="forgettingCurve">
+                复习 {{ forgettingCurve.totalReviews }} 次 · 遗忘率
+                {{ (forgettingCurve.overallLapseRate * 100).toFixed(1) }}%
+              </template>
+              <template v-else>展开查看记忆巩固走势</template>
+              <Icon :name="curveOpen ? 'chevron-up' : 'chevron-down'" :size="16" />
             </span>
+          </button>
+
+          <div v-if="curveOpen" class="rc-panel-body">
+            <div class="rc-curve-toolbar">
+              <div class="rc-range">
+                <button
+                  v-for="d in CURVE_RANGES"
+                  :key="d"
+                  class="rc-range-btn"
+                  :class="{ 'is-active': curveDays === d }"
+                  @click="switchCurveDays(d)"
+                >{{ d }}天</button>
+              </div>
+              <div v-if="forgettingCurve" class="rc-legend">
+                <span class="rc-legend-item"><span class="rc-legend-bar"></span>每日复习量</span>
+                <span class="rc-legend-item"><span class="rc-legend-line"></span>遗忘率</span>
+              </div>
+            </div>
+
+            <div v-if="curveLoading" class="rc-curve-state">
+              <Icon name="loader" :size="20" class="rc-spin" />
+            </div>
+            <div v-else-if="!forgettingCurve || forgettingCurve.points.length === 0" class="rc-curve-state">
+              <Icon name="bar-chart-2" :size="28" style="opacity: 0.4;" />
+              <p>暂无复习记录，完成复习后这里会呈现记忆巩固趋势</p>
+            </div>
+            <svg v-else :viewBox="`0 0 ${SVG_W} ${SVG_H}`" class="rc-curve-svg">
+              <line
+                v-for="g in yTicks"
+                :key="'g' + g.label"
+                :x1="PAD_L" :y1="g.y" :x2="SVG_W - PAD_R" :y2="g.y"
+                stroke="var(--kb-border)" stroke-width="1" stroke-dasharray="3 4"
+              />
+              <text
+                v-for="g in yTicks"
+                :key="'gt' + g.label"
+                :x="PAD_L - 8" :y="g.y + 4" text-anchor="end"
+                font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)"
+              >{{ g.label }}</text>
+
+              <rect
+                v-for="(p, i) in chartPoints"
+                :key="'b' + i"
+                :x="p.x - p.barW / 2" :y="p.barY" :width="p.barW" :height="p.barH"
+                rx="2" fill="var(--mc)" fill-opacity="0.28"
+              />
+
+              <polyline
+                :points="chartPoints.map((p) => `${p.x},${p.lineY}`).join(' ')"
+                fill="none" stroke="var(--kb-destructive)" stroke-width="2.5" stroke-linejoin="round"
+              />
+              <circle
+                v-for="(p, i) in chartPoints"
+                :key="'c' + i"
+                :cx="p.x" :cy="p.lineY" r="3" fill="var(--kb-destructive)"
+              />
+
+              <text
+                v-for="(p, i) in chartPoints"
+                :key="'x' + i"
+                v-show="i % xLabelStep === 0"
+                :x="p.x" :y="SVG_H - 8" text-anchor="middle"
+                font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)"
+              >{{ p.dateLabel }}</text>
+            </svg>
           </div>
         </div>
-
-        <div v-if="curveLoading" class="wb-curve-loading">
-          <Icon name="repeat" :size="22" class="animate-spin" style="color: var(--kb-muted-foreground);" />
-        </div>
-        <div v-else-if="!curve || curve.points.length === 0" class="wb-curve-empty">
-          <Icon name="bar-chart-2" :size="32" style="color: var(--kb-muted-foreground); opacity: 0.4;" />
-          <p>暂无复习记录，开始复习后这里会呈现记忆巩固趋势</p>
-        </div>
-        <template v-else>
-          <svg :viewBox="`0 0 ${svgW} ${svgH}`" class="wb-curve-svg">
-            <line v-for="g in yTicks" :key="'g' + g" :x1="padL" :y1="g.y" :x2="svgW - padR" :y2="g.y"
-                  stroke="var(--kb-border)" stroke-width="1" stroke-dasharray="3 4" />
-            <text v-for="g in yTicks" :key="'gt' + g" :x="padL - 8" :y="g.y + 4" text-anchor="end"
-                  font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)">{{ g.label }}</text>
-
-            <rect v-for="(p, i) in chartPoints" :key="'b' + i" :x="p.x - p.barW / 2" :y="p.barY"
-                  :width="p.barW" :height="p.barH" rx="2" fill="var(--mc)" fill-opacity="0.28" />
-
-            <polyline :points="chartPoints.map((p) => `${p.x},${p.lineY}`).join(' ')"
-                      fill="none" stroke="var(--kb-destructive)" stroke-width="2.5" stroke-linejoin="round" />
-            <circle v-for="(p, i) in chartPoints" :key="'c' + i" :cx="p.x" :cy="p.lineY" r="3" fill="var(--kb-destructive)" />
-
-            <text v-for="(p, i) in chartPoints" :key="'x' + i" v-show="i % xLabelStep === 0" :x="p.x" :y="svgH - 8"
-                  text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)">{{ p.dateLabel }}</text>
-          </svg>
-        </template>
       </div>
     </section>
 
-    <!-- ============ 抽卡区 ============ -->
-    <section v-if="active">
+    <!-- ============ 入口区：两个大尺寸复习入口卡片 ============ -->
+    <section>
       <h2 class="wb-section-title">
         <Icon name="layers" :size="18" style="color: var(--mc);" />
-        抽查进行中
-        <span class="wb-section-hint">第 {{ index + 1 }} / {{ queue.length }} 张</span>
+        选择复习方式
+        <span class="wb-section-hint">两条队列互不干扰，可以随时切换</span>
       </h2>
-      <div class="wb-quiz-card">
-        <button class="wb-quiz-close" title="暂停" @click="active = false">
-          <Icon name="pause" :size="14" />
-        </button>
 
-        <div
-          class="wb-quiz-face"
-          :class="{ 'is-revealed': revealed }"
-          @click="revealed = !revealed"
-        >
-          <div v-if="!revealed" class="wb-quiz-front">
-            <span class="wb-quiz-label">问题</span>
-            <p class="wb-quiz-text">{{ current.front }}</p>
-            <span class="wb-quiz-hint"><Icon name="eye" :size="14" /> 点击查看答案</span>
-          </div>
-          <div v-else class="wb-quiz-back">
-            <span class="wb-quiz-label wb-quiz-label-back">答案</span>
-            <p class="wb-quiz-text">{{ current.back }}</p>
-          </div>
-        </div>
-
-        <div v-if="revealed" class="wb-quiz-grade">
-          <p class="wb-quiz-grade-title">你记得多少？反馈以调整下次间隔</p>
-          <div class="wb-quiz-grade-grid">
-            <button class="wb-grade-btn" :style="qStyle(0)" @click="grade(0)">
-              <Icon name="x-circle" :size="16" />
-              <span class="wb-grade-label">忘了</span>
-              <span class="wb-grade-hint">重置</span>
-            </button>
-            <button class="wb-grade-btn" :style="qStyle(1)" @click="grade(1)">
-              <Icon name="thumbs-down" :size="16" />
-              <span class="wb-grade-label">困难</span>
-              <span class="wb-grade-hint">+1d</span>
-            </button>
-            <button class="wb-grade-btn" :style="qStyle(2)" @click="grade(2)">
-              <Icon name="thumbs-up" :size="16" />
-              <span class="wb-grade-label">一般</span>
-              <span class="wb-grade-hint">×2.5</span>
-            </button>
-            <button class="wb-grade-btn" :style="qStyle(3)" @click="grade(3)">
-              <Icon name="check-circle" :size="16" />
-              <span class="wb-grade-label">容易</span>
-              <span class="wb-grade-hint">×4</span>
-            </button>
-          </div>
-          <p v-if="lastResult" class="wb-quiz-result">
-            <Icon name="calendar-check" :size="14" />
-            下次复习：{{ lastResult.intervalDay }} 天后
-            <span v-if="lastResult.lapsed" class="wb-quiz-lapsed">（本次遗忘，间隔已重置）</span>
+      <div class="rc-entries">
+        <!-- 卡片 1：SM-2 自动排期（核心） -->
+        <article class="rc-entry rc-entry--smart" @click="goFlashcard">
+          <span class="rc-entry-glow" aria-hidden="true"></span>
+          <header class="rc-entry-head">
+            <span class="rc-entry-icon"><Icon name="brain" :size="26" /></span>
+            <span class="rc-entry-badge">推荐</span>
+          </header>
+          <h3 class="rc-entry-title">🧠 间隔复习 · SM-2 自动排期</h3>
+          <p class="rc-entry-desc">
+            由你的康奈尔笔记和记忆宫殿自动生成的卡片，根据遗忘曲线智能推送。
           </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ 空队列提示 ============ -->
-    <section v-else-if="!loading && queue.length === 0" class="wb-empty">
-      <div class="wb-empty-icon"><Icon name="calendar-check" :size="40" /></div>
-      <h3 class="wb-empty-title">暂无待复习卡片</h3>
-      <p class="wb-empty-desc">新建复习卡，或把笔记转为卡片，让记忆开始流动。</p>
-      <button class="kb-btn kb-btn-primary" @click="showCreate = true">
-        <Icon name="plus" :size="14" /> 新建复习卡
-      </button>
-    </section>
-
-    <!-- ============ 卡片管理列表 ============ -->
-    <section>
-      <div class="wb-list-head">
-        <h2 class="wb-section-title" style="margin: 0;">
-          <Icon name="layers" :size="18" style="color: var(--mc);" />
-          全部复习卡
-          <span class="wb-section-hint">{{ cards.length }} 张</span>
-        </h2>
-        <button class="kb-btn kb-btn-primary" @click="showCreate = true">
-          <Icon name="plus" :size="14" /> 新建
-        </button>
-      </div>
-
-      <div v-if="cards.length === 0" class="wb-empty wb-empty-sm">
-        <Icon name="layers" :size="28" style="color: var(--kb-muted-foreground);" />
-        <p class="wb-empty-desc" style="margin: 0;">还没有复习卡片</p>
-      </div>
-      <div v-else class="wb-card-rows">
-        <div v-for="c in cards" :key="c.id" class="wb-card-row">
-          <div class="wb-card-row-body">
-            <p class="wb-card-row-front">{{ c.front }}</p>
-            <div class="wb-card-row-meta">
-              <span class="wb-chip wb-chip-mono">间隔 {{ c.intervalDay }}d</span>
-              <span class="wb-chip wb-chip-mono">难度 {{ c.easeFactorDecimal?.toFixed(2) }}</span>
-              <span class="wb-chip wb-chip-muted">{{ c.nextReviewHint }}</span>
-              <span v-if="c.suspended" class="wb-chip wb-chip-warn">已暂停</span>
-            </div>
-          </div>
-          <div class="wb-card-row-actions">
-            <button class="wb-icon-btn" :title="c.suspended ? '恢复' : '暂停'" @click="suspend(c)">
-              <Icon :name="c.suspended ? 'play' : 'pause'" :size="14" />
+          <ul class="rc-entry-feats">
+            <li><Icon name="check" :size="13" /> 3D 翻转卡 + 键盘盲操打分</li>
+            <li><Icon name="check" :size="13" /> 新卡 / 复习卡 / 易忘卡自动分型</li>
+            <li><Icon name="check" :size="13" /> 全屏专注沉浸背书</li>
+          </ul>
+          <footer class="rc-entry-foot">
+            <span class="rc-entry-count">
+              待复习 <b>{{ smartDue }}</b> 张
+            </span>
+            <button class="kb-btn kb-btn-primary rc-entry-btn" @click.stop="goFlashcard">
+              🚀 开始刷题
             </button>
-            <button class="wb-icon-btn" title="删除" @click="remove(c)">
-              <Icon name="trash-2" :size="14" />
+          </footer>
+        </article>
+
+        <!-- 卡片 2：传统自定义卡组 -->
+        <article class="rc-entry rc-entry--legacy" @click="goLegacy()">
+          <span class="rc-entry-glow" aria-hidden="true"></span>
+          <header class="rc-entry-head">
+            <span class="rc-entry-icon"><Icon name="wallet-cards" :size="26" /></span>
+          </header>
+          <h3 class="rc-entry-title">🗂️ 传统复习 · 自定义卡组</h3>
+          <p class="rc-entry-desc">
+            手动创建或从笔记中摘录的卡片，独立于自动排期。
+          </p>
+          <ul class="rc-entry-feats">
+            <li><Icon name="check" :size="13" /> 自建正反面，节奏自己掌控</li>
+            <li><Icon name="check" :size="13" /> 支持暂停 / 恢复单张卡片</li>
+            <li><Icon name="check" :size="13" /> 忘了 / 困难 / 一般 / 容易四档</li>
+          </ul>
+          <footer class="rc-entry-foot">
+            <span class="rc-entry-count">
+              待复习 <b>{{ legacyDueCount }}</b> 张
+            </span>
+            <button class="kb-btn rc-entry-btn rc-entry-btn--ghost" @click.stop="goLegacy(true)">
+              📖 开始复习
             </button>
-          </div>
-        </div>
+          </footer>
+        </article>
       </div>
     </section>
-
-    <!-- ============ 新建复习卡 Drawer ============ -->
-    <div v-if="showCreate" class="wb-drawer-mask" @click.self="showCreate = false">
-      <div class="wb-drawer">
-        <header class="wb-drawer-head">
-          <div>
-            <span class="wb-eyebrow wb-eyebrow-sm">New Card</span>
-            <h2 class="wb-drawer-title">新建复习卡</h2>
-          </div>
-          <button class="wb-icon-btn" @click="showCreate = false"><Icon name="x" :size="18" /></button>
-        </header>
-        <div class="wb-drawer-body">
-          <div class="wb-field">
-            <label class="wb-label">正面（问题/线索）<span class="wb-req">*</span></label>
-            <textarea v-model="cardForm.front" class="kb-input" rows="3" placeholder="问题…"></textarea>
-          </div>
-          <div class="wb-field">
-            <label class="wb-label">背面（答案）<span class="wb-req">*</span></label>
-            <textarea v-model="cardForm.back" class="kb-input" rows="3" placeholder="答案…"></textarea>
-          </div>
-          <div class="wb-field">
-            <label class="wb-label">类型</label>
-            <select v-model="cardForm.cardType" class="kb-input">
-              <option value="BASIC">问答</option>
-              <option value="CLOZE">挖空</option>
-              <option value="RECALL">主动回忆</option>
-            </select>
-          </div>
-        </div>
-        <footer class="wb-drawer-foot">
-          <button class="kb-btn" @click="showCreate = false">取消</button>
-          <button class="kb-btn kb-btn-primary" @click="saveCard">
-            <Icon name="check" :size="14" /> 保存
-          </button>
-        </footer>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+// 复习驾驶舱：只做「看板 + 分流」，不承载任何刷卡交互。
+// 刷卡分别下沉到 /review（新 SM-2 闪卡）与 /workbench/review/card-list（旧传统卡组）。
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import Icon from '@/components/ui/Icon.vue'
-import { notify, confirmDialog, getApiError } from '@/utils/toast'
+import ReviewHeatmap from '@/components/ReviewHeatmap.vue'
+import { useReviewStore } from '@/store/reviewStore'
+import { useDashboardStore } from '@/store/dashboardStore'
 import './workbench-shared.css'
-import {
-  listReviews,
-  drawReviews,
-  createReview,
-  deleteReview,
-  gradeReview,
-  toggleReviewSuspend,
-  getForgettingCurve,
-} from '@/api/workbench'
-import type { WbReviewCardVO, WbReviewGradeResult, WbForgettingCurve } from '@/api/types'
 
-const route = useRoute()
-const themeColor = '#F59E0B'
+const router = useRouter()
 
-const cards = ref<WbReviewCardVO[]>([])
-const queue = ref<WbReviewCardVO[]>([])
-const loading = ref(true)
-const active = ref(false)
-const index = ref(0)
-const revealed = ref(false)
-const lastResult = ref<WbReviewGradeResult | null>(null)
-const showCreate = ref(false)
-const cardForm = reactive({ front: '', back: '', cardType: 'BASIC' })
+/** 模块主题色：复习模块统一用高光色，不硬编码 hex */
+const themeColor = 'var(--kb-highlight)'
+
+const reviewStore = useReviewStore()
+const { forgettingCurve, curveLoading, curveDays, legacyDueCount } = storeToRefs(reviewStore)
+
+// 新系统（notes + loci 的 SM-2 到期数）复用首页聚合统计，避免重复请求
+const dashboardStore = useDashboardStore()
+const { stats: dashboardStats } = storeToRefs(dashboardStore)
+const smartDue = computed(() => dashboardStats.value.dueReviews)
+const totalDue = computed(() => smartDue.value + legacyDueCount.value)
 
 const loopSteps = [
   { key: 'input', num: '01', name: '输入', path: '/inbox' },
@@ -288,159 +278,119 @@ const loopSteps = [
   { key: 'output', num: '04', name: '输出', path: '/workbench/story' },
 ]
 
-const curve = ref<WbForgettingCurve | null>(null)
-const curveLoading = ref(false)
-const curveDays = ref(30)
-const svgW = 720
-const svgH = 220
-const padL = 36
-const padR = 16
-const padT = 16
-const padB = 28
-
-const current = ref<WbReviewCardVO>({} as WbReviewCardVO)
-
-async function load() {
-  loading.value = true
-  try {
-    cards.value = await listReviews({})
-  } catch (e) {
-    notify(getApiError(e, '加载失败'), 'error')
-  } finally {
-    loading.value = false
-  }
+/* ============ 入口分流 ============ */
+/** 进入新系统闪卡专注模式；每次进入前清空上一轮会话残留 */
+function goFlashcard() {
+  reviewStore.resetSession()
+  router.push('/review')
+}
+/** 进入旧系统传统卡组；autostart 时直接开抽查 */
+function goLegacy(autostart = false) {
+  router.push(autostart ? '/workbench/review/card-list?autostart=1' : '/workbench/review/card-list')
 }
 
+/* ============ 遗忘曲线折叠面板 ============ */
+const CURVE_RANGES = [14, 30, 90]
+const curveOpen = ref(false)
+const SVG_W = 720
+const SVG_H = 220
+const PAD_L = 36
+const PAD_R = 16
+const PAD_T = 16
+const PAD_B = 28
+
 const chartPoints = computed(() => {
-  if (!curve.value) return []
-  const pts = curve.value.points
+  const c = forgettingCurve.value
+  if (!c) return []
+  const pts = c.points
   const n = pts.length
-  const innerW = svgW - padL - padR
-  const innerH = svgH - padT - padB
+  if (n === 0) return []
+  const innerW = SVG_W - PAD_L - PAD_R
+  const innerH = SVG_H - PAD_T - PAD_B
   const maxReviews = Math.max(1, ...pts.map((p) => p.reviews))
   const barW = Math.max(2, Math.min(14, innerW / n - 2))
   return pts.map((p, i) => {
-    const x = padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1))
+    const x = PAD_L + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1))
     const barH = (p.reviews / maxReviews) * innerH
-    const lineY = padT + innerH - p.lapseRate * innerH
-    const dateLabel = p.date.slice(5)
-    return { x, barY: padT + innerH - barH, barH, barW, lineY, dateLabel, rate: p.lapseRate }
+    return {
+      x,
+      barY: PAD_T + innerH - barH,
+      barH,
+      barW,
+      lineY: PAD_T + innerH - p.lapseRate * innerH,
+      dateLabel: p.date.slice(5),
+    }
   })
 })
 const yTicks = [
-  { y: padT, label: '0%' },
-  { y: padT + (svgH - padT - padB) * 0.25, label: '25%' },
-  { y: padT + (svgH - padT - padB) * 0.5, label: '50%' },
-  { y: padT + (svgH - padT - padB) * 0.75, label: '75%' },
-  { y: svgH - padB, label: '100%' },
+  { y: PAD_T, label: '0%' },
+  { y: PAD_T + (SVG_H - PAD_T - PAD_B) * 0.25, label: '25%' },
+  { y: PAD_T + (SVG_H - PAD_T - PAD_B) * 0.5, label: '50%' },
+  { y: PAD_T + (SVG_H - PAD_T - PAD_B) * 0.75, label: '75%' },
+  { y: SVG_H - PAD_B, label: '100%' },
 ]
-const xLabelStep = computed(() => Math.max(1, Math.ceil((curve.value?.points.length || 1) / 10)))
+const xLabelStep = computed(() =>
+  Math.max(1, Math.ceil((forgettingCurve.value?.points.length || 1) / 10)),
+)
 
-async function loadCurve() {
-  curveLoading.value = true
-  try {
-    curve.value = await getForgettingCurve(curveDays.value)
-  } catch (e) {
-    notify(getApiError(e, '加载遗忘曲线失败'), 'error')
-  } finally {
-    curveLoading.value = false
-  }
+function toggleCurve() {
+  curveOpen.value = !curveOpen.value
+  if (curveOpen.value && !forgettingCurve.value) void reviewStore.loadForgettingCurve()
 }
-
-async function startReview() {
-  lastResult.value = null
-  try {
-    const noteId = route.query.noteId ? Number(route.query.noteId) : undefined
-    const data = await drawReviews(20)
-    queue.value = noteId ? data.filter((d) => d.noteId === noteId) : data
-    if (queue.value.length === 0) {
-      notify('暂时没有到期的卡片', 'info')
-      return
-    }
-    index.value = 0
-    revealed.value = false
-    current.value = queue.value[0]
-    active.value = true
-  } catch (e) {
-    notify(getApiError(e, '开始失败'), 'error')
-  }
-}
-
-async function grade(quality: number) {
-  try {
-    const res = await gradeReview(current.value.id, { quality })
-    lastResult.value = res
-    Object.assign(current.value, {
-      intervalDay: res.intervalDay,
-      easeFactorDecimal: res.easeFactor,
-      suspended: 0,
-    })
-    await load()
-    setTimeout(() => {
-      if (index.value + 1 < queue.value.length) {
-        index.value += 1
-        current.value = queue.value[index.value]
-        revealed.value = false
-      } else {
-        active.value = false
-        notify('本轮复习完成！', 'success')
-      }
-    }, 900)
-  } catch (e) {
-    notify(getApiError(e, '评分失败'), 'error')
-  }
-}
-
-async function suspend(c: WbReviewCardVO) {
-  try {
-    await toggleReviewSuspend(c.id)
-    load()
-  } catch (e) {
-    notify(getApiError(e, '操作失败'), 'error')
-  }
-}
-async function remove(c: WbReviewCardVO) {
-  const ok = await confirmDialog('确认删除该复习卡？')
-  if (!ok) return
-  try {
-    await deleteReview(c.id)
-    notify('已删除', 'success')
-    load()
-  } catch (e) {
-    notify(getApiError(e, '删除失败'), 'error')
-  }
-}
-async function saveCard() {
-  if (!cardForm.front.trim() || !cardForm.back.trim()) {
-    notify('正反面均不能为空', 'warning')
-    return
-  }
-  const noteId = route.query.noteId ? Number(route.query.noteId) : undefined
-  try {
-    await createReview({ ...cardForm, noteId: noteId as number | undefined })
-    notify('已添加，进入今日队列', 'success')
-    showCreate.value = false
-    Object.assign(cardForm, { front: '', back: '', cardType: 'BASIC' })
-    load()
-  } catch (e) {
-    notify(getApiError(e, '保存失败'), 'error')
-  }
-}
-
-function qStyle(q: number) {
-  const colors = ['#EF4444', '#F59E0B', '#3B6FE0', '#10B981']
-  return { background: `color-mix(in srgb, ${colors[q]} 12%, transparent)`, color: colors[q], border: `1px solid color-mix(in srgb, ${colors[q]} 35%, transparent)` }
+function switchCurveDays(d: number) {
+  reviewStore.curveDays = d
+  void reviewStore.loadForgettingCurve(d)
 }
 
 onMounted(() => {
-  load()
-  loadCurve()
-  if (route.query.front) cardForm.front = String(route.query.front)
-  if (route.query.back) cardForm.back = String(route.query.back)
+  // 两条队列的待办数并行拉取：新系统走 dashboard 聚合，旧系统走 due-count
+  void dashboardStore.fetchStats()
+  void reviewStore.loadDashboard()
 })
 </script>
 
 <style scoped>
+/* ===== Hero 内的双系统摘要标签 ===== */
+.rc-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.rc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  color: var(--kb-muted-foreground);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.rc-pill:hover {
+  transform: translateY(-1px);
+}
+.rc-pill b {
+  color: var(--kb-foreground);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+.rc-pill--smart:hover { border-color: var(--kb-primary); color: var(--kb-primary); }
+.rc-pill--smart b { color: var(--kb-primary); }
+.rc-pill--legacy:hover { border-color: var(--kb-warning); color: var(--kb-warning); }
+.rc-pill--legacy b { color: var(--kb-warning); }
+.rc-pill--calm {
+  cursor: default;
+  color: var(--kb-accent);
+  border-color: color-mix(in srgb, var(--kb-accent) 35%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-accent) 8%, var(--kb-card));
+}
+.rc-pill--calm:hover { transform: none; }
+
 .wb-hero-actions {
   display: flex;
   align-items: center;
@@ -454,22 +404,59 @@ onMounted(() => {
 }
 .wb-ghost-btn:hover { border-color: var(--mc); color: var(--mc); }
 
-/* ===== Curve Card ===== */
-.wb-curve-card {
-  padding: 18px;
+/* ===== 数据区 ===== */
+.rc-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rc-panel {
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
+  overflow: hidden;
 }
-.wb-curve-toolbar {
+.rc-panel-head {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  padding: 13px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--kb-foreground);
+  text-align: left;
+}
+.rc-panel-head:hover { background: var(--kb-muted); }
+.rc-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.rc-panel-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+}
+.rc-panel-body {
+  padding: 4px 18px 18px;
+  border-top: 1px solid var(--kb-border);
+}
+.rc-curve-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0;
   flex-wrap: wrap;
 }
-.wb-curve-range {
+.rc-range {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
@@ -477,248 +464,200 @@ onMounted(() => {
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
 }
-.wb-range-btn {
+.rc-range-btn {
   padding: 5px 12px;
   border-radius: var(--kb-radius-sm);
   background: transparent;
+  border: none;
   color: var(--kb-muted-foreground);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.wb-range-btn.is-active {
+.rc-range-btn.is-active {
   background: var(--mc);
-  color: #fff;
+  color: var(--kb-primary-foreground, #fff);
   font-weight: 600;
 }
-.wb-curve-legend {
+.rc-legend {
   display: flex;
   align-items: center;
   gap: 14px;
   font-size: 11px;
   color: var(--kb-muted-foreground);
 }
-.wb-legend-item {
+.rc-legend-item {
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
-.wb-legend-bar {
-  width: 12px; height: 10px;
+.rc-legend-bar {
+  width: 12px;
+  height: 10px;
   border-radius: 2px;
   background: var(--mc);
   opacity: 0.28;
 }
-.wb-legend-line {
-  width: 14px; height: 2px;
+.rc-legend-line {
+  width: 14px;
+  height: 2px;
   background: var(--kb-destructive);
 }
-.wb-curve-svg {
+.rc-curve-svg {
   width: 100%;
   height: auto;
 }
-.wb-curve-loading, .wb-curve-empty {
-  height: 180px;
+.rc-curve-state {
+  height: 170px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--kb-muted-foreground);
   font-size: 13px;
-}
-
-/* ===== Quiz Card ===== */
-.wb-quiz-card {
-  position: relative;
-  padding: 24px;
-  border-radius: var(--kb-radius-md);
-  background: var(--kb-card);
-  border: 1px solid var(--kb-border);
-  box-shadow: var(--shadow-card);
-}
-.wb-quiz-close {
-  position: absolute;
-  top: 16px; right: 16px;
-  width: 30px; height: 30px;
-  border-radius: var(--kb-radius-sm);
-  background: transparent;
   color: var(--kb-muted-foreground);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
 }
-.wb-quiz-close:hover { background: var(--kb-muted); color: var(--kb-foreground); }
-.wb-quiz-face {
-  min-height: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 28px 20px;
-  border-radius: var(--kb-radius-md);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--mc) 5%, var(--kb-background)), var(--kb-background));
-  border: 1px dashed var(--kb-border);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.wb-quiz-face:hover { border-color: var(--mc); }
-.wb-quiz-face.is-revealed {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--kb-accent) 6%, var(--kb-background)), var(--kb-background));
-  border-color: var(--kb-accent);
-  border-style: solid;
-}
-.wb-quiz-front, .wb-quiz-back {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-.wb-quiz-label {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--mc) 14%, transparent);
+.rc-spin {
+  animation: rc-rotate 0.9s linear infinite;
   color: var(--mc);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
 }
-.wb-quiz-label-back {
-  background: color-mix(in srgb, var(--kb-accent) 14%, transparent);
-  color: var(--kb-accent);
+@keyframes rc-rotate {
+  to { transform: rotate(360deg); }
 }
-.wb-quiz-text {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--kb-foreground);
-  line-height: 1.5;
-  margin: 0;
-  max-width: 560px;
-}
-.wb-quiz-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--kb-muted-foreground);
-}
-.wb-quiz-grade {
-  margin-top: 18px;
-  text-align: center;
-}
-.wb-quiz-grade-title {
-  font-size: 13px;
-  color: var(--kb-muted-foreground);
-  margin: 0 0 12px;
-}
-.wb-quiz-grade-grid {
+
+/* ===== 入口卡片 ===== */
+.rc-entries {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
-.wb-grade-btn {
+.rc-entry {
+  --ec: var(--kb-primary);
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 12px 8px;
-  border-radius: var(--kb-radius-md);
+  gap: 10px;
+  padding: 24px 26px 22px;
+  border-radius: var(--kb-radius-lg);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--ec) 7%, var(--kb-card)), var(--kb-card) 62%);
+  border: 1px solid color-mix(in srgb, var(--ec) 22%, var(--kb-border));
+  box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: all 0.15s ease;
+  overflow: hidden;
+  /* hover 缩放 + 阴影加深，提升点击欲望 */
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.wb-grade-btn:hover { transform: translateY(-2px); filter: brightness(0.96); }
-.wb-grade-label {
-  font-size: 13px;
-  font-weight: 600;
+.rc-entry:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--ec) 46%, var(--kb-border));
 }
-.wb-grade-hint {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  opacity: 0.7;
-}
-.wb-quiz-result {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 14px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--kb-accent) 10%, transparent);
-  color: var(--kb-accent);
-  font-size: 12px;
-  font-weight: 600;
-}
-.wb-quiz-lapsed { color: var(--kb-warning); }
+.rc-entry:active { transform: scale(0.995); }
+.rc-entry--smart { --ec: var(--kb-primary); }
+.rc-entry--legacy { --ec: var(--kb-warning); }
 
-/* ===== Card rows ===== */
-.wb-list-head {
+/* 右上角柔光，纯装饰 */
+.rc-entry-glow {
+  position: absolute;
+  top: -70px;
+  right: -60px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ec) 24%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.rc-entry-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 10px;
 }
-.wb-card-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.wb-card-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--kb-radius-md);
-  background: var(--kb-card);
-  border: 1px solid var(--kb-border);
-  transition: all 0.15s ease;
-}
-.wb-card-row:hover { border-color: color-mix(in srgb, var(--mc) 30%, var(--kb-border)); }
-.wb-card-row-body { flex: 1; min-width: 0; }
-.wb-card-row-front {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--kb-foreground);
-  margin: 0 0 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.wb-card-row-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.wb-chip {
+.rc-entry-icon {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 7px;
-  border-radius: var(--kb-radius-sm);
-  font-size: var(--kb-fs-xs);
-  font-weight: 500;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ec) 15%, transparent);
+  color: var(--ec);
 }
-.wb-chip-mono {
-  font-family: var(--font-mono);
-  background: var(--kb-muted);
+.rc-entry-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ec) 16%, transparent);
+  color: var(--ec);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.rc-entry-title {
+  margin: 4px 0 0;
+  font-size: var(--kb-fs-h4);
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--kb-foreground);
+}
+.rc-entry-desc {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
   color: var(--kb-muted-foreground);
 }
-.wb-chip-muted { background: var(--kb-muted); color: var(--kb-muted-foreground); }
-.wb-chip-warn { background: color-mix(in srgb, var(--kb-warning) 14%, transparent); color: var(--kb-warning); }
-.wb-card-row-actions {
+.rc-entry-feats {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.rc-entry-feats li {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--kb-muted-foreground);
 }
-.wb-empty-sm { padding: 28px; }
+.rc-entry-feats li :deep(svg) { color: var(--ec); flex-shrink: 0; }
+.rc-entry-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--kb-border);
+  flex-wrap: wrap;
+}
+.rc-entry-count {
+  font-size: 12.5px;
+  color: var(--kb-muted-foreground);
+}
+.rc-entry-count b {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ec);
+  font-variant-numeric: tabular-nums;
+  margin: 0 2px;
+}
+.rc-entry-btn {
+  white-space: nowrap;
+  font-weight: 700;
+}
+.rc-entry-btn--ghost {
+  background: var(--kb-card);
+  border: 1px solid color-mix(in srgb, var(--ec) 40%, var(--kb-border));
+  color: var(--ec);
+}
+.rc-entry-btn--ghost:hover {
+  background: color-mix(in srgb, var(--ec) 10%, var(--kb-card));
+}
 
-@media (max-width: 768px) {
-  .wb-quiz-grade-grid { grid-template-columns: repeat(2, 1fr); }
-  .wb-quiz-text { font-size: 17px; }
+@media (max-width: 900px) {
+  .rc-entries { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

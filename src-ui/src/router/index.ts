@@ -61,9 +61,24 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 旧系统传统卡组（wb_review_card）：从复习驾驶舱入口卡片下沉到此，
+    // 路径刻意挂在 /workbench/review 下，与驾驶舱同属「复习」上下文。
+    path: '/workbench/review/card-list',
+    name: 'WorkbenchReviewCards',
+    component: () => import('@/views/WorkbenchReviewCards.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     // 间隔重复闪卡复习系统：跨 notes + loci 的沉浸式 SM-2 卡牌（独立路由，非 standalone，保留顶栏）。
     path: '/review',
     name: 'Review',
+    component: () => import('@/views/Review/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    // 闪卡专注模式别名：与 /review 共用同一组件（纯刷卡页），供「开始今日复习」等深链直达。
+    path: '/review/flashcard',
+    name: 'ReviewFlashcard',
     component: () => import('@/views/Review/index.vue'),
     meta: { layout: 'c', fullscreen: true },
   },
