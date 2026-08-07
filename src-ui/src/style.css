@@ -38,6 +38,12 @@
   --kb-warning: #F59E0B;
   --kb-warning-foreground: #FFFFFF;
 
+  /* ===== Immersive（沉浸式全屏专注：间隔复习「全屏专注」等） =====
+   * 刻意压暗背景剥离一切干扰，让白色卡片成为唯一视觉焦点；
+   * 前景色单独给一份，避免在暗底上继续用 --kb-foreground（浅色主题下是深色）。 */
+  --kb-immersive-bg: #14161B;
+  --kb-immersive-foreground: #E6E8EC;
+
   /* ===== Signature Highlight（高光时刻标识色） =====
    * 暖橘 #FF6B35 是 KnowFlow 的 signature accent，区别于主蓝，
    * 专门用于「成就解锁 / 连续打卡火焰 / AI 推荐 / 升级庆祝」等高光时刻，
@@ -208,6 +214,9 @@
   --kb-destructive-foreground: #0F1115;
   --kb-warning: #FBBF24;
   --kb-warning-foreground: #0F1115;
+
+  --kb-immersive-bg: #07080A;
+  --kb-immersive-foreground: #E6E8EC;
 
   --kb-highlight: #FF8556;
   --kb-highlight-foreground: #0F1115;
@@ -1424,4 +1433,24 @@ svg {
 @keyframes lightbox-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* ============================================================
+ * 沉浸式全屏专注（间隔复习 /review「全屏专注」按钮）
+ * 由页面在 body 上挂 .kb-review-immersive，隐藏顶栏、去掉内容区留白、压暗底色。
+ * 不使用遮罩层覆盖，保证 Toast(z-50) / 快捷键 / 原生 Esc 退出全部照常可用。
+ * ============================================================ */
+body.kb-review-immersive .kb-topnav {
+  display: none !important;
+}
+body.kb-review-immersive .kb-region-content {
+  padding-top: 0 !important;
+}
+body.kb-review-immersive .kb-region-content > div {
+  padding: 0 !important;
+  max-width: none !important;
+}
+/* !important 用于压过 App 外壳的内联 background */
+body.kb-review-immersive .kb-app-shell {
+  background: var(--kb-immersive-bg) !important;
 }

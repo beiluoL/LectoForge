@@ -1,6 +1,6 @@
 <template>
   <header
-    class="fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 sm:px-6 border-b"
+    class="kb-topnav fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 sm:px-6 border-b"
     :style="{ background: 'var(--kb-card)', borderColor: 'var(--kb-border)' }"
   >
     <!-- Left: Logo -->

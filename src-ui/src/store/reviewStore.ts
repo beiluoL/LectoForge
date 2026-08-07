@@ -16,7 +16,18 @@
  */
 import { defineStore } from 'pinia';
 import { ref, reactive, computed } from 'vue';
-import { getDueReviews, submitReview, type ReviewCard, type ReviewRating } from '@/api/review';
+import {
+  getDueReviews,
+  submitReview,
+  snoozeReview,
+  getReviewHeatmap,
+  getReviewForgettingCurve,
+  type ReviewCard,
+  type ReviewRating,
+  type ReviewSourceType,
+  type ReviewHeatmapResult,
+  type ReviewForgettingCurveResult,
+} from '@/api/review';
 import { notify, getApiError } from '@/utils/toast';
 
 export const useReviewStore = defineStore('review', () => {
@@ -32,10 +43,24 @@ export const useReviewStore = defineStore('review', () => {
   /** 本次会话拉取时的总待复习数（进度条分母） */
   const totalCount = ref(0);
   /** 本次会话统计：已复习张数 + 各评分档计数（结束页小统计用） */
-  const stats = reactive({ reviewed: 0, hard: 0, good: 0, easy: 0, perfect: 0 });
+  const stats = reactive({ reviewed: 0, hard: 0, good: 0, easy: 0, perfect: 0, snoozed: 0 });
 
   /** 当前正在复习的卡片（队列空时为 null） */
   const current = computed<ReviewCard | null>(() => queue.value[currentIndex.value] ?? null);
+
+  /** 进度：已处理（已评分 + 已挂起）占总数比例；用队列剩余反推，snooze 同样推进进度 */
+  const processedCount = computed(() => Math.max(0, totalCount.value - queue.value.length));
+  const progressPct = computed(() =>
+    totalCount.value > 0 ? Math.round((processedCount.value / totalCount.value) * 100) : 0,
+  );
+
+  /** 热力图数据（底部展示用） */
+  const heatmap = ref<ReviewHeatmapResult | null>(null);
+  const heatmapLoading = ref(false);
+  /** 遗忘曲线数据（底部折叠面板用） */
+  const forgettingCurve = ref<ReviewForgettingCurveResult | null>(null);
+  const curveLoading = ref(false);
+  const curveDays = ref(30);
 
   /** 拉取待复习卡片，重置会话状态 */
   async function loadQueue(): Promise<void> {
@@ -49,6 +74,7 @@ export const useReviewStore = defineStore('review', () => {
       isFinished.value = queue.value.length === 0;
       stats.reviewed = 0;
       stats.hard = stats.good = stats.easy = stats.perfect = 0;
+      stats.snoozed = 0;
     } catch (e) {
       notify(getApiError(e, '加载待复习卡片失败'), 'error');
       queue.value = [];
@@ -64,10 +90,10 @@ export const useReviewStore = defineStore('review', () => {
     cardSide.value = cardSide.value === 'front' ? 'back' : 'front';
   }
 
-  /** 提交评分：调后端推进 SM-2，成功后移除当前卡并切下一张 */
-  async function submitRating(rating: ReviewRating): Promise<void> {
+  /** 提交评分：调后端推进 SM-2，成功后移除当前卡并切下一张。返回是否成功移除 */
+  async function submitRating(rating: ReviewRating): Promise<boolean> {
     const c = current.value;
-    if (!c) return;
+    if (!c) return false;
     try {
       await submitReview({ cardId: c.id, sourceType: c.sourceType, rating });
       // 统计
@@ -77,8 +103,51 @@ export const useReviewStore = defineStore('review', () => {
       queue.value.splice(currentIndex.value, 1);
       cardSide.value = 'front';
       if (queue.value.length === 0) isFinished.value = true;
+      return true;
     } catch (e) {
       notify(getApiError(e, '提交评分失败，请重试'), 'error');
+      return false;
+    }
+  }
+
+  /** 挂起（稍后再背）：顺延 24h，不计入评分，但同样移除当前卡推进进度 */
+  async function snoozeCard(cardId: number, sourceType: ReviewSourceType): Promise<boolean> {
+    try {
+      await snoozeReview({ cardId, sourceType });
+      stats.snoozed += 1;
+      queue.value.splice(currentIndex.value, 1);
+      cardSide.value = 'front';
+      if (queue.value.length === 0) isFinished.value = true;
+      return true;
+    } catch (e) {
+      notify(getApiError(e, '挂起失败，请重试'), 'error');
+      return false;
+    }
+  }
+
+  /** 加载复习热力图（默认近 30 天） */
+  async function loadHeatmap(days = 30): Promise<void> {
+    heatmapLoading.value = true;
+    try {
+      heatmap.value = await getReviewHeatmap(days);
+    } catch (e) {
+      heatmap.value = null;
+      notify(getApiError(e, '加载热力图失败'), 'error');
+    } finally {
+      heatmapLoading.value = false;
+    }
+  }
+
+  /** 加载遗忘曲线（默认近 30 天） */
+  async function loadForgettingCurve(days = curveDays.value): Promise<void> {
+    curveLoading.value = true;
+    try {
+      forgettingCurve.value = await getReviewForgettingCurve(days);
+    } catch (e) {
+      forgettingCurve.value = null;
+      notify(getApiError(e, '加载遗忘曲线失败'), 'error');
+    } finally {
+      curveLoading.value = false;
     }
   }
 
@@ -96,9 +165,19 @@ export const useReviewStore = defineStore('review', () => {
     totalCount,
     stats,
     current,
+    processedCount,
+    progressPct,
+    heatmap,
+    heatmapLoading,
+    forgettingCurve,
+    curveLoading,
+    curveDays,
     loadQueue,
     flipCard,
     submitRating,
+    snoozeCard,
+    loadHeatmap,
+    loadForgettingCurve,
     restartSession,
   };
 });

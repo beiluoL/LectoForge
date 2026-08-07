@@ -1,7 +1,7 @@
 <template>
   <!-- 与 Web 端 CLayout（route.meta.layout === 'c'）结构一致：
        顶部 56px 固定导航 + pt-14 内容区；工作台页为 fullscreen，取消 max-w-7xl 居中限制。 -->
-  <div class="min-h-screen" :style="{ background: 'var(--kb-background)' }">
+  <div class="kb-app-shell min-h-screen" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
     <main :class="route.meta.standalone ? '' : 'pt-14'" class="kb-region-content">
       <!-- 独立全屏页（onboarding / settings）：不套 max-w-7xl 居中框，直接铺满 -->
