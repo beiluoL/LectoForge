@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "pomodoro_popup",
+  "description": "菜单栏番茄钟弹窗（pomodoro_popup 窗口）权限：仅授予计时与菜单栏联动所需的最小权限",
+  "windows": ["pomodoro_popup"],
+  "permissions": [
+    "core:default",
+    "core:event:allow-emit",
+    "notification:default"
+  ]
+}

@@ -12,7 +12,7 @@
 use tauri::{
     image::Image,
     menu::{IsMenuItem, MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
-    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Listener, Manager,
 };
 use tauri::AppHandle;
@@ -30,6 +30,11 @@ fn toggle_popup(app: &AppHandle) {
                 let _ = w.center();
                 let _ = w.show();
                 let _ = w.set_focus();
+                // 记录本次 show 时刻：供 lib.rs 的 Focused(false) 做「显示后宽限期」去抖，
+                // 挡掉 macOS 因点击菜单栏把焦点让回而触发的伪失焦（否则弹窗刚弹出就消失）。
+                if let Some(g) = crate::POPUP_SHOWN_AT.get() {
+                    *g.lock().unwrap() = std::time::Instant::now();
+                }
             }
         }
     }
@@ -72,9 +77,14 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
             _ => {}
         })
         .on_tray_icon_event(move |_tray, event| {
-            // 仅左键点击切换弹窗；右键交给上面的菜单
+            // 仅「左键松开」时切换弹窗。macOS 上按下/松开各派发一次 Click
+            // （button_state 分别为 Down/Up），若不加状态过滤会触发两次 toggle：
+            // 按下 show、松开 hide —— 表现为「按住出现、松开消失」。
+            // 只在 Up 触发可保证一次物理点击仅 toggle 一次
+            // （Windows/Linux 通常也只在松开时派发 Click，跨平台一致）。
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
                 ..
             } = event
             {

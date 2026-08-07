@@ -27,6 +27,18 @@ use tauri_plugin_updater::UpdaterExt;
 mod tray;
 use serde_json::json;
 
+/// 记录 pomodoro_popup 最近一次被 `show()` 的时刻。
+/// 用于 `WindowEvent::Focused(false)` 的「显示后宽限期」去抖：
+/// macOS 上点击菜单栏图标 `show()` 弹窗后，系统常把焦点让回（桌面/上一个 App），
+/// 触发一次伪失焦事件；若立即隐藏，弹窗会「刚弹出就消失」。宽限期内的失焦一律忽略，
+/// 只有用户真正去点弹窗以外的区域（发生在宽限期之后）才隐藏。
+pub(crate) static POPUP_SHOWN_AT: std::sync::OnceLock<
+    std::sync::Arc<std::sync::Mutex<std::time::Instant>>,
+> = std::sync::OnceLock::new();
+
+/// 显示后宽限期（毫秒）：此窗口内的失焦事件视为系统抖动，不触发隐藏。
+const POPUP_SHOW_GRACE_MS: u128 = 350;
+
 const DEFAULT_BACKEND_PORT: u16 = 8787;
 
 /// 注入给 Node 侧车的数据目录环境变量名（与 src-api/src/lib/paths.ts 的 DATA_DIR_ENV 一致）
@@ -671,17 +683,42 @@ pub fn run() {
                 let _ = w.hide();
             }
 
+            // 初始化「弹窗显示时刻」共享状态（供下方 Focused(false) 宽限期去抖使用）
+            let _ = POPUP_SHOWN_AT.set(std::sync::Arc::new(std::sync::Mutex::new(
+                std::time::Instant::now(),
+            )));
+
             // 番茄钟弹窗：失去焦点（点击弹窗外任意区域 / 其它 App / 再次点托盘图标）后，
             // 延迟 200ms 自动隐藏，形成 macOS 下拉面板的「点击外部关闭」体验。
             // 延迟 + 二次焦点校验（sleep 后若窗口重新获得焦点则不再隐藏）规避：
             // macOS 在窗口被 set_focus 激活瞬间偶发的伪失焦事件，避免「刚弹出就被抖动关掉」。
             if let Some(win) = app.get_webview_window("pomodoro_popup") {
                 let win_clone = win.clone();
+                // 共享「弹窗最近一次 show 的时刻」，用于宽限期去抖
+                let shown_guard = POPUP_SHOWN_AT
+                    .get()
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        std::sync::Arc::new(std::sync::Mutex::new(std::time::Instant::now()))
+                    });
                 win.on_window_event(move |e| {
                     if let WindowEvent::Focused(false) = e {
+                        // 1) 显示后宽限期内：视为系统因点击菜单栏让回焦点的伪失焦，直接忽略，
+                        //    否则弹窗会「刚弹出就消失」。
+                        let just_shown =
+                            shown_guard.lock().unwrap().elapsed().as_millis() < POPUP_SHOW_GRACE_MS;
+                        if just_shown {
+                            return;
+                        }
+                        // 2) 真正失焦（用户点到了弹窗外部）：延迟 200ms 再次确认仍失焦才隐藏，
+                        //    延迟期间若又发生了「显示弹窗」，说明这次失焦已是旧事件，跳过。
                         let w = win_clone.clone();
+                        let g = shown_guard.clone();
                         std::thread::spawn(move || {
                             std::thread::sleep(std::time::Duration::from_millis(200));
+                            if g.lock().unwrap().elapsed().as_millis() < POPUP_SHOW_GRACE_MS {
+                                return;
+                            }
                             if let Ok(focused) = w.is_focused() {
                                 if !focused {
                                     let _ = w.hide();
