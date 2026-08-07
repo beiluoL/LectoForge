@@ -489,6 +489,22 @@ pub fn run() {
                 .title("KnowFlow 学习工作台")
                 .inner_size(1200.0, 800.0)
                 .build()?;
+
+                // 番茄钟菜单栏弹窗（无边框 / 透明 / 毛玻璃 / 置顶 / 固定 360×480 / 默认隐藏）
+                WebviewWindowBuilder::new(
+                    app,
+                    "pomodoro_popup",
+                    WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
+                )
+                .title("KnowFlow 番茄钟")
+                .inner_size(360.0, 480.0)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .resizable(false)
+                .center()
+                .visible(false)
+                .build()?;
             }
 
             #[cfg(debug_assertions)]
@@ -500,6 +516,22 @@ pub fn run() {
                 )
                 .title("KnowFlow 学习工作台 (dev)")
                 .inner_size(1200.0, 800.0)
+                .build()?;
+
+                // 番茄钟菜单栏弹窗（同生产配置）
+                WebviewWindowBuilder::new(
+                    app,
+                    "pomodoro_popup",
+                    WebviewUrl::External("http://localhost:5173".parse().unwrap()),
+                )
+                .title("KnowFlow 番茄钟 (dev)")
+                .inner_size(360.0, 480.0)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .resizable(false)
+                .center()
+                .visible(false)
                 .build()?;
             }
 
@@ -577,12 +609,19 @@ pub fn run() {
                     let _ = toggle_item.set_text(label);
                 }
                 "timer_menu" => {
-                    // 点番茄钟菜单项 → 跳转到番茄钟页面（与「去学习复习」同款跳转逻辑）
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.set_focus();
+                    // 点「番茄钟」菜单项 → 切换菜单栏弹窗（与状态栏图标左键同款行为）
+                    if let Some(w) = app.get_webview_window("pomodoro_popup") {
+                        match w.is_visible() {
+                            Ok(true) => {
+                                let _ = w.hide();
+                            }
+                            _ => {
+                                let _ = w.center();
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                            }
+                        }
                     }
-                    let _ = app.emit("navigate", "/pomodoro");
                 }
                 "reload" => {
                     if let Some(w) = app.get_webview_window("main") {
@@ -592,11 +631,10 @@ pub fn run() {
                 _ => {}
             });
 
-            // 番茄钟常驻倒计时：前端每次秒级 tick 都 emit pomodoro:update，
-            // 这里把 title（运行/暂停时为「🍅 专注中 12:34」，空闲时为空串）刷到菜单文案上。
-            // 用 timer_item 克隆体调用 set_text，与 toggle_reminder 模式一致。
+            // 番茄钟常驻倒计时：前端每次秒级 tick 都 emit tray:update（payload.title），
+            // 这里把标题刷到 App 菜单「番茄钟」项文案上（与托盘标题同源）。
             let timer_item = timer_status.clone();
-            app.listen("pomodoro:update", move |event| {
+            app.listen("tray:update", move |event| {
                 let payload: serde_json::Value =
                     serde_json::from_str(event.payload()).unwrap_or(serde_json::Value::Null);
                 let title = payload
@@ -627,12 +665,36 @@ pub fn run() {
                 });
             }
 
+            // 菜单栏应用形态：启动即隐藏主窗口，仅状态栏托盘常驻；
+            // 用户点击托盘图标 / 番茄钟菜单项即可呼出弹窗，右键菜单可「显示主窗口」。
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.hide();
+            }
+
+            // 番茄钟弹窗：失焦（点击弹窗外区域）后延迟 200ms 自动隐藏，形成「下拉面板」体验；
+            // 延迟 + 二次焦点校验避免「刚弹出就被自己的激活抖动关掉」。
+            if let Some(win) = app.get_webview_window("pomodoro_popup") {
+                win.clone().on_window_event(move |e| {
+                    if let WindowEvent::Focused(false) = e {
+                        let w = win.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                            if let Ok(focused) = w.is_focused() {
+                                if !focused {
+                                    let _ = w.hide();
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
             // 5) 后台复习提醒调度（每 30 分钟轮询后端，有待复习卡片则弹原生通知）
             start_reminder_scheduler(app.handle().clone(), reminder_enabled.clone(), api_port);
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app_handle, _event| {
@@ -816,5 +878,19 @@ async fn select_directory(app: tauri::AppHandle) -> Result<String, String> {
     match app.dialog().file().blocking_pick_folder() {
         Some(folder) => Ok(folder.to_string()),
         None => Err("用户取消了选择".to_string()),
+    }
+}
+
+/// 供前端调用的「原生通知」命令：计时阶段结束时由番茄钟 store 直接 invoke 触发
+/// macOS Notification Center 提醒（即便所有窗口都隐藏，系统通知照常弹出）。
+#[tauri::command]
+fn trigger_notification(app: tauri::AppHandle, title: String, body: String) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.notification().builder().title(title).body(body).show();
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, title, body);
     }
 }

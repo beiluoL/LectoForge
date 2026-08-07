@@ -125,6 +125,8 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
   const isRunning = computed(() => status.value === 'running');
   /** 菜单栏 / 状态条统一文案，例如「🍅 专注中 12:34」 */
   const menuTitle = computed(() => `${phaseEmoji.value} ${phaseLabel.value} ${timeText.value}`);
+  /** 菜单栏状态栏文本标题：阶段 emoji + MM:SS（如「🍅 24:59」），供 tray:update 推送给 Rust 侧 set_title */
+  const trayTitle = computed(() => `${phaseEmoji.value} ${timeText.value}`);
 
   function formatMMSS(sec: number): string {
     const s = Math.max(0, Math.floor(sec));
@@ -146,30 +148,34 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     lastEmittedSec = sec;
     try {
       const { emit } = await import('@tauri-apps/api/event');
-      await emit('pomodoro:update', {
-        timeLeft: sec,
-        phase: phase.value,
-        phaseLabel: phaseLabel.value,
-        isRunning: isRunning.value,
-        title: isRunning.value || status.value === 'paused' ? menuTitle.value : '',
-      });
+      // 菜单栏状态栏文本：阶段 emoji + MM:SS；无论空闲/运行/暂停都推送当前倒计时，
+      // Rust 侧 set_title 后状态栏即实时刷新（修复此前把时间烤进图标位图导致不刷新的问题）。
+      await emit('tray:update', { title: trayTitle.value });
     } catch {
       /* 非桌面宿主环境，忽略 */
     }
   }
 
   /**
-   * 阶段自然结束 → 通知 Rust 侧弹原生系统通知（菜单栏应用后台运行时也能提醒，不依赖主窗口）。
-   * 与 emitToNative 一样整体 try/catch 静默（浏览器态 @tauri-apps/api 不存在）。
+   * 阶段自然结束 → 调用 Rust 侧 `trigger_notification` 命令弹 macOS 原生通知
+   * （菜单栏应用后台运行时也能提醒，不依赖任何可见窗口）。
+   * 整体 try/catch 静默（浏览器态 @tauri-apps/api 不存在）。
    */
   async function emitFinished(
     finished: PomodoroPhase,
     isSetEnd: boolean,
     count: number,
   ): Promise<void> {
+    const title = finished === 'work' ? '🍅 专注结束' : '☕ 休息结束';
+    const body =
+      finished === 'work'
+        ? isSetEnd
+          ? `完成第 ${count} 个番茄，一组结束，去长休息吧 🌴`
+          : `完成第 ${count} 个番茄，休息一下 ☕`
+        : '休息结束，开始下一段专注 💪';
     try {
-      const { emit } = await import('@tauri-apps/api/event');
-      await emit('pomodoro:finished', { phase: finished, isSetEnd, count });
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('trigger_notification', { title, body });
     } catch {
       /* 非桌面宿主环境，忽略 */
     }
@@ -425,6 +431,7 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     phaseEmoji,
     isRunning,
     menuTitle,
+    trayTitle,
     // actions
     init,
     loadSettings,

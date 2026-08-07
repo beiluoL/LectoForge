@@ -29,6 +29,7 @@
           fontSize: 'var(--kb-nav-text-fs)',
           fontWeight: isActive(it) ? 600 : 'var(--kb-nav-text-fw)',
         }"
+        @click="onNavClick(it, $event)"
       >
         <Icon :name="it.icon" size="md" />
         <span>{{ it.label }}</span>
@@ -54,7 +55,7 @@
           :to="it.path"
           class="flex items-center gap-2 px-3 py-2"
           :style="{ fontSize: 'var(--kb-dropdown-text-fs)' }"
-          @click="menuOpen = false"
+          @click="onNavClick(it, $event)"
         >
           <Icon :name="it.icon" size="md" style="color: var(--kb-muted-foreground);" />
           {{ it.label }}
@@ -133,7 +134,7 @@ onMounted(async () => {
   }
 });
 
-type NavItem = { path: string; label: string; icon: string; match?: string[] };
+type NavItem = { path: string; label: string; icon: string; match?: string[]; popup?: boolean };
 const navItems: NavItem[] = [
   { path: '/workbench', label: '工作台', icon: 'brain' },
   { path: '/inbox', label: '收集箱', icon: 'inbox' },
@@ -146,9 +147,32 @@ const navItems: NavItem[] = [
   { path: '/workbench/recall', label: '主动回忆', icon: 'edit-2' },
   { path: '/workbench/story', label: '费曼故事', icon: 'wand-2' },
   { path: '/mindmap', label: '思维导图', icon: 'list-tree' },
-  // 番茄钟 2026-08-07 新增：计时常驻后台，match 让 /pomodoro 与 /pomodoro/stats 都高亮同一项。
-  { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'] },
+  // 番茄钟 2026-08-07 新增：菜单栏应用形态下，点击不跳主窗口，而是「呼出」毛玻璃弹窗
+  // （popup: true → onNavClick 拦截默认跳转，show + focus pomodoro_popup 并隐藏主窗口）。
+  { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'], popup: true },
 ];
+
+/**
+ * 番茄钟菜单项拦截：popup 项不跳主窗口路由，改为呼出菜单栏弹窗（pomodoro_popup 窗口），
+ * 实现「从主应用进入番茄钟 = 直接打开状态栏弹窗」的无缝过渡。
+ */
+async function onNavClick(it: NavItem, e: MouseEvent) {
+  if (!it.popup) return;
+  e.preventDefault();
+  menuOpen.value = false;
+  try {
+    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const popup = WebviewWindow.getByLabel('pomodoro_popup');
+    if (popup) {
+      await popup.show();
+      await popup.setFocus();
+      await getCurrentWindow().hide(); // 隐藏主窗口，纯粹进入菜单栏弹窗形态
+    }
+  } catch {
+    /* 浏览器预览态：@tauri-apps/api 不存在，忽略 */
+  }
+}
 
 function isActive(item: NavItem) {
   if (item.path === '/workbench') return route.path === '/workbench';

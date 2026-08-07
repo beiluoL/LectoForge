@@ -90,6 +90,14 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 番茄钟菜单栏弹窗：由 pomodoro_popup 窗口（360×480 无边框透明）渲染，
+    // 不在主窗口顶栏内。实际布局由 App.vue 按窗口 label 切换（isPopup），这里仅声明路由。
+    path: '/pomodoro-popup',
+    name: 'PomodoroPopup',
+    component: () => import('@/views/Pomodoro/PopupTimer.vue'),
+    meta: { fullscreen: true },
+  },
+  {
     // 番茄钟历史统计：vue-chartjs 柱状图 + 三张总结卡。
     path: '/pomodoro/stats',
     name: 'PomodoroStats',
