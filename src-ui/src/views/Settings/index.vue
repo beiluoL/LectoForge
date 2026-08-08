@@ -3,6 +3,19 @@
        通过唯一「⚙️ 设置」入口进入（旧 /settings/ai 已重定向至此）。
        视觉沿用工作台 --kb-* 设计令牌，卡片化、上下左右对称，贴近 macOS 系统偏好设置。 -->
   <div class="lf-page animate-fade-in">
+    <!-- 返回条（sticky 常驻）：设置页是 standalone 无顶栏页，这里是回到主界面的唯一出口。
+         左侧「返回」优先回上一页，无历史时兜底回工作台；右侧提示未保存改动。 -->
+    <div class="lf-backbar">
+      <button type="button" class="kb-btn lf-back-btn" :title="backTitle" @click="goBack">
+        <Icon name="arrow-left" :size="15" />
+        {{ backLabel }}
+        <kbd class="lf-kbd">Esc</kbd>
+      </button>
+      <span v-if="dirty" class="lf-dirty" title="修改尚未写入本机配置文件">
+        <i class="lf-dirty-dot"></i> 有未保存的修改
+      </span>
+    </div>
+
     <!-- 页头 -->
     <header class="lf-head">
       <h1 class="lf-title">
@@ -242,13 +255,16 @@
 // - 由于 /config/init 后端会把 enabled 写死 true 且仅收 apiUrl/apiKey/model，
 //   统一保存时**先存数据目录、再存 AI 全量配置（最后写）**，确保最终实现以表单为准、不丢温度/超时/向量化。
 // - 明文 apiKey 绝不进 localStorage：store 的 persist.pick 已排除；表单提交时留空表示保持已保存值。
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 // 顶层静态导入：build 模式下动态 import('@tauri-apps/api/core') 的 chunk 可能加载失败
 import { invoke } from '@tauri-apps/api/core'
 import Icon from '@/components/ui/Icon.vue'
-import { notify, getApiError, confirmDialog } from '@/utils/toast'
+import { notify, getApiError, confirmDialog, toastState } from '@/utils/toast'
 import { useAppStore } from '@/store/app-store'
+import { useSearchStore } from '@/store/search-store'
+import { useInboxStore } from '@/store/inbox-store'
+import { useNoteStore } from '@/store/note-store'
 import { getAppConfig } from '@/api/config'
 import {
   getAiConfig,
@@ -261,6 +277,11 @@ import {
 
 const router = useRouter()
 const appStore = useAppStore()
+// 仅用于 Esc 互斥判断：这三个全局弹层由 App.vue 的 window keydown 统一消费 Esc，
+// 弹层开着时本页不能抢走这次 Esc，否则会「关弹层的同时把页面也退掉」。
+const searchStore = useSearchStore()
+const inboxStore = useInboxStore()
+const noteStore = useNoteStore()
 
 const picking = ref(false)
 const testing = ref(false)
@@ -316,6 +337,70 @@ const statusText = computed(() => {
   return saved.configured ? '已就绪' : '待配置'
 })
 
+/* ============ 返回主界面 ============
+ * 设置页 meta.standalone = true（App.vue 不渲染顶栏），必须自带出口。
+ * 返回目标优先取进入设置前的来源页（vue-router 把它维护在 history.state.back），
+ * 冷启动 / 深链直达设置时无来源，兜底回工作台，避免 router.back() 退出应用。 */
+const backPath = ref<string | null>(null)
+
+const backLabel = computed(() => (backPath.value ? '返回' : '返回工作台'))
+const backTitle = computed(() =>
+  backPath.value ? `返回上一页（${backPath.value}）· Esc` : '返回工作台 · Esc',
+)
+
+/** 统一出口：有历史来源走 back（保留滚动位置与前进历史），否则 push 工作台 */
+function goBack() {
+  if (backPath.value) router.back()
+  else router.push('/workbench')
+}
+
+/** 全局弹层是否占用着 Esc（命令面板 / 速记 / 极速新建 / 确认框） */
+function overlayHoldsEsc(): boolean {
+  return (
+    searchStore.isOpen ||
+    inboxStore.quickOpen ||
+    noteStore.quickCreateOpen ||
+    toastState.confirms.length > 0
+  )
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.defaultPrevented) return
+  if (overlayHoldsEsc()) return
+  goBack()
+}
+
+/* ============ 未保存改动保护 ============
+ * 表单快照 vs 基线：任何出口（返回按钮、Esc、能力清单「前往」、重新运行引导）
+ * 都经 onBeforeRouteLeave 统一确认，保护逻辑只有一处，不散落在各按钮里。 */
+const baseline = ref('')
+
+function snapshot(): string {
+  return JSON.stringify({
+    dataDir: form.dataDir.trim(),
+    enabled: form.enabled,
+    provider: form.provider,
+    baseUrl: form.baseUrl.trim(),
+    model: form.model.trim(),
+    temperature: form.temperature,
+    timeoutSec: form.timeoutSec,
+    embeddingsProvider: form.embeddingsProvider,
+    embeddingsBaseUrl: form.embeddingsBaseUrl.trim(),
+    embeddingsModel: form.embeddingsModel.trim(),
+    // Key 只看「是否填了新值」，明文不进快照
+    keyTouched: !!form.apiKey.trim(),
+    embedKeyTouched: !!form.embeddingsApiKey.trim(),
+  })
+}
+
+/** 基线为空 = 首屏配置尚未载入，此时一律视为干净，避免加载期误报 */
+const dirty = computed(() => !!baseline.value && snapshot() !== baseline.value)
+
+onBeforeRouteLeave(async () => {
+  if (!dirty.value) return true
+  return await confirmDialog('设置有未保存的修改，确定离开吗？未保存的改动将丢失。')
+})
+
 function applyPreset() {
   const p = presets.value.find((x) => x.value === form.provider)
   if (!p || !p.baseUrl) return
@@ -347,6 +432,14 @@ function syncAiForm(cfg: AiConfigVO) {
 }
 
 onMounted(async () => {
+  // 解析来源页：排除 /settings 自身（旧 /settings/ai 重定向而来）与 /onboarding（引导页不该被回退到）
+  const prev = (window.history.state as { back?: unknown } | null)?.back
+  backPath.value =
+    typeof prev === 'string' && prev && !prev.startsWith('/settings') && !prev.startsWith('/onboarding')
+      ? prev
+      : null
+  window.addEventListener('keydown', onKeydown)
+
   await appStore.initFromBackend()
   try {
     const cfg = await getAiConfig()
@@ -362,6 +455,12 @@ onMounted(async () => {
   } catch {
     form.dataDir = appStore.settings.dataDir
   }
+  // 全部载入完成后才立基线，否则回填过程会被误判成「用户改动」
+  baseline.value = snapshot()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
 })
 
 async function pickDirectory() {
@@ -437,6 +536,7 @@ async function saveAll() {
     presets.value = cfg.presets || presets.value
     embedPresets.value = cfg.embeddingPresets || embedPresets.value
     syncAiForm(cfg)
+    baseline.value = snapshot() // 已落盘，重置基线以撤下「未保存」提示
     notify('设置已保存', 'success')
   } catch (e) {
     notify(getApiError(e, '保存失败，请重试'), 'error')
@@ -450,6 +550,7 @@ async function clearKey() {
   try {
     const cfg = await saveAiConfig({ apiKey: null })
     syncAiForm(cfg)
+    baseline.value = snapshot()
     notify('已清空 API Key', 'success')
   } catch (e) {
     notify(getApiError(e, '操作失败'), 'error')
@@ -461,6 +562,7 @@ async function clearEmbeddingKey() {
   try {
     const cfg = await saveAiConfig({ embeddingsApiKey: null })
     syncAiForm(cfg)
+    baseline.value = snapshot()
     notify('已清空向量化 Key', 'success')
   } catch (e) {
     notify(getApiError(e, '操作失败'), 'error')
@@ -475,6 +577,45 @@ function rerunOnboarding() {
 
 <style scoped>
 .lf-page { max-width: 56rem; margin: 0 auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* 返回条：贴 viewport 顶部常驻（本页无顶栏，滚到卡片深处也要能一键回去）。
+   负 margin 抵掉 .lf-page 的 padding，使毛玻璃背景横向铺满、视觉上等同原生 toolbar。 */
+.lf-backbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin: -1.5rem -1.5rem 0;
+  padding: .625rem 1.5rem;
+  border-bottom: 1px solid var(--kb-border);
+  background: color-mix(in srgb, var(--kb-background) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
+.lf-back-btn { display: inline-flex; align-items: center; gap: .375rem; font-weight: 600; }
+.lf-back-btn:hover { color: var(--kb-primary); border-color: var(--kb-primary); }
+.lf-kbd {
+  margin-left: .125rem;
+  padding: .05rem .3rem;
+  border: 1px solid var(--kb-border);
+  border-radius: 4px;
+  background: var(--kb-muted);
+  color: var(--kb-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.lf-dirty {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  margin-left: auto;
+  font-size: var(--kb-fs-caption, .75rem);
+  color: var(--kb-warning);
+}
+.lf-dirty-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--kb-warning); }
 
 .lf-head { margin-bottom: -.25rem; }
 .lf-title { display: flex; align-items: center; gap: .5rem; font-size: var(--kb-fs-h2, 1.5rem); font-weight: 700; color: var(--kb-foreground); margin: 0; }
