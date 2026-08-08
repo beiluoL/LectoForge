@@ -62,7 +62,13 @@ for entry in "${ENDPOINTS[@]}"; do
   # --max-time 防止某个挂死的端点拖垮整轮；-s 静默
   body=$(curl -s --max-time 8 "$url" 2>/dev/null || true)
   if command -v jq >/dev/null 2>&1 && printf '%s' "$body" | jq -e . >/dev/null 2>&1; then
-    printf '%s' "$body" | jq -S . > "$OUT/$name.json"
+    normalized=$(printf '%s' "$body" | jq -S .)
+    # health 端点的 bootId/pid/uptimeMs 每次重启必然变化（本就是为探测重启而设计），
+    # 属预期噪声，归一化掉以免干扰「契约是否漂移」的判断。
+    if [ "$name" = "health" ]; then
+      normalized=$(printf '%s' "$normalized" | jq 'del(.data.bootId, .data.pid, .data.uptimeMs)')
+    fi
+    printf '%s' "$normalized" > "$OUT/$name.json"
     ok=$((ok + 1))
   else
     # 非 JSON（错误页 / 空响应 / 超时）→ 原样保存，保留回归证据
