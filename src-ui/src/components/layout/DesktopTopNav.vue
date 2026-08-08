@@ -3,71 +3,197 @@
     class="kb-topnav fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 sm:px-6 border-b"
     :style="{ background: 'var(--kb-card)', borderColor: 'var(--kb-border)' }"
   >
-    <!-- Left: Logo -->
+    <!-- Left: Logo（原「知识库」文字入口已彻底移除，仅保留产品名 KnowFlow + 图标，点击回工作台驾驶舱） -->
     <router-link
       to="/workbench"
-      class="flex items-center shrink-0"
-      style="color: var(--kb-primary); gap: var(--kb-nav-gap);"
+      class="flex items-center shrink-0 gap-2"
+      style="color: var(--kb-primary)"
     >
       <Icon name="brain" size="xl" />
       <span
-        class="hidden sm:inline"
-        :style="{ fontSize: 'var(--kb-logo-text-fs)', fontWeight: 'var(--kb-logo-text-fw)' }"
-      >知识库</span>
+        class="hidden sm:inline font-semibold tracking-tight"
+        :style="{ fontSize: 'var(--kb-logo-text-fs)', color: 'var(--kb-foreground)' }"
+      >KnowFlow</span>
     </router-link>
 
-    <!-- Center: 学习闭环导航 -->
-    <nav class="hidden lg:flex items-center gap-6 ml-8">
-      <router-link
-        v-for="it in navItems"
-        :key="it.path"
-        :to="it.path"
-        class="flex items-center gap-2 transition-colors"
-        :class="isActive(it) ? '' : 'hover:opacity-80'"
-        :style="{
-          color: isActive(it) ? 'var(--kb-primary)' : 'var(--kb-muted-foreground)',
-          fontSize: 'var(--kb-nav-text-fs)',
-          fontWeight: isActive(it) ? 600 : 'var(--kb-nav-text-fw)',
-        }"
-        @click="onNavClick(it, $event)"
-      >
-        <Icon :name="it.icon" size="md" />
-        <span>{{ it.label }}</span>
-      </router-link>
-    </nav>
+    <!-- ============ 桌面端（lg+）：完整 8 入口 ============ -->
+    <nav class="hidden lg:flex items-center gap-1 ml-6 lg:ml-8">
+      <template v-for="it in navItems" :key="it.path">
+        <!-- 视觉分组细竖线：笔记↔文档库、复习↔费曼故事 -->
+        <span
+          v-if="it.dividerBefore"
+          class="self-center h-5 w-px mx-1"
+          :style="{ background: 'var(--kb-border)' }"
+        ></span>
 
-    <!-- 移动/窄窗：折叠为下拉 -->
-    <div class="relative lg:hidden ml-6">
-      <button
-        type="button"
-        class="flex items-center gap-2"
-        :style="{ color: 'var(--kb-muted-foreground)', fontSize: 'var(--kb-nav-text-fs)', fontWeight: 'var(--kb-nav-text-fw)' }"
-        @click="menuOpen = !menuOpen"
-      >
-        <Icon name="menu" size="md" />
-        <span>{{ currentLabel }}</span>
-        <Icon name="chevron-down" size="sm" />
-      </button>
-      <div class="nav-dropdown" :class="{ 'is-open': menuOpen }" role="menu">
+        <!-- 入口 5：复习（父级，带 macOS 原生存毛玻璃下拉） -->
+        <div
+          v-if="it.children?.length"
+          class="relative"
+          @mouseenter="reviewOpen = true"
+          @mouseleave="reviewOpen = false"
+        >
+          <button type="button" class="nav-item" :class="{ 'is-active': isActive(it) }" @click="goTo(it)">
+            <span class="relative inline-flex">
+              <Icon :name="it.icon" size="md" />
+              <span
+                v-if="badgeValue(it)"
+                class="nav-badge"
+                :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
+              >{{ badgeValue(it) }}</span>
+            </span>
+            <span>{{ it.label }}</span>
+            <Icon name="chevron-down" size="xs" class="opacity-50" />
+          </button>
+
+          <Transition name="dropdown">
+            <div v-if="reviewOpen" class="absolute left-0 top-full z-50 pt-2">
+              <div
+                class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
+                       dark:border-neutral-700/20 dark:bg-neutral-900/80"
+              >
+                <router-link
+                  v-for="c in it.children"
+                  :key="c.path"
+                  :to="c.path"
+                  class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
+                         hover:bg-black/5 dark:hover:bg-white/10"
+                  :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                  @click="reviewOpen = false"
+                >
+                  <Icon :name="c.icon" size="sm" />
+                  <span>{{ c.label }}</span>
+                </router-link>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- 普通入口（含带角标的 工作台 / 收集箱） -->
         <router-link
-          v-for="it in navItems"
-          :key="it.path"
+          v-else
           :to="it.path"
-          class="flex items-center gap-2 px-3 py-2"
-          :style="{ fontSize: 'var(--kb-dropdown-text-fs)' }"
+          class="nav-item"
+          :class="{ 'is-active': isActive(it) }"
           @click="onNavClick(it, $event)"
         >
-          <Icon :name="it.icon" size="md" style="color: var(--kb-muted-foreground);" />
-          {{ it.label }}
+          <span class="relative inline-flex">
+            <Icon :name="it.icon" size="md" />
+            <span
+              v-if="badgeValue(it)"
+              class="nav-badge"
+              :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
+            >{{ badgeValue(it) }}</span>
+          </span>
+          <span>{{ it.label }}</span>
         </router-link>
+      </template>
+    </nav>
+
+    <!-- ============ 窄窗（<lg）：保留 1-5 入口，6-8 收进「更多」 ============ -->
+    <nav class="flex lg:hidden items-center gap-1 ml-4 overflow-x-auto no-scrollbar">
+      <template v-for="it in primaryItems" :key="it.path">
+        <span
+          v-if="it.dividerBefore"
+          class="self-center h-5 w-px mx-1"
+          :style="{ background: 'var(--kb-border)' }"
+        ></span>
+
+        <div
+          v-if="it.children?.length"
+          class="relative"
+          @mouseenter="reviewOpen = true"
+          @mouseleave="reviewOpen = false"
+        >
+          <button type="button" class="nav-item" :class="{ 'is-active': isActive(it) }" @click="goTo(it)">
+            <span class="relative inline-flex">
+              <Icon :name="it.icon" size="md" />
+              <span
+                v-if="badgeValue(it)"
+                class="nav-badge"
+                :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
+              >{{ badgeValue(it) }}</span>
+            </span>
+            <span>{{ it.label }}</span>
+            <Icon name="chevron-down" size="xs" class="opacity-50" />
+          </button>
+
+          <Transition name="dropdown">
+            <div v-if="reviewOpen" class="absolute left-0 top-full z-50 pt-2">
+              <div
+                class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
+                       dark:border-neutral-700/20 dark:bg-neutral-900/80"
+              >
+                <router-link
+                  v-for="c in it.children"
+                  :key="c.path"
+                  :to="c.path"
+                  class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
+                         hover:bg-black/5 dark:hover:bg-white/10"
+                  :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                  @click="reviewOpen = false"
+                >
+                  <Icon :name="c.icon" size="sm" />
+                  <span>{{ c.label }}</span>
+                </router-link>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <router-link
+          v-else
+          :to="it.path"
+          class="nav-item"
+          :class="{ 'is-active': isActive(it) }"
+          @click="onNavClick(it, $event)"
+        >
+          <span class="relative inline-flex">
+            <Icon :name="it.icon" size="md" />
+            <span
+              v-if="badgeValue(it)"
+              class="nav-badge"
+              :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
+            >{{ badgeValue(it) }}</span>
+          </span>
+          <span>{{ it.label }}</span>
+        </router-link>
+      </template>
+
+      <!-- 更多：费曼故事 / 思维导图 / 番茄钟 -->
+      <div class="relative" @mouseleave="moreOpen = false">
+        <button type="button" class="nav-item" @click="moreOpen = !moreOpen">
+          <Icon name="more-horizontal" size="md" />
+          <span>更多</span>
+        </button>
+        <Transition name="dropdown">
+          <div v-if="moreOpen" class="absolute right-0 top-full z-50 pt-2">
+            <div
+              class="w-44 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
+                     dark:border-neutral-700/20 dark:bg-neutral-900/80"
+            >
+              <router-link
+                v-for="it in moreItems"
+                :key="it.path"
+                :to="it.path"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
+                       hover:bg-black/5 dark:hover:bg-white/10"
+                :class="isActive(it) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                @click="onNavClick(it, $event)"
+              >
+                <Icon :name="it.icon" size="sm" />
+                <span>{{ it.label }}</span>
+              </router-link>
+            </div>
+          </div>
+        </Transition>
       </div>
-    </div>
+    </nav>
 
     <div class="flex-1"></div>
 
-    <!-- Right: 桌面端专属操作 -->
+    <!-- Right: 桌面端专属操作（沿用原逻辑） -->
     <div class="flex items-center gap-2">
-      <!-- 全局搜索触发（Cmd/Ctrl+K 同款动作，提升命令面板可发现性） -->
       <button type="button" class="wb-icon-btn wb-search-trigger" title="搜索 (⌘K)" @click="openSearch">
         <Icon name="search" size="md" />
         <kbd class="wb-kbd">⌘K</kbd>
@@ -84,11 +210,9 @@
         <Icon name="hard-drive" size="xs" />
         本地离线
       </span>
-      <!-- 通用设置中心入口：数据目录 / AI 服务 / 关于 -->
       <router-link to="/settings" class="wb-icon-btn" title="设置">
         <Icon name="settings" size="md" />
       </router-link>
-      <!-- AI 设置入口：就绪时以高光色点亮，未配置时保持中性灰 -->
       <router-link
         to="/settings/ai"
         class="wb-icon-btn"
@@ -105,27 +229,43 @@
 </template>
 
 <script setup lang="ts">
-// 桌面端顶部导航：沿用 Web 端 CTopNav 的视觉语言（56px 固定栏、--kb-nav-* 令牌、
-// 同款 Icon + 文字排布），导航项收敛为学习闭环六模块，右侧换成桌面专属的更新入口。
+// 桌面端顶部导航重构（2026-08-08）
+// 学习闭环：采集 → 内化 → 巩固 → 输出
+//   工作台(hub) / 收集箱(input) / 笔记·文档库(整理) / 复习(巩固·父级含间隔复习·记忆宫殿·主动回忆) /
+//   费曼故事·思维导图(输出) / 番茄钟(工具)
+// 关键约束：Vue3 <script setup lang="ts"> + Pinia(storeToRefs) + Tailwind + --kb-* token + lucide(Icon) + vue-router。
+// 注意：原「知识库」菜单入口已彻底删除；番茄钟走 popup 弹窗逻辑（同原实现）。
 import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import { notify } from '@/utils/toast';
 import { getAiStatus } from '@/api/ai';
 import { useSearchStore } from '@/stores/searchStore';
-// 顶层静态导入 Tauri API：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk
-// 在 8787 侧车托管的静态 dist 下静默失败（被 catch 吞），导致呼出菜单栏弹窗、检查更新失效。
+import { useDashboardStore } from '@/store/dashboardStore';
+import { useReviewStore } from '@/store/reviewStore';
+import { storeToRefs } from 'pinia';
+// 顶层静态导入 Tauri API：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk 静默失败。
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 
 const route = useRoute();
-const menuOpen = ref(false);
+const reviewOpen = ref(false); // 复习下拉（桌面 + 窄窗共用）
+const moreOpen = ref(false);   // 更多下拉（窄窗）
 const updating = ref(false);
-/** AI 是否已配置就绪，仅用于点亮顶栏入口图标，失败静默（不打扰主流程） */
 const aiReady = ref(false);
-/** 全局搜索面板 store（顶栏搜索按钮与 Cmd/Ctrl+K 共用同一入口） */
 const searchStore = useSearchStore();
+
+/* ---------------- Pinia 状态（storeToRefs 解构） ---------------- */
+const dashboardStore = useDashboardStore();
+const reviewStore = useReviewStore();
+// dashboardStore：pendingCaptures（待处理碎片）、dueReviews（新系统待复习）
+// reviewStore：legacyDueCount（旧系统传统卡组待复习）
+const { stats, loaded } = storeToRefs(dashboardStore);
+const { legacyDueCount } = storeToRefs(reviewStore);
+
+const pendingCaptures = computed(() => stats.value?.pendingCaptures ?? 0);
+const dueReviews = computed(() => (stats.value?.dueReviews ?? 0) + (legacyDueCount.value ?? 0));
 
 function openSearch() {
   searchStore.openPalette();
@@ -137,56 +277,119 @@ onMounted(async () => {
   } catch {
     aiReady.value = false;
   }
+  // 拉取实时状态，驱动角标（仅首屏未拉取时补一次，避免重复请求）
+  if (!loaded.value) dashboardStore.fetchStats();
+  reviewStore.loadLegacyDueCount();
 });
 
-type NavItem = { path: string; label: string; icon: string; match?: string[]; popup?: boolean };
+/* ---------------- 导航数据 ---------------- */
+type NavChild = { path: string; label: string; icon: string };
+type NavItem = {
+  path: string;
+  label: string;
+  icon: string;
+  /** 多路由高亮匹配（复习父级需要覆盖子路由） */
+  match?: string[];
+  /** 角标数据源 */
+  badge?: 'pendingCaptures' | 'dueReviews';
+  /** 番茄钟：点击不跳主窗口，改为呼出菜单栏弹窗 */
+  popup?: boolean;
+  /** 视觉分组细竖线（位于该项之前） */
+  dividerBefore?: boolean;
+  /** 子菜单（仅复习父级） */
+  children?: NavChild[];
+};
+
 const navItems: NavItem[] = [
-  { path: '/workbench', label: '工作台', icon: 'brain' },
-  { path: '/inbox', label: '收集箱', icon: 'inbox' },
-  { path: '/workbench/notes', label: '笔记', icon: 'notebook-pen' },
-  { path: '/library', label: '文档库', icon: 'library' },
-  // 复习模块 2026-08-07 收敛后，新旧两套复习系统（/workbench/review 驾驶舱 + /review 闪卡）统一归属「复习」菜单，
-  // match 让处在 /review、/review/flashcard 闪卡页时顶栏「复习」也保持高亮。
-  { path: '/workbench/review', label: '复习', icon: 'repeat', match: ['/workbench/review', '/review'] },
-  { path: '/workbench/palace', label: '记忆宫殿', icon: 'map-pin' },
-  { path: '/workbench/recall', label: '主动回忆', icon: 'edit-2' },
-  { path: '/workbench/story', label: '费曼故事', icon: 'wand-2' },
-  { path: '/mindmap', label: '思维导图', icon: 'list-tree' },
-  // 番茄钟 2026-08-07 新增：菜单栏应用形态下，点击不跳主窗口，而是「呼出」毛玻璃弹窗
-  // （popup: true → onNavClick 拦截默认跳转，show + focus pomodoro_popup 并隐藏主窗口）。
+  // 1. 枢纽
+  { path: '/workbench', label: '工作台', icon: 'layout-dashboard', badge: 'pendingCaptures' },
+  // 2. 输入
+  { path: '/inbox', label: '收集箱', icon: 'inbox', badge: 'pendingCaptures' },
+  // 3. 整理
+  { path: '/workbench/notes', label: '笔记', icon: 'file-edit' },
+  // 4. 整理（前加分组竖线）
+  { path: '/library', label: '文档库', icon: 'library', dividerBefore: true },
+  // 5. 巩固（父级，含三个复习子项；match 覆盖全部复习子路由）
+  {
+    path: '/workbench/review',
+    label: '复习',
+    icon: 'refresh-ccw',
+    match: ['/workbench/review', '/review', '/workbench/palace', '/workbench/recall'],
+    badge: 'dueReviews',
+    children: [
+      { path: '/review', label: '间隔复习', icon: 'brain-circuit' },
+      { path: '/workbench/palace', label: '记忆宫殿', icon: 'map-pin' },
+      { path: '/workbench/recall', label: '主动回忆', icon: 'pen-tool' },
+    ],
+  },
+  // 6. 输出（前加分组竖线）
+  { path: '/workbench/story', label: '费曼故事', icon: 'pen-line', dividerBefore: true },
+  // 7. 输出
+  { path: '/mindmap', label: '思维导图', icon: 'share-2' },
+  // 8. 工具（popup）
   { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'], popup: true },
 ];
 
+// 窄窗常驻入口（1-5）与「更多」折叠入口（6-8）
+const primaryItems = navItems.slice(0, 5);
+const moreItems = navItems.slice(5);
+
+/* ---------------- 高亮 / 角标 ---------------- */
+function isActive(it: NavItem): boolean {
+  if (it.path === '/workbench') return route.path === '/workbench'; // 工作台精确匹配，避免误吞子路由
+  const prefixes = it.match ?? [it.path];
+  return prefixes.some((p) => route.path === p || route.path.startsWith(p));
+}
+
+function childActive(c: NavChild): boolean {
+  return route.path === c.path || route.path.startsWith(c.path);
+}
+
+function badgeValue(it: NavItem): number {
+  if (it.badge === 'pendingCaptures') return pendingCaptures.value;
+  if (it.badge === 'dueReviews') return dueReviews.value;
+  return 0;
+}
+
+function badgeTone(it: NavItem): 'danger' | 'warning' {
+  return it.badge === 'dueReviews' ? 'danger' : 'warning';
+}
+
+/* ---------------- 交互：父级跳转驾驶舱 / 子项独立路由 / 番茄钟 popup ---------------- */
+const router = useRouter();
+
+/** 仅当不在当前路由时跳转，避免重复压栈 */
+function navigateTo(path: string) {
+  if (route.path !== path) router.push(path);
+}
+
+/** 父级（复习）点击 → 跳转复习驾驶舱（/workbench/review） */
+function goTo(it: NavItem) {
+  reviewOpen.value = false;
+  moreOpen.value = false;
+  navigateTo(it.path);
+}
+
 /**
- * 番茄钟菜单项拦截：popup 项不跳主窗口路由，改为呼出菜单栏弹窗（pomodoro_popup 窗口），
- * 实现「从主应用进入番茄钟 = 直接打开状态栏弹窗」的无缝过渡。
+ * 番茄钟菜单项拦截：popup 项不跳主窗口路由，改为呼出菜单栏弹窗（pomodoro_popup 窗口）。
+ * 非 popup 项透传（router-link 正常跳转）。
  */
 async function onNavClick(it: NavItem, e: MouseEvent) {
+  moreOpen.value = false;
+  reviewOpen.value = false;
   if (!it.popup) return;
   e.preventDefault();
-  menuOpen.value = false;
   try {
-    // @tauri-apps/api 2.x：getByLabel 是 async（之前同步返回的版本已弃用）
     const popup = await WebviewWindow.getByLabel('pomodoro_popup');
     if (popup) {
       await popup.show();
       await popup.setFocus();
-      await getCurrentWindow().hide(); // 隐藏主窗口，纯粹进入菜单栏弹窗形态
+      await getCurrentWindow().hide();
     }
   } catch {
     /* 浏览器预览态：@tauri-apps/api 不存在，忽略 */
   }
 }
-
-function isActive(item: NavItem) {
-  if (item.path === '/workbench') return route.path === '/workbench';
-  const prefixes = item.match ?? [item.path];
-  return prefixes.some((p) => route.path.startsWith(p));
-}
-
-const currentLabel = computed(
-  () => navItems.find((it) => isActive(it))?.label ?? '工作台',
-);
 
 async function checkUpdate() {
   if (updating.value) return;
@@ -203,37 +406,67 @@ async function checkUpdate() {
 </script>
 
 <style scoped>
-/* 下拉面板：与 Web 端 CTopNav 的 .nav-dropdown 保持一致 */
-.nav-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 168px;
-  padding: 6px;
-  border-radius: var(--kb-radius-md);
-  background: var(--kb-card);
-  border: 1px solid var(--kb-border);
-  box-shadow: var(--shadow-lg);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-4px);
-  transition: all 0.16s ease;
-  z-index: 60;
+/* 导航项基础样式（使用 --kb-* token，hover/active 由 class 控制） */
+.nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kb-nav-gap);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: var(--kb-nav-text-fs);
+  font-weight: var(--kb-nav-text-fw);
+  color: var(--kb-muted-foreground);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease, background 0.15s ease;
 }
-.nav-dropdown.is-open {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-.nav-dropdown a {
-  border-radius: var(--kb-radius-sm);
-  color: var(--kb-foreground);
-}
-.nav-dropdown a:hover {
+.nav-item:hover {
+  opacity: 0.8;
   background: var(--kb-muted);
 }
+.nav-item.is-active {
+  color: var(--kb-primary);
+  font-weight: 600;
+}
 
-/* 顶栏搜索触发按钮（与 .wb-icon-btn 叠加）：图标 + ⌘K kbd 横向排布 */
+/* 图标右上角数字角标 */
+.nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--kb-card);
+}
+
+/* 下拉淡入动画（<Transition name="dropdown">） */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* 窄窗横向滚动隐藏滚动条 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 顶栏搜索触发按钮：图标 + ⌘K kbd 横向排布 */
 .wb-search-trigger {
   display: inline-flex;
   align-items: center;
