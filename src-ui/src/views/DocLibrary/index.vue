@@ -94,6 +94,8 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 
 import Icon from '@/components/ui/Icon.vue'
+// Markdown 渲染排版与渲染器（@/lib/markdown.ts）配套，任何 v-html 出 .dl-md 的模块都要引它
+import '@/lib/markdown.css'
 
 import './doc-library.css'
 import EditorArea from './EditorArea.vue'

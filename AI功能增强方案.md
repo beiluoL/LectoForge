@@ -12,7 +12,7 @@
 |------|------|
 | 架构 | Rust 壳(Tauri) + Node 侧车(Fastify/TS) + Vue3 前端，三端打包进 `.app`；同源托管 `/api/*`，零 CORS |
 | 数据 | SQLite(WAL) + Drizzle ORM，单用户 `CURRENT_USER=1`，数据目录经 `--data-dir`/`KNOWFLOW_DATA_DIR` 可配 |
-| **AI 现状** | **已完整落地**：21 个 `/api/ai` 端点全部实现，覆盖配置中心 / 内容加工 / 评估洞察 / 向量检索 / 思维导图生成 |
+| **AI 现状** | **已完整落地**：24 个 `/api/ai` 端点全部实现，覆盖配置中心 / 内容加工 / 评估洞察 / 向量检索 / 思维导图生成（v1.2 新增 `note/extend`、`note/flashcards` 题型增强、`note/generate-mindmap`） |
 | LLM 调用 | 纯 Node 22 原生 `fetch` 调 OpenAI 兼容 `/v1/chat/completions`，**不引入任何 LLM SDK**；配置 `ai-config.json` 落盘 `chmod 600` |
 | 向量检索 | `wb_embedding` 表存 JSON 向量 + 应用层 JS 余弦；`/embeddings/sync` 按 `content_hash` 增量重建，`/associate` 查关联 |
 | 前端增强 | 已引入 **Pinia 4**（记忆宫殿 store 持久化）、**lucide-vue-next**（Icon.vue 包装器）；各模块「✨ AI」按钮 + loading + 可编辑回填 |
@@ -136,10 +136,10 @@
 - **统一异常** `LlmError`（带 `status` + `aiCode`：`AI_DISABLED` / `AI_NOT_CONFIGURED` / `AI_TIMEOUT` / `AI_UPSTREAM_ERROR` / `AI_BAD_RESPONSE`），前端据 `aiCode` 决定是否引导去设置页。
 - **输出规整**：`normalizeScore`（0~100 整数）、`normalizeList` 等兜底，防止模型格式漂移把前端搞崩。
 
-### 3.4 路由设计（`src-api/src/routes/ai.ts`，21 端点，前缀 `/api/ai`）
+### 3.4 路由设计（`src-api/src/routes/ai.ts`，24 端点，前缀 `/api/ai`）
 每个端点"取数据 → 拼 prompt → 调 LLM → 校验 → 写回 DB → 返回"：
 - **配置与探针（4）**：`GET/PUT /config`、`POST /test`、`GET /status`
-- **内容加工（9）**：`/capture/summarize`、`/tags`、`/capture/draft-note`、`/note/generate`、`/note/flashcards`、`/story/draft`、`/story/clarity`、`/palace/loci`、`/palace/loci/image-hint`
+- **内容加工（9 + v1.2 新增 2）**：`/capture/summarize`、`/tags`、`/capture/draft-note`、`/note/generate`、`/note/flashcards`（v1.2 支持 `type: choice|fill|mixed`）、`/story/draft`、`/story/clarity`、`/palace/loci`、`/palace/loci/image-hint`、**`/note/extend`（v1.2 续写）**、**`/note/generate-mindmap`（v1.2 由笔记生成导图大纲，只算不存）**
 - **评估与洞察（5）**：`/recall/score`、`/recall/advice`、`/insight/report`、`/weakness/diagnose`、`/review/recommend`
 - **向量检索（2）**：`/embeddings/sync`、`/associate`
 - **思维导图（1）**：`POST /generate-mindmap`（由 `mindmapAiRoutes` 注册在 `/api/ai` 下；CRUD 5 端点另在 `/api/mindmaps`）

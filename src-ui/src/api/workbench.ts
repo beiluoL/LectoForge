@@ -54,8 +54,56 @@ export function toggleCaptureStar(id: number) {
 }
 
 // ============================ 模块二：康奈尔笔记 ============================
-export function listNotes(params?: { captureId?: number; categoryId?: number; keyword?: string }) {
+
+/** 标签云一项：name 为标签原文，count 为引用它的笔记数（DISTINCT） */
+export interface NoteTagCount {
+  name: string
+  count: number
+}
+
+/** 反向引用一项：excerpt 已在服务端截好双链命中处的上下文 */
+export interface NoteBacklink {
+  id: number
+  title: string
+  excerpt: string
+}
+
+/** 双链解析结果；exists=false 表示该标题还没有对应笔记 */
+export interface NoteResolveResult {
+  exists: boolean
+  id: number | null
+  title: string
+}
+
+export interface ListNotesParams {
+  captureId?: number
+  categoryId?: number
+  keyword?: string
+  /** 标签云联动：精确匹配（"AI" 不会命中 "AIGC"） */
+  tag?: string
+  /** 智慧筛选：掌握度 ≤ N */
+  mastery_lte?: number
+  /** 智慧筛选：false = 只看没写总结的半成品笔记 */
+  has_summary?: boolean
+}
+
+export function listNotes(params?: ListNotesParams) {
   return apiGet<WbNote[]>('/workbench/notes', params)
+}
+
+/** 标签聚合，服务端 SQL GROUP BY 直出，不会把全表正文拉进内存 */
+export function listNoteTags() {
+  return apiGet<NoteTagCount[]>('/workbench/notes/tags')
+}
+
+/** 谁引用了这篇笔记（正文里写了 [[本笔记标题]] 的其它笔记） */
+export function listNoteBacklinks(id: number) {
+  return apiGet<NoteBacklink[]>(`/workbench/notes/backlinks/${id}`)
+}
+
+/** [[标题]] → 笔记 id；标题精确匹配，未命中返回 exists=false */
+export function resolveNoteByTitle(title: string) {
+  return apiGet<NoteResolveResult>('/workbench/notes/resolve', { title })
 }
 export function getNote(id: number) {
   return apiGet<WbNote>(`/workbench/notes/${id}`)

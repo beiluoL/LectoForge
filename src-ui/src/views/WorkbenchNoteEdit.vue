@@ -31,6 +31,21 @@
       </div>
 
       <div class="note-topbar-right">
+        <!-- 沉浸阅读 / 导图：两个「换个视角看这篇笔记」的入口，放在最前面 -->
+        <button class="kb-btn note-read-btn note-export-btn" title="全屏沉浸阅读（Esc 退出）" @click="enterReader">
+          <Icon name="maximize" :size="14" /> 全屏阅读
+        </button>
+        <button
+          class="kb-btn note-map-btn note-export-btn"
+          :disabled="mindmapGen"
+          title="把这篇笔记的结构抽成思维导图"
+          @click="runMindmap"
+        >
+          <Icon :name="mindmapGen ? 'loader' : 'git-branch'" :size="14" :class="{ 'ai-spin': mindmapGen }" />
+          {{ mindmapGen ? '生成中…' : '生成导图' }}
+        </button>
+        <span class="note-topbar-sep"></span>
+
         <button class="kb-btn ai-btn note-export-btn" :disabled="aiGen" @click="runAiGenerate('cue')">
           <Icon :name="aiMode === 'cue' && aiGen ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiMode === 'cue' && aiGen }" />
           {{ aiMode === 'cue' && aiGen ? '生成中…' : 'AI 生成线索' }}
@@ -43,14 +58,43 @@
           <Icon :name="aiCardsGen ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiCardsGen }" />
           {{ aiCardsGen ? '生成中…' : 'AI 生成复习卡' }}
         </button>
-        <button class="kb-btn note-quiz-btn note-export-btn" :disabled="quizGen" @click="runQuiz">
-          <Icon :name="quizGen ? 'loader' : 'target'" :size="14" :class="{ 'ai-spin': quizGen }" />
-          {{ quizGen ? '出题中…' : '生成自测题' }}
-        </button>
+
+        <!--
+          出题按钮做成「主按钮 + 下拉」：默认混合题型（保持旧行为），
+          下拉里可指定只出选择题 / 只出填空题，避免为每种题型都塞一个顶栏按钮。
+        -->
+        <div ref="quizMenuRef" class="note-quiz-split">
+          <button
+            class="kb-btn note-quiz-btn note-export-btn note-quiz-main"
+            :disabled="quizGen"
+            @click="runQuiz('mixed')"
+          >
+            <Icon :name="quizGen ? 'loader' : 'target'" :size="14" :class="{ 'ai-spin': quizGen }" />
+            {{ quizGen ? '出题中…' : '生成自测题' }}
+          </button>
+          <button
+            class="kb-btn note-quiz-btn note-export-btn note-quiz-caret"
+            :disabled="quizGen"
+            title="选择题型"
+            aria-label="选择题型"
+            @click="quizMenuOpen = !quizMenuOpen"
+          >
+            <Icon name="chevron-down" :size="12" />
+          </button>
+          <transition name="sel-bar">
+            <div v-if="quizMenuOpen" class="note-quiz-menu">
+              <button @click="runQuiz('mixed')"><Icon name="shuffle" :size="13" /> 混合题型</button>
+              <button @click="runQuiz('choice')"><Icon name="list-todo" :size="13" /> 只出选择题</button>
+              <button @click="runQuiz('fill')"><Icon name="pen-line" :size="13" /> 只出填空题</button>
+            </div>
+          </transition>
+        </div>
+
+        <span class="note-topbar-sep"></span>
         <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportImage">
           <Icon name="image" :size="14" /> 导出图片
         </button>
-        <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportPDF">
+        <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportPDF()">
           <Icon name="file-text" :size="14" /> 导出PDF
         </button>
       </div>
@@ -199,11 +243,23 @@
               class="cornell-editor"
               contenteditable="true"
               @input="onEditorInput"
-              @blur="onEditorInput"
+              @blur="onEditorBlur"
               @mouseup="onEditorMouseUp"
               @keyup="onEditorKeyUp"
               @scroll="hideSelBar"
             ></div>
+
+            <!--
+              AI 拓展：只在笔记栏底部出现，因为它续写的是笔记栏正文。
+              结果不直接落笔，先进对比窗，由用户决定插到哪。
+            -->
+            <div class="cornell-col-foot">
+              <button class="kb-btn ai-btn cornell-extend-btn" :disabled="extendLoading" @click="openExtend">
+                <Icon :name="extendLoading ? 'loader' : 'ai-sparkle'" :size="13" :class="{ 'ai-spin': extendLoading }" />
+                {{ extendLoading ? 'AI 正在续写…' : 'AI 拓展' }}
+              </button>
+              <span class="cornell-col-foot-hint">让 AI 接着往下写 300 字以上，采纳前可对比</span>
+            </div>
           </div>
         </div>
 
@@ -304,6 +360,35 @@
     <!-- ============ AI 内容关联（G3） ============ -->
     <AiAssociatePanel v-if="!isNew && noteId" entity-type="note" :entity-id="noteId" />
 
+    <!-- ============ 反向引用：谁在正文里写了 [[本笔记标题]] ============ -->
+    <section v-if="!isNew && noteId" class="note-backlinks">
+      <button class="note-backlinks-head" :aria-expanded="backlinksOpen" @click="toggleBacklinks">
+        <Icon :name="backlinksOpen ? 'chevron-down' : 'chevron-right'" :size="15" />
+        <Icon name="link" :size="14" />
+        <span class="note-backlinks-title">反向引用</span>
+        <span v-if="noteStore.backlinks.length" class="note-backlinks-count">{{ noteStore.backlinks.length }}</span>
+        <span v-if="noteStore.backlinksLoading" class="note-backlinks-loading">
+          <Icon name="loader" :size="12" class="ai-spin" /> 检索中
+        </span>
+      </button>
+      <div v-show="backlinksOpen" class="note-backlinks-body">
+        <p v-if="noteStore.backlinksLoading" class="note-backlinks-empty">正在查找引用了这篇笔记的其它笔记…</p>
+        <p v-else-if="!noteStore.backlinks.length" class="note-backlinks-empty">
+          还没有笔记引用它。在其它笔记里写
+          <code>[[{{ form.title || '本笔记标题' }}]]</code>
+          就会出现在这里。
+        </p>
+        <ul v-else class="note-backlinks-list">
+          <li v-for="b in noteStore.backlinks" :key="b.id">
+            <button class="note-backlink-item" @click="gotoNote(b.id)">
+              <span class="note-backlink-title"><Icon name="file-text" :size="13" /> {{ b.title }}</span>
+              <span class="note-backlink-excerpt">{{ b.excerpt }}</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <!-- ============ Bottom Action Bar ============ -->
     <footer class="note-action-bar">
       <div class="note-action-left">
@@ -348,6 +433,136 @@
         </div>
       </transition>
     </Teleport>
+
+    <!-- ============ 沉浸阅读模式 ============ -->
+    <Teleport to="body">
+      <transition name="reader-fade">
+        <div v-if="noteStore.fullscreenMode" class="note-reader" :style="{ '--mc': themeColor }">
+          <header class="note-reader-bar">
+            <div class="note-reader-bar-left">
+              <Icon name="book-open" :size="15" />
+              <span class="note-reader-mode">沉浸阅读</span>
+              <span class="note-reader-kbd">Esc</span>
+              <span class="note-reader-tip">退出</span>
+            </div>
+            <div class="note-reader-bar-right">
+              <div class="note-reader-zoom">
+                <button title="缩小字号" aria-label="缩小字号" @click="stepReaderFont(-1)">
+                  <Icon name="minus" :size="13" />
+                </button>
+                <span>{{ readerFontSize }}px</span>
+                <button title="放大字号" aria-label="放大字号" @click="stepReaderFont(1)">
+                  <Icon name="plus" :size="13" />
+                </button>
+              </div>
+              <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportPDF({ singlePage: true })">
+                <Icon name="file-text" :size="14" /> 导出 PDF
+              </button>
+              <button class="kb-btn wb-ghost-btn note-export-btn" @click="noteStore.exitFullscreen()">
+                <Icon name="minimize" :size="14" /> 退出全屏
+              </button>
+            </div>
+          </header>
+
+          <div class="note-reader-scroll">
+            <article class="note-reader-doc" :style="{ '--reader-fs': `${readerFontSize}px` }">
+              <h1 class="note-reader-title">{{ form.title || '未命名笔记' }}</h1>
+              <div class="note-reader-meta">
+                <span v-if="tags.length" class="note-reader-tags">
+                  <span v-for="(t, i) in tags" :key="i" class="note-reader-tag">#{{ t }}</span>
+                </span>
+                <span class="note-reader-mastery">掌握度 {{ form.mastery }}%</span>
+              </div>
+
+              <!-- 双链点击走事件委托：v-html 出来的锚点没法直接绑 @click -->
+              <div v-if="renderedNote" class="note-reader-body dl-md" v-html="renderedNote" @click="onWikilinkClick"></div>
+              <p v-else class="note-reader-empty">这篇笔记的正文还是空的。</p>
+
+              <section v-if="form.summaryColumn?.trim()" class="note-reader-summary">
+                <h2><Icon name="check-check" :size="15" /> 总结</h2>
+                <p>{{ form.summaryColumn }}</p>
+              </section>
+
+              <section v-if="noteStore.backlinks.length" class="note-reader-backlinks">
+                <h2><Icon name="link" :size="15" /> 反向引用（{{ noteStore.backlinks.length }}）</h2>
+                <ul>
+                  <li v-for="b in noteStore.backlinks" :key="b.id">
+                    <button @click="gotoNote(b.id)">{{ b.title }}</button>
+                    <span>{{ b.excerpt }}</span>
+                  </li>
+                </ul>
+              </section>
+            </article>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
+    <!-- ============ AI 拓展对比窗 ============ -->
+    <Teleport to="body">
+      <transition name="reader-fade">
+        <div v-if="extendOpen" class="note-extend-mask" :style="{ '--mc': themeColor }" @click.self="closeExtend">
+          <div class="note-extend-win" role="dialog" aria-label="AI 拓展结果对比">
+            <header class="note-extend-head">
+              <span class="note-extend-title"><Icon name="ai-sparkle" :size="15" /> AI 拓展 · 对比确认</span>
+              <span v-if="extendResult" class="note-extend-stat">
+                {{ extendResult.chars }} 字
+                <em v-if="extendResult.belowTarget" class="note-extend-warn">（未达 {{ extendResult.minChars }} 字目标）</em>
+              </span>
+              <button class="wb-icon-btn" title="关闭" @click="closeExtend"><Icon name="x" :size="16" /></button>
+            </header>
+
+            <div class="note-extend-body">
+              <section class="note-extend-pane">
+                <h4><Icon name="file-text" :size="13" /> 当前正文（结尾片段）</h4>
+                <div class="note-extend-scroll note-extend-origin">{{ extendTail || '（正文为空）' }}</div>
+              </section>
+              <section class="note-extend-pane">
+                <h4>
+                  <Icon name="ai-sparkle" :size="13" /> AI 续写
+                  <span v-if="extendResult?.summary" class="note-extend-summary">{{ extendResult.summary }}</span>
+                </h4>
+                <div v-if="extendLoading" class="note-extend-scroll note-extend-busy">
+                  <Icon name="loader" :size="16" class="ai-spin" /> 正在续写，通常需要十几秒…
+                </div>
+                <div v-else class="note-extend-scroll dl-md" v-html="extendHtml"></div>
+              </section>
+            </div>
+
+            <footer class="note-extend-foot">
+              <label class="note-extend-dir">
+                <Icon name="compass" :size="13" />
+                <input
+                  v-model="extendDirection"
+                  class="kb-input"
+                  placeholder="可选：给个方向，例如「多讲落地实践」"
+                  @keydown.enter.prevent="runExtend"
+                />
+              </label>
+              <div class="note-extend-actions">
+                <button class="kb-btn wb-ghost-btn" :disabled="extendLoading" @click="runExtend">
+                  <Icon name="repeat" :size="14" /> 重新生成
+                </button>
+                <button class="kb-btn wb-ghost-btn" @click="closeExtend">
+                  <Icon name="x" :size="14" /> 放弃
+                </button>
+                <button
+                  class="kb-btn note-extend-cursor"
+                  :disabled="!canAdopt"
+                  :title="hasSavedCursor ? '插入到你离开笔记栏时的光标位置' : '还没在笔记栏点过光标，将插入到末尾'"
+                  @click="adoptExtend('cursor')"
+                >
+                  <Icon name="text-cursor-input" :size="14" /> 追加到光标位置
+                </button>
+                <button class="kb-btn kb-btn-primary" :disabled="!canAdopt" @click="adoptExtend('paragraph')">
+                  <Icon name="corner-down-left" :size="14" /> 作为新段落插入
+                </button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
@@ -360,14 +575,28 @@ import AiAssociatePanel from '@/components/AiAssociatePanel.vue'
 import { notify, confirmDialog, getApiError } from '@/utils/toast'
 import './workbench-shared.css'
 import './ai-shared.css'
-import { getNote, createNote, updateNote, getCategoryTree, createReview } from '@/api/workbench'
+// 沉浸阅读 / AI 拓展对比窗都会 v-html 出 .dl-md，排版样式与渲染器成对引入
+import '@/lib/markdown.css'
+import {
+  getNote,
+  createNote,
+  updateNote,
+  getCategoryTree,
+  createReview,
+  resolveNoteByTitle,
+} from '@/api/workbench'
 import {
   generateNoteColumns,
   generateFlashcards,
   generateNoteQuiz,
+  extendNote,
   type Flashcard,
   type QuizItem,
+  type QuizItemType,
+  type NoteExtendResult,
 } from '@/api/ai'
+import { createMindMap, generateMindMapFromNote, type OutlineNode } from '@/api/mindmap'
+import { renderMarkdown, renderNoteBody } from '@/lib/markdown'
 import type { WbNotePayload, CategoryVO } from '@/api/types'
 import {
   useNoteStore,
@@ -416,6 +645,32 @@ const flashcards = ref<Flashcard[] | null>(null)
 const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
 const quizGen = ref(false)
 const quizItems = ref<QuizItem[]>([])
+/** 题型下拉（主按钮走混合题型，下拉里可指定单一题型） */
+const quizMenuOpen = ref(false)
+const quizMenuRef = ref<HTMLElement | null>(null)
+
+// ===== 一键生成导图：只生成不落库，确认后才写 /api/mindmaps =====
+const mindmapGen = ref(false)
+
+// ===== 沉浸阅读：正文走 @/lib/markdown 渲染，双链与文档库同款 =====
+const READER_FS_MIN = 14
+const READER_FS_MAX = 26
+const readerFontSize = ref(17)
+/** 反向引用面板默认展开：不展开的话这个「谁引用了我」的信号基本没人会去点 */
+const backlinksOpen = ref(true)
+
+// ===== AI 拓展：结果先进对比窗，由用户决定插到哪，绝不直接落笔 =====
+const extendOpen = ref(false)
+const extendLoading = ref(false)
+const extendDirection = ref('')
+const extendResult = ref<NoteExtendResult | null>(null)
+/**
+ * 笔记栏失焦时快照的光标位置。
+ * 不放进 ref：Range 是宿主对象，塞进响应式系统没有收益，只有踩坑风险；
+ * 模板需要的只是「有没有」，用 hasSavedCursor 这个布尔镜像即可。
+ */
+let savedRange: Range | null = null
+const hasSavedCursor = ref(false)
 
 // ===== 三栏拖拽：比例存 store（已持久化），组件只负责换算与事件 =====
 const dragAxis = ref<'x' | 'y' | null>(null)
@@ -505,6 +760,43 @@ function onEditorInput() {
   if (editorRef.value) {
     form.noteColumn = editorRef.value.innerHTML
   }
+}
+
+/** 富文本片段 → 纯文本（判长度、喂给 AI 时都用它，避免各处重复写这段正则） */
+function plainText(html?: string | null): string {
+  return (html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+}
+
+/** 正文太短时统一的拦截：AI 的几个入口都要这一道 */
+function requireEnoughText(action: string): boolean {
+  if (plainText(form.noteColumn).length >= 30) return true
+  notify(`笔记正文太短（至少 30 字），先把笔记栏写充实一点再${action}`, 'warning')
+  return false
+}
+
+/**
+ * 记住笔记栏里的光标位置。
+ * AI 拓展的「追加到光标位置」依赖它：点按钮的瞬间编辑器已失焦，
+ * 若不在 blur 时把 Range 克隆下来，采纳时就只剩「插到末尾」一种选择了。
+ */
+function saveCursor() {
+  const sel = window.getSelection()
+  const editor = editorRef.value
+  if (!sel || !editor || sel.rangeCount === 0) return
+  const range = sel.getRangeAt(0)
+  if (!editor.contains(range.commonAncestorContainer)) return
+  savedRange = range.cloneRange()
+  hasSavedCursor.value = true
+}
+
+function onEditorBlur() {
+  onEditorInput()
+  saveCursor()
 }
 
 function exec(command: string) {
@@ -674,29 +966,42 @@ onClickOutside(selBarRef, () => hideSelBar())
 
 /* ==================== AI 自测题 ==================== */
 
+/** AI 相关报错的统一处理：识别「没配 Key」类文案，顺手把设置引导条亮出来 */
+function reportAiError(e: unknown, fallback: string) {
+  const msg = getApiError(e, fallback)
+  if (msg.includes('AI 设置') || msg.includes('未配置') || msg.includes('已关闭')) {
+    aiHintVisible.value = true
+  }
+  notify(msg, 'error')
+}
+
+/** 需要 noteId 回链的操作（出题）先落一次盘；返回 false 表示存不下去 */
+async function ensurePersisted(action: string): Promise<boolean> {
+  if (!isNew.value) return true
+  if (!form.title.trim()) {
+    errors.title = '标题不能为空'
+    notify(`请先填写标题，再${action}`, 'warning')
+    return false
+  }
+  if (!(await doSave(true))) {
+    notify('笔记保存失败，请先手动保存后再生成', 'error')
+    return false
+  }
+  return true
+}
+
 /**
  * 生成自测题并直连复习系统。
  * 与「AI 生成复习卡」的区别：这里 autoSave=true，服务端出题后直接写入 wb_review_card
  * 且 next_review_time 置为当前时间，无需二次确认，题目立刻可在复习模块作答。
+ *
+ * @param type 'mixed' 混合（默认，保持老行为）/ 'choice' 只出单选 / 'fill' 只出填空
  */
-async function runQuiz() {
-  const noteText = (form.noteColumn || '').replace(/<[^>]*>/g, '').trim()
-  if (noteText.length < 30) {
-    notify('笔记正文太短（至少 30 字），先把笔记栏写充实一点', 'warning')
-    return
-  }
+async function runQuiz(type: QuizItemType | 'mixed' = 'mixed') {
+  quizMenuOpen.value = false
+  if (!requireEnoughText('出题')) return
   // 题目要回链 noteId，新笔记先落一次盘拿到 id
-  if (isNew.value) {
-    if (!form.title.trim()) {
-      errors.title = '标题不能为空'
-      notify('请先填写标题，再生成自测题', 'warning')
-      return
-    }
-    if (!(await doSave(true))) {
-      notify('笔记保存失败，请先手动保存后再生成', 'error')
-      return
-    }
-  }
+  if (!(await ensurePersisted('生成自测题'))) return
   quizGen.value = true
   try {
     const res = await generateNoteQuiz({
@@ -705,16 +1010,223 @@ async function runQuiz() {
       noteId: noteId.value ?? undefined,
       categoryId: form.categoryId,
       autoSave: true,
+      type,
     })
     quizItems.value = res.quiz
-    notify(`已生成 ${res.created || res.quiz.length} 道题，请前往 [复习] 模块作答！`, 'success')
+    if (!res.quiz.length) {
+      notify('AI 这次没产出符合题型要求的题目，可以换个题型或稍后重试', 'warning')
+      return
+    }
+    const label = type === 'choice' ? '单选题' : type === 'fill' ? '填空题' : '题'
+    notify(`已生成 ${res.created || res.quiz.length} 道${label}，请前往 [复习] 模块作答！`, 'success')
   } catch (e) {
-    const msg = getApiError(e, 'AI 出题失败')
-    if (msg.includes('AI 设置') || msg.includes('未配置') || msg.includes('已关闭')) aiHintVisible.value = true
-    notify(msg, 'error')
+    reportAiError(e, 'AI 出题失败')
   } finally {
     quizGen.value = false
   }
+}
+
+onClickOutside(quizMenuRef, () => {
+  quizMenuOpen.value = false
+})
+
+/* ==================== 一键生成思维导图 ==================== */
+
+function countOutline(nodes: OutlineNode[]): number {
+  return nodes.reduce((n, node) => n + 1 + countOutline(node.children || []), 0)
+}
+
+/**
+ * 把当前笔记抽成思维导图。
+ * 两段式：先 /ai/note/generate-mindmap 只算大纲（服务端不落库），
+ * 再走已有的 POST /mindmaps 建文档——复用导图模块的存储与编辑器，不另起一套。
+ */
+async function runMindmap() {
+  if (!requireEnoughText('生成导图')) return
+  mindmapGen.value = true
+  try {
+    const ai = await generateMindMapFromNote({
+      noteColumn: form.noteColumn || '',
+      title: form.title,
+      cueColumn: form.cueColumn || '',
+    })
+    if (!ai.outline.length) {
+      notify('没能从正文里抽出结构，试试给笔记加几级标题或列表', 'warning')
+      return
+    }
+    const doc = await createMindMap({
+      title: `${form.title.trim() || '未命名笔记'} 导图`,
+      outlineData: ai.outline,
+    })
+    const count = countOutline(ai.outline)
+    const tip = ai.mock
+      ? `未配置 AI 服务，已按正文的标题 / 列表层级硬解析出 ${count} 个节点。`
+      : `已归纳出 ${count} 个节点。`
+    const go = await confirmDialog(`${tip}\n导图「${doc.title}」已保存，现在打开思维导图模块查看？`)
+    if (go) {
+      noteStore.exitFullscreen()
+      router.push({ path: '/mindmap', query: { id: doc.id } })
+    } else {
+      notify('导图已保存，可稍后在 [思维导图] 模块打开', 'success')
+    }
+  } catch (e) {
+    reportAiError(e, '生成导图失败')
+  } finally {
+    mindmapGen.value = false
+  }
+}
+
+/* ==================== 沉浸阅读 & 反向引用 ==================== */
+
+/** 正文渲染：HTML / Markdown 两种存储形态都能出双链，逻辑在 @/lib/markdown 里统一 */
+const renderedNote = computed(() => renderNoteBody(form.noteColumn || ''))
+
+function enterReader() {
+  onEditorInput() // 阅读前把编辑器里未同步的内容刷进 form
+  if (!plainText(form.noteColumn)) {
+    notify('正文还是空的，先写点东西再进阅读模式', 'info')
+    return
+  }
+  refreshBacklinks()
+  noteStore.enterFullscreen()
+}
+
+function stepReaderFont(delta: number) {
+  readerFontSize.value = Math.min(READER_FS_MAX, Math.max(READER_FS_MIN, readerFontSize.value + delta))
+}
+
+function refreshBacklinks() {
+  if (noteId.value) noteStore.fetchBacklinks(noteId.value)
+}
+
+function toggleBacklinks() {
+  backlinksOpen.value = !backlinksOpen.value
+  if (backlinksOpen.value) refreshBacklinks()
+}
+
+/** 跳到另一篇笔记：同路由换 param，由下面的 route watch 负责重载 */
+function gotoNote(id: number) {
+  if (id === noteId.value) return
+  noteStore.exitFullscreen()
+  router.push(`/workbench/notes/${id}`)
+}
+
+/**
+ * 阅读模式里的双链点击。
+ * v-html 出来的锚点没法绑 @click，所以在容器上做事件委托；
+ * 目标笔记存在就跳过去，不存在则问一句要不要现在建。
+ */
+async function onWikilinkClick(e: MouseEvent) {
+  const anchor = (e.target as HTMLElement | null)?.closest?.('a.dl-wikilink') as HTMLAnchorElement | null
+  if (!anchor) return
+  e.preventDefault()
+  const name = (anchor.dataset.wikilinkName || anchor.textContent || '').trim()
+  if (!name) return
+  try {
+    const res = await resolveNoteByTitle(name)
+    if (res.exists && res.id) {
+      gotoNote(res.id)
+      return
+    }
+    const create = await confirmDialog(`还没有名为「${name}」的笔记，现在新建一篇？`)
+    if (!create) return
+    noteStore.exitFullscreen()
+    router.push({ path: '/workbench/notes/new', query: { title: name } })
+  } catch (err) {
+    notify(getApiError(err, '解析双链失败'), 'error')
+  }
+}
+
+/* ==================== AI 拓展（续写 + 对比采纳） ==================== */
+
+/** 对比窗左侧：当前正文的结尾片段——AI 是接着这里往下写的，只给这段最有参照价值 */
+const extendTail = computed(() => {
+  const text = plainText(form.noteColumn)
+  return text.length > 600 ? `…${text.slice(-600)}` : text
+})
+
+const extendHtml = computed(() =>
+  extendResult.value?.continuation ? renderMarkdown(extendResult.value.continuation) : '',
+)
+
+const canAdopt = computed(() => !extendLoading.value && !!extendResult.value?.continuation.trim())
+
+function openExtend() {
+  onEditorInput()
+  if (!requireEnoughText('拓展')) return
+  extendOpen.value = true
+  runExtend()
+}
+
+function closeExtend() {
+  extendOpen.value = false
+  extendResult.value = null
+}
+
+async function runExtend() {
+  if (extendLoading.value) return
+  extendLoading.value = true
+  extendResult.value = null
+  try {
+    extendResult.value = await extendNote({
+      currentText: form.noteColumn || '',
+      title: form.title,
+      direction: extendDirection.value.trim() || undefined,
+    })
+  } catch (e) {
+    extendOpen.value = false
+    reportAiError(e, 'AI 拓展失败')
+  } finally {
+    extendLoading.value = false
+  }
+}
+
+/**
+ * Markdown 续写 → 可直接塞进 contenteditable 的 HTML。
+ *
+ * 关键一步是把渲染出来的 <a class="dl-wikilink"> 还原成字面量 [[名字]]：
+ * note_column 里存的必须是字面双链，后端的反向引用是 LIKE '%[[标题]]%' 查的，
+ * 一旦存成锚点 HTML，这条笔记就再也不会出现在别人的反向引用列表里。
+ */
+function toEditorHtml(markdown: string): string {
+  const doc = new DOMParser().parseFromString(`<body>${renderMarkdown(markdown)}</body>`, 'text/html')
+  doc.body.querySelectorAll('a.dl-wikilink').forEach((a) => {
+    const name = (a as HTMLElement).dataset.wikilinkName || a.textContent || ''
+    const display = a.textContent || ''
+    const literal = display && display !== name ? `[[${name}|${display}]]` : `[[${name}]]`
+    a.replaceWith(doc.createTextNode(literal))
+  })
+  return doc.body.innerHTML
+}
+
+/**
+ * 采纳续写。
+ * - 'cursor'：还原 blur 时快照的选区，插在用户上次停笔的地方；
+ * - 'paragraph'：直接追加到正文末尾，作为独立新段落。
+ * 没有可用光标时 'cursor' 自动退化为追加，不给用户报错。
+ */
+function adoptExtend(mode: 'cursor' | 'paragraph') {
+  const continuation = extendResult.value?.continuation?.trim()
+  const editor = editorRef.value
+  if (!continuation || !editor) return
+  const html = toEditorHtml(continuation)
+  const useCursor =
+    mode === 'cursor' && !!savedRange && editor.contains(savedRange.commonAncestorContainer)
+
+  if (useCursor) {
+    editor.focus()
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(savedRange!)
+    document.execCommand('insertHTML', false, html)
+  } else {
+    editor.insertAdjacentHTML('beforeend', html)
+  }
+  onEditorInput()
+  savedRange = null
+  hasSavedCursor.value = false
+  closeExtend()
+  notify(useCursor ? '已插入到光标位置' : '已作为新段落追加到正文末尾', 'success')
 }
 
 function addTag() {
@@ -821,20 +1333,14 @@ async function publish() {
  * 用户「采纳并创建」后才逐张走 POST /reviews，绝不自动落库、不影响 SM-2 排程。
  */
 async function runAiCards() {
-  const noteText = (form.noteColumn || '').replace(/<[^>]*>/g, '').trim()
-  if (noteText.length < 30) {
-    notify('笔记正文太短（至少 30 字），先把笔记栏写充实一点', 'warning')
-    return
-  }
+  if (!requireEnoughText('生成复习卡')) return
   aiCardsGen.value = true
   try {
     const res = await generateFlashcards({ title: form.title, noteColumn: form.noteColumn || '' })
     flashcards.value = res.cards
     notify(`已生成 ${res.cards.length} 张复习卡，确认后创建`, 'success')
   } catch (e) {
-    const msg = getApiError(e, 'AI 生成失败')
-    if (msg.includes('AI 设置') || msg.includes('未配置') || msg.includes('已关闭')) aiHintVisible.value = true
-    notify(msg, 'error')
+    reportAiError(e, 'AI 生成失败')
   } finally {
     aiCardsGen.value = false
   }
@@ -869,7 +1375,7 @@ async function createCards() {
  */
 async function goBack() {
   const hasContent = !!(
-    (form.noteColumn || '').replace(/<[^>]*>/g, '').trim()
+    plainText(form.noteColumn)
     || (form.cueColumn || '').trim()
     || (form.summaryColumn || '').trim()
   )
@@ -889,11 +1395,7 @@ async function goBack() {
  */
 async function runAiGenerate(mode: 'cue' | 'summary') {
   aiMode.value = mode
-  const noteText = (form.noteColumn || '').replace(/<[^>]*>/g, '').trim()
-  if (noteText.length < 30) {
-    notify('笔记正文太短（至少 30 字），先把笔记栏写充实一点', 'warning')
-    return
-  }
+  if (!requireEnoughText(mode === 'cue' ? '生成线索' : '生成总结')) return
   aiGen.value = true
   aiHintVisible.value = false
   try {
@@ -920,11 +1422,7 @@ async function runAiGenerate(mode: 'cue' | 'summary') {
       notify('已生成总结栏，记得保存', 'success')
     }
   } catch (e) {
-    const msg = getApiError(e, 'AI 生成失败')
-    if (msg.includes('AI 设置') || msg.includes('未配置') || msg.includes('已关闭')) {
-      aiHintVisible.value = true
-    }
-    notify(msg, 'error')
+    reportAiError(e, 'AI 生成失败')
   } finally {
     aiGen.value = false
   }
@@ -990,8 +1488,18 @@ async function exportImage() {
   }
 }
 
-async function exportPDF() {
+/**
+ * 导出 PDF（标题 + 三栏，整块 .note-meta-card 截图后排版）。
+ *
+ * 两种模式：
+ * - 默认（顶栏「导出PDF」）：按 A4 宽度等比缩放，超长就按可用高度切片分页，
+ *   保证正文字号可读；
+ * - singlePage（阅读模式里的「导出 PDF」）：整页压缩进一张 A4，
+ *   适合当速查卡片打印，长笔记会明显变小，这是刻意的取舍。
+ */
+async function exportPDF(opts: { singlePage?: boolean } = {}) {
   if (!exportRoot.value) return
+  const singlePage = !!opts.singlePage
   exporting.value = true
   try {
     const [html2canvasMod, jspdfMod] = await Promise.all([
@@ -1007,45 +1515,42 @@ async function exportPDF() {
         useCORS: true,
       }),
     )
-    const imgData = canvas.toDataURL('image/png')
     const imgW = canvas.width
     const imgH = canvas.height
-    const pdfW = 595
-    const pdfH = 842
     const margin = 28
-    const availW = pdfW - margin * 2
-    const availH = pdfH - margin * 2
-    const ratio = Math.min(availW / imgW, availH / imgH)
+    const availW = 595 - margin * 2 // A4 纵向：595×842pt
+    const availH = 842 - margin * 2
+    // 单页模式两个方向都要塞得下；分页模式只对齐宽度，高度由切片解决
+    const ratio = singlePage ? Math.min(availW / imgW, availH / imgH) : availW / imgW
     const w = imgW * ratio
     const h = imgH * ratio
     const pdf = new jsPDF('p', 'pt', 'a4')
-    let remaining = h
-    let position = margin
-    let srcY = 0
-    if (h <= availH) {
-      pdf.addImage(imgData, 'PNG', margin, margin, w, h)
+
+    if (singlePage || h <= availH) {
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin + (availW - w) / 2, margin, w, h)
     } else {
-      while (remaining > 0) {
-        const pageH = Math.min(availH, remaining)
-        const pageCanvas = document.createElement('canvas')
-        pageCanvas.width = canvas.width
-        pageCanvas.height = (pageH / ratio) * (canvas.width / w) * imgW / canvas.width * canvas.width / (imgW / canvas.width)
-        const ctx = pageCanvas.getContext('2d')!
+      // 按「一页能装下多少源像素」切片。旧实现里那串 canvas.width 反复自乘的换算是错的，
+      // 会把每页画布高度算成天文数字，长笔记直接导出失败。
+      const sliceSrcH = Math.max(1, Math.floor(availH / ratio))
+      const pageCanvas = document.createElement('canvas')
+      const ctx = pageCanvas.getContext('2d')!
+      let srcY = 0
+      let page = 0
+      while (srcY < imgH) {
+        const srcH = Math.min(sliceSrcH, imgH - srcY)
+        pageCanvas.width = imgW
+        pageCanvas.height = srcH
         ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
-        const srcH = (pageH / ratio)
-        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, pageCanvas.width, pageCanvas.height)
-        pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', margin, position, w, pageH)
-        remaining -= availH
+        ctx.fillRect(0, 0, imgW, srcH)
+        ctx.drawImage(canvas, 0, srcY, imgW, srcH, 0, 0, imgW, srcH)
+        if (page > 0) pdf.addPage()
+        pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', margin, margin, w, srcH * ratio)
         srcY += srcH
-        if (remaining > 0) {
-          pdf.addPage()
-          position = margin
-        }
+        page += 1
       }
     }
     pdf.save(`${form.title || '康奈尔笔记'}.pdf`)
-    notify('已导出 PDF', 'success')
+    notify(singlePage ? '已导出单页 PDF' : '已导出 PDF', 'success')
   } catch (e) {
     notify(getApiError(e, '导出 PDF 失败'), 'error')
   } finally {
@@ -1092,12 +1597,90 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
   e.returnValue = ''
 }
 
-onMounted(() => {
+/** Esc 按层级逐个关：对比窗 → 阅读模式 → 题型下拉，避免一次全收掉 */
+function onGlobalKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (extendOpen.value) {
+    closeExtend()
+  } else if (noteStore.fullscreenMode) {
+    noteStore.exitFullscreen()
+  } else if (quizMenuOpen.value) {
+    quizMenuOpen.value = false
+  }
+}
+
+/**
+ * 从反向引用 / 双链跳到另一篇笔记时只有 route.params 变化，
+ * vue-router 会复用组件实例，不重新走 setup，必须手动重置并重载。
+ */
+async function reloadForRoute(nextId: number | null) {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  // 只换 params 不换路由记录时 onBeforeRouteLeave 不会触发，
+  // 防抖里没落盘的改动必须在这里补刷一次，否则「改完点反向引用跳走」会丢内容
+  if (dirty.value && form.title.trim()) {
+    autoSaving.value = true
+    await doSave(true)
+    autoSaving.value = false
+  }
+  // 先把「已加载」拨回去，阻断 form 的 deep watch 在重置期间误判为用户编辑
+  loaded.value = false
+  noteLoaded.value = false
+  dirty.value = false
+  noteId.value = nextId
+  lastSavedAt.value = ''
+  quizItems.value = []
+  flashcards.value = null
+  errors.title = ''
+  errors._form = ''
+  savedRange = null
+  hasSavedCursor.value = false
+  closeExtend()
+  hideSelBar()
+  tags.value = []
+  Object.assign(form, {
+    title: '',
+    captureId: undefined,
+    categoryId: undefined,
+    cueColumn: '',
+    noteColumn: '',
+    summaryColumn: '',
+    tags: '',
+    mastery: 0,
+  })
+  if (editorRef.value) editorRef.value.innerHTML = ''
+  await loadNote()
+  refreshBacklinks()
+}
+
+watch(
+  () => route.params.id,
+  (raw) => {
+    const next = raw && raw !== 'new' ? Number(raw) : null
+    if (next === noteId.value) return
+    reloadForRoute(next)
+  },
+)
+
+/** 阅读模式是全屏覆盖层，底层页面继续可滚会导致退出后位置错乱 */
+watch(
+  () => noteStore.fullscreenMode,
+  (on) => {
+    document.body.style.overflow = on ? 'hidden' : ''
+    if (on) hideSelBar()
+  },
+)
+
+onMounted(async () => {
   loadCategories()
-  loadNote()
+  await loadNote()
+  refreshBacklinks()
   window.addEventListener('scroll', hideSelBar, true)
   window.addEventListener('resize', hideSelBar)
   window.addEventListener('beforeunload', onBeforeUnload)
+  window.addEventListener('keydown', onGlobalKey)
 })
 
 onUnmounted(() => {
@@ -1107,9 +1690,13 @@ onUnmounted(() => {
     autoSaveTimer = null
   }
   stopDrag()
+  // store 是全局单例，离开页面必须主动退出全屏，否则下次进来还是阅读态
+  noteStore.exitFullscreen()
+  document.body.style.overflow = ''
   window.removeEventListener('scroll', hideSelBar, true)
   window.removeEventListener('resize', hideSelBar)
   window.removeEventListener('beforeunload', onBeforeUnload)
+  window.removeEventListener('keydown', onGlobalKey)
 })
 </script>
 
@@ -1786,6 +2373,568 @@ onUnmounted(() => {
   .note-meta-title-field { grid-column: span 1; }
   .note-action-bar { flex-direction: column; align-items: stretch; }
   .note-action-right { justify-content: flex-end; }
+}
+
+/* =====================================================================
+ * 生态化扩展：阅读 / 导图入口、题型下拉、AI 拓展、反向引用、沉浸阅读
+ * ===================================================================== */
+
+/* ---------- 顶栏：分组分隔与两个「换视角」入口 ---------- */
+.note-topbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--kb-border);
+  flex: none;
+}
+.note-read-btn {
+  background: color-mix(in srgb, var(--mc) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mc) 30%, transparent);
+  color: var(--mc);
+}
+.note-read-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--mc) 18%, transparent);
+}
+.note-map-btn {
+  background: color-mix(in srgb, var(--kb-info, #0EA5E9) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kb-info, #0EA5E9) 30%, transparent);
+  color: var(--kb-info, #0EA5E9);
+}
+.note-map-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kb-info, #0EA5E9) 18%, transparent);
+}
+.note-map-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- 出题：主按钮 + 题型下拉 ---------- */
+.note-quiz-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+.note-quiz-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.note-quiz-caret {
+  margin-left: -1px;
+  padding: 6px 6px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.note-quiz-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 148px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: var(--kb-radius-md);
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  box-shadow: var(--shadow-lg);
+}
+.note-quiz-menu button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-foreground);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.note-quiz-menu button:hover {
+  background: color-mix(in srgb, var(--kb-warning) 12%, transparent);
+  color: var(--kb-warning);
+}
+
+/* ---------- 笔记栏底部：AI 拓展入口 ---------- */
+.cornell-col-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--kb-border);
+  background: var(--kb-background);
+}
+.cornell-extend-btn {
+  font-size: 12px;
+  padding: 5px 11px;
+  flex: none;
+}
+.cornell-extend-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cornell-col-foot-hint {
+  font-size: 11px;
+  color: var(--kb-muted-foreground);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 反向引用 ---------- */
+.note-backlinks {
+  border-radius: var(--kb-radius-md);
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.note-backlinks-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--kb-foreground);
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+.note-backlinks-head:hover {
+  background: var(--kb-muted);
+}
+.note-backlinks-title {
+  font-family: var(--font-serif);
+  font-size: var(--kb-fs-body-lg);
+  font-weight: 700;
+}
+.note-backlinks-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+  color: var(--mc);
+  font-size: 11px;
+  font-weight: 700;
+}
+.note-backlinks-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--kb-muted-foreground);
+}
+.note-backlinks-body {
+  padding: 0 16px 14px;
+}
+.note-backlinks-empty {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--kb-muted-foreground);
+}
+.note-backlinks-empty code {
+  padding: 1px 5px;
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-muted);
+  color: var(--mc);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.note-backlinks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.note-backlink-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-background);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.note-backlink-item:hover {
+  border-color: var(--mc);
+  background: color-mix(in srgb, var(--mc) 5%, transparent);
+}
+.note-backlink-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-foreground);
+}
+.note-backlink-excerpt {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--kb-muted-foreground);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- 沉浸阅读 ---------- */
+.note-reader {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: var(--kb-background);
+}
+.note-reader-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--kb-border);
+  background: var(--kb-card);
+}
+.note-reader-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--kb-muted-foreground);
+  font-size: 12px;
+}
+.note-reader-mode {
+  font-weight: 700;
+  color: var(--mc);
+}
+.note-reader-kbd {
+  padding: 1px 7px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.note-reader-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.note-reader-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+}
+.note-reader-zoom span {
+  min-width: 40px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--kb-muted-foreground);
+}
+.note-reader-zoom button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+}
+.note-reader-zoom button:hover {
+  background: var(--kb-muted);
+  color: var(--mc);
+}
+.note-reader-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 40px 24px 96px;
+}
+.note-reader-doc {
+  /* 单栏 72ch 左右是长文阅读的舒适宽度，比铺满屏幕好读得多 */
+  max-width: 760px;
+  margin: 0 auto;
+}
+.note-reader-title {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--kb-foreground);
+}
+.note-reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--kb-border);
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+}
+.note-reader-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.note-reader-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mc) 12%, transparent);
+  color: var(--mc);
+  font-weight: 600;
+}
+.note-reader-body {
+  /* 字号可调：--reader-fs 由顶栏的缩放按钮下发 */
+  font-size: var(--reader-fs, 17px);
+  line-height: 1.85;
+}
+.note-reader-empty {
+  color: var(--kb-muted-foreground);
+  font-style: italic;
+}
+.note-reader-summary,
+.note-reader-backlinks {
+  margin-top: 36px;
+  padding: 16px 18px;
+  border-radius: var(--kb-radius-md);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+}
+.note-reader-summary h2,
+.note-reader-backlinks h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--kb-accent);
+}
+.note-reader-backlinks h2 { color: var(--mc); }
+.note-reader-summary p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--kb-foreground);
+  white-space: pre-wrap;
+}
+.note-reader-backlinks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.note-reader-backlinks li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.note-reader-backlinks button {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--mc);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.note-reader-backlinks button:hover { text-decoration: underline; }
+.note-reader-backlinks span {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--kb-muted-foreground);
+}
+.reader-fade-enter-active,
+.reader-fade-leave-active {
+  transition: opacity 0.16s ease;
+}
+.reader-fade-enter-from,
+.reader-fade-leave-to {
+  opacity: 0;
+}
+
+/* ---------- AI 拓展对比窗 ---------- */
+.note-extend-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: color-mix(in srgb, #0F172A 55%, transparent);
+  backdrop-filter: blur(2px);
+}
+.note-extend-win {
+  width: min(1080px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--kb-radius-lg, 14px);
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.note-extend-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--kb-border);
+}
+.note-extend-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mc);
+}
+.note-extend-stat {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--kb-muted-foreground);
+}
+.note-extend-warn {
+  font-style: normal;
+  color: var(--kb-warning);
+}
+.note-extend-head .wb-icon-btn { margin-left: auto; }
+.note-extend-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--kb-border);
+}
+.note-extend-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--kb-card);
+}
+.note-extend-pane h4 {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 9px 14px;
+  background: var(--kb-background);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kb-muted-foreground);
+}
+.note-extend-summary {
+  margin-left: auto;
+  max-width: 55%;
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--mc);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.note-extend-scroll {
+  flex: 1 1 auto;
+  min-height: 240px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+.note-extend-origin {
+  color: var(--kb-muted-foreground);
+  white-space: pre-wrap;
+}
+.note-extend-busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--kb-muted-foreground);
+}
+.note-extend-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--kb-border);
+  background: var(--kb-background);
+  flex-wrap: wrap;
+}
+.note-extend-dir {
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--kb-muted-foreground);
+}
+.note-extend-dir .kb-input {
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  padding: 6px 10px;
+}
+.note-extend-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.note-extend-actions .kb-btn {
+  font-size: 12.5px;
+  padding: 7px 13px;
+}
+.note-extend-cursor {
+  background: color-mix(in srgb, var(--mc) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mc) 32%, transparent);
+  color: var(--mc);
+}
+.note-extend-cursor:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--mc) 20%, transparent);
+}
+.note-extend-actions .kb-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .note-extend-body { grid-template-columns: 1fr; }
+  .note-extend-scroll { max-height: 32vh; min-height: 160px; }
+  .note-reader-scroll { padding: 24px 16px 72px; }
+  .note-reader-title { font-size: 24px; }
 }
 </style>
 

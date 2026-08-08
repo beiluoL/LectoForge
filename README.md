@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 115 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 21 个；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 115 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点（详见《技术架构与功能手册.md》§7.3.1） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -119,6 +119,18 @@ npm run tauri build
 - **命令面板 `⌘K`**：跨收集箱 / 笔记 / 故事三表的全局模糊搜索，回车直达对应条目。
 - **首页动态化**：总览页双数据源（`/api/workbench/overview` 供 6 指标看板、`/api/dashboard/stats` 供「学习闭环四步」气泡 + 今日聚焦四卡）。
 - **新手引导与设置中心**：首次启动走 `/onboarding` 引导（含 AI Key 配置），`/settings` 可改主题、重跑引导、选择数据目录。
+
+## v1.2.0 新增能力（康奈尔笔记生态增强）
+
+在康奈尔三栏编辑 / 自动保存 / 划词工具栏之上，补齐 **5 大跨模块联动 + AI 赋能**（详见《技术架构与功能手册.md》§7.3.1）：
+
+- **① 沉浸阅读 & 反向引用**：`⛶ 全屏阅读` 隐藏 chrome 只留 Markdown 渲染；`[[笔记标题]]` 双链 + `GET /api/workbench/notes/backlinks/:id` 反向引用面板。
+- **② AI 续写 & 自测题**：`POST /api/ai/note/extend` 浮动对比窗（新段落插入 / 光标处追加）；自测题 `POST /api/ai/note/flashcards` 支持 `choice` / `fill` / `mixed` 题型。
+- **③ 一键生成导图**：`POST /api/ai/note/generate-mindmap`（只算不存）→ 复用导图模块 `POST /api/mindmaps` → 跳 `/mindmap?id=`。
+- **④ 标签聚合 & 智慧筛选**：`GET /api/workbench/notes/tags` 标签云 + 掌握度≤30% / 未写总结智能筛选，全部下推 SQL。
+- **⑤ 页面级 PDF 导出**：`exportPDF()` 重写分页算法，阅读模式内单页 A4 压缩导出。
+
+> 新增 / 扩展后端端点共 **6 个**（`backlinks` / `tags` / `resolve` / `note/extend` / `note/flashcards` 增强 / `note/generate-mindmap`，及 `GET /notes` 的 `tag` / `mastery_lte` / `has_summary` 参数）。
 
 > 详细接口、表结构、启动链路见《技术架构与功能手册.md》 §4.4 / §6.6 / §7.12–§7.15 / §9.4。
 

@@ -133,7 +133,7 @@
  * 保存策略：store 内 deep watch 防抖自动落盘；⌘S、切换文档、离开路由时强制冲刷一次。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 
 import Icon from '@/components/ui/Icon.vue'
 import { confirmDialog } from '@/utils/toast'
@@ -193,9 +193,12 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+const route = useRoute()
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  void bootstrap()
+  // ?id=xxx：康奈尔笔记「生成导图」跳转过来时直接定位到刚生成的那一份
+  void bootstrap(route.query.id ? String(route.query.id) : undefined)
 })
 
 onBeforeUnmount(() => {

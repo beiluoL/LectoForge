@@ -99,6 +99,56 @@
       </div>
     </div>
 
+    <!-- ============ 标签聚合 & 智慧筛选 ============ -->
+    <div class="notes-filterbar">
+      <div class="notes-tags">
+        <span class="notes-tags-label">
+          <Icon name="tags" :size="13" /> 标签
+        </span>
+        <div class="notes-tagcloud">
+          <button
+            v-for="t in noteStore.topTags(24)"
+            :key="t.name"
+            class="note-tag-chip"
+            :class="{ 'is-active': noteStore.activeTag === t.name }"
+            :title="`${t.name} · ${t.count} 则`"
+            @click="noteStore.selectTag(t.name)"
+          >
+            #{{ t.name }}<i>{{ t.count }}</i>
+          </button>
+          <span v-if="noteStore.tagsLoading" class="notes-tags-hint">加载中…</span>
+          <span v-else-if="!noteStore.tags.length" class="notes-tags-hint">暂无标签</span>
+        </div>
+      </div>
+
+      <div class="notes-smart">
+        <button
+          class="notes-smart-btn"
+          :class="{ 'is-active': noteStore.smartFilter === 'lowMastery' }"
+          title="只看掌握度不高于 30% 的薄弱笔记"
+          @click="noteStore.setSmartFilter('lowMastery')"
+        >
+          <Icon name="trending-down" :size="13" /> 掌握度≤30%
+        </button>
+        <button
+          class="notes-smart-btn"
+          :class="{ 'is-active': noteStore.smartFilter === 'noSummary' }"
+          title="只看还没写总结栏的半成品笔记"
+          @click="noteStore.setSmartFilter('noSummary')"
+        >
+          <Icon name="file-question" :size="13" /> 未写总结
+        </button>
+        <button
+          v-if="noteStore.hasActiveFilter"
+          class="notes-clear-btn"
+          title="清空关键词、标签与智慧筛选"
+          @click="clearFilters"
+        >
+          <Icon name="filter-x" :size="13" /> 清除筛选
+        </button>
+      </div>
+    </div>
+
     <!-- ============ 骨架屏 ============ -->
     <div v-if="noteStore.loading" class="notes-grid">
       <div v-for="n in 6" :key="n" class="note-card note-card-skel">
@@ -310,7 +360,20 @@ function toStory(n: WbNote) {
   router.push({ path: '/workbench/story/new', query: { noteId: String(n.id), title: n.title } })
 }
 
-onMounted(reload)
+/**
+ * 清空筛选：store 会重置内部 keyword/activeTag/smartFilter 并重拉列表，
+ * 但模板输入框绑定的是本地 keyword ref，所以这里手动把它同步回空，避免「已清空却还显示旧词」。
+ */
+async function clearFilters() {
+  await noteStore.clearFilters()
+  keyword.value = ''
+}
+
+// 列表与标签云各自独立加载：列表是进入即看，标签云是聚合统计，失败互不影响
+onMounted(() => {
+  reload()
+  noteStore.fetchTags()
+})
 </script>
 
 <style scoped>
@@ -441,6 +504,130 @@ onMounted(reload)
   background: var(--kb-card);
   color: var(--mc);
   box-shadow: var(--shadow-sm);
+}
+
+/* ===== 标签聚合 & 智慧筛选 ===== */
+.notes-filterbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: var(--kb-radius-md);
+  background: color-mix(in srgb, var(--kb-card) 70%, transparent);
+  border: 1px solid var(--kb-border);
+}
+.notes-tags {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.notes-tags-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kb-muted-foreground);
+  white-space: nowrap;
+}
+.notes-tagcloud {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.note-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  color: var(--kb-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.note-tag-chip:hover {
+  border-color: var(--mc);
+  color: var(--mc);
+}
+.note-tag-chip.is-active {
+  border-color: var(--mc);
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+  color: var(--mc);
+}
+.note-tag-chip i {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--kb-muted-foreground);
+}
+.note-tag-chip.is-active i {
+  color: var(--mc);
+}
+.notes-tags-hint {
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+}
+.notes-smart {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  flex-wrap: wrap;
+}
+.notes-smart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  color: var(--kb-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.notes-smart-btn:hover {
+  border-color: var(--mc);
+  color: var(--mc);
+}
+.notes-smart-btn.is-active {
+  border-color: var(--mc);
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+  color: var(--mc);
+}
+.notes-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px dashed var(--kb-border);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.notes-clear-btn:hover {
+  color: var(--kb-destructive);
+  border-color: color-mix(in srgb, var(--kb-destructive) 50%, var(--kb-border));
 }
 
 /* ===== 网格卡片 ===== */
@@ -718,6 +905,12 @@ onMounted(reload)
   }
   .wb-search {
     display: flex;
+  }
+  .notes-filterbar {
+    flex-direction: column;
+  }
+  .notes-smart {
+    width: 100%;
   }
   .note-card-actions {
     opacity: 1;

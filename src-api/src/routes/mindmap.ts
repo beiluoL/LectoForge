@@ -8,7 +8,7 @@
  */
 import { FastifyInstance, FastifyReply } from 'fastify';
 
-import { LlmError, chatJson, isReady } from '../lib/llm';
+import { LlmError, chatJson, isReady, stripHtml } from '../lib/llm';
 import {
   MindMapError,
   createMindMap,
@@ -22,7 +22,12 @@ import {
   updateMindMap,
   type OutlineNode,
 } from '../lib/mindmapStore';
-import { buildMindMapPrompt, type MindMapOutlineNode, type MindMapOutput } from '../lib/prompts';
+import {
+  buildMindMapPrompt,
+  buildNoteMindMapPrompt,
+  type MindMapOutlineNode,
+  type MindMapOutput,
+} from '../lib/prompts';
 
 /** 首次加载时播种示例导图，只在 mindmaps 目录为空时生效 */
 seedIfEmpty();
@@ -120,8 +125,64 @@ function mockOutline(topic: string): OutlineNode[] {
 }
 
 /**
+ * 无 Key 时由笔记正文「硬解析」出的大纲。
+ *
+ * 与 mockOutline 的区别：mockOutline 是与内容无关的示例骨架，
+ * 这里则真的按 Markdown 标题层级 + 列表缩进还原笔记结构——
+ * 笔记本身写得有结构时，不调模型也能得到一张可用的导图。
+ */
+function outlineFromNoteText(text: string): OutlineNode[] {
+  const root: OutlineNode = { id: nextId('n'), text: 'root', children: [] };
+  const stack: { level: number; node: OutlineNode }[] = [{ level: 0, node: root }];
+  let headingLevel = 0;
+  let count = 0;
+
+  const push = (level: number, raw: string) => {
+    const t = raw
+      .replace(/[*_`~]/g, '')
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60);
+    if (!t) return;
+    while (stack.length > 1 && stack[stack.length - 1].level >= level) stack.pop();
+    const node: OutlineNode = { id: nextId('n'), text: t, children: [] };
+    stack[stack.length - 1].node.children.push(node);
+    stack.push({ level, node });
+    count += 1;
+  };
+
+  for (const line of text.split(/\r?\n/)) {
+    if (count >= 60) break;
+    const h = /^(#{1,6})\s+(.+)$/.exec(line);
+    if (h) {
+      headingLevel = h[1].length;
+      push(headingLevel, h[2]);
+      continue;
+    }
+    const b = /^(\s*)(?:[-*+]|\d+[.)])\s+(.+)$/.exec(line);
+    if (b) {
+      const indent = Math.floor(b[1].replace(/\t/g, '  ').length / 2);
+      push(headingLevel + 1 + Math.min(indent, 3), b[2]);
+    }
+  }
+
+  // 纯段落笔记：退化成「每段取首句」，至少让节点是笔记里的原话
+  if (!root.children.length) {
+    text
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .slice(0, 6)
+      .forEach((p) => push(1, p.split(/(?<=[。！？.!?])\s*/)[0] || p));
+  }
+  return root.children;
+}
+
+/**
  * AI 大纲生成路由（挂载在 /api/ai）
- * POST /api/ai/generate-mindmap
+ * POST /api/ai/generate-mindmap        —— 由主题词发散
+ * POST /api/ai/note/generate-mindmap   —— 由康奈尔笔记正文归纳
  */
 export async function mindmapAiRoutes(app: FastifyInstance) {
   app.post('/generate-mindmap', async (req, reply) => {
@@ -160,6 +221,75 @@ export async function mindmapAiRoutes(app: FastifyInstance) {
       }
       return {
         title: String(data.title || topic).trim().slice(0, 60) || topic.slice(0, 60),
+        outline,
+        mock: false,
+        model: raw.model,
+        latencyMs: raw.latencyMs,
+      };
+    } catch (e) {
+      return fail(reply, e);
+    }
+  });
+
+  /**
+   * POST /api/ai/note/generate-mindmap —— 由康奈尔笔记正文生成大纲
+   *
+   * 只算不存：返回 { title, outline }，由前端决定是否再调 POST /api/mindmaps 落一份导图文档。
+   * 这样「生成后不满意」不会在导图列表里留垃圾。
+   */
+  app.post('/note/generate-mindmap', async (req, reply) => {
+    const b = (req.body || {}) as {
+      noteColumn?: string;
+      title?: string;
+      cueColumn?: string;
+      depth?: number;
+      branches?: number;
+    };
+    const note = stripHtml(b.noteColumn);
+    const noteTitle = String(b.title || '').trim();
+    if (!note || note.length < 30) {
+      return reply
+        .code(400)
+        .send({ code: 400, message: '笔记正文太短（至少 30 字），先写充实一点再生成导图', aiCode: 'AI_BAD_INPUT' });
+    }
+    const fallbackTitle = (noteTitle || note.replace(/\s+/g, ' ').slice(0, 20)).slice(0, 60);
+
+    // 未配置 Key：用标题层级硬解析，整条链路照样跑通
+    if (!isReady()) {
+      const parsed = outlineFromNoteText(note);
+      return {
+        title: fallbackTitle,
+        outline: parsed.length ? parsed : mockOutline(fallbackTitle),
+        mock: true,
+        model: 'mock',
+        latencyMs: 0,
+      };
+    }
+
+    try {
+      const { data, raw } = await chatJson<MindMapOutput>(
+        buildNoteMindMapPrompt({
+          title: noteTitle,
+          noteColumn: note,
+          cueColumn: stripHtml(b.cueColumn) || undefined,
+          depth: b.depth,
+          branches: b.branches,
+        }),
+        { temperature: 0.4 },
+      );
+      const outline = attachIds(data.outline);
+      if (!outline.length) {
+        const parsed = outlineFromNoteText(note);
+        return {
+          title: String(data.title || fallbackTitle).slice(0, 60),
+          outline: parsed.length ? parsed : normalizeOutline(defaultOutline()),
+          mock: true,
+          model: raw.model,
+          latencyMs: raw.latencyMs,
+        };
+      }
+      return {
+        title: String(data.title || fallbackTitle).trim().slice(0, 60) || fallbackTitle,
         outline,
         mock: false,
         model: raw.model,

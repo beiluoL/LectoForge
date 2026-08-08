@@ -230,8 +230,41 @@ export function generateNoteQuiz(payload: {
   noteId?: number
   categoryId?: number
   autoSave?: boolean
+  /** 'choice' = 只出单选题；'fill' = 只出填空题；缺省混合 */
+  type?: QuizItemType | 'mixed'
 }) {
   return apiPost<NoteQuizResult>('/ai/note/flashcards', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ 康奈尔笔记 · AI 续写拓展 ============================
+
+export interface NoteExtendResult {
+  /** 续写出来的增量段落（Markdown），不含原文 */
+  continuation: string
+  /** 一句话说明这段补充了什么，用于对比窗标题 */
+  summary: string
+  chars: number
+  /** true = 没写到 minChars，前端给个轻提示即可，不阻断采纳 */
+  belowTarget: boolean
+  minChars: number
+  model: string
+  latencyMs: number
+}
+
+/**
+ * 让 AI 接着当前正文往下写。
+ * 服务端只返回「增量段落」而非整篇改写版，因此前端可以自由选择插入位置
+ * （另起新段落 / 插入光标处），不会出现「只能整体接受」的窘境。
+ */
+export function extendNote(payload: {
+  currentText: string
+  title?: string
+  /** 可选方向指令，如「多讲讲落地实践」 */
+  direction?: string
+  /** 字数下限，默认 300 */
+  minChars?: number
+}) {
+  return apiPost<NoteExtendResult>('/ai/note/extend', payload, { timeout: AI_TIMEOUT })
 }
 
 // ============================ P2-A3：收集箱 → 起草笔记 ============================

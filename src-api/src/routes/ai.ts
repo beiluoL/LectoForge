@@ -25,6 +25,7 @@ import {
   buildDraftNotePrompt,
   buildDraftStoryPrompt,
   buildInsightReportPrompt,
+  buildNoteExtendPrompt,
   buildNoteGeneratePrompt,
   buildPalaceLociPrompt,
   buildPalaceLociImageHintPrompt,
@@ -39,6 +40,7 @@ import {
   type DraftNoteOutput,
   type DraftStoryOutput,
   type InsightReportOutput,
+  type NoteExtendOutput,
   type NoteGenerateOutput,
   type PalaceLociOutput,
   type PalaceLociImageHintOutput,
@@ -395,6 +397,88 @@ export default async function (app: FastifyInstance) {
     }
   });
 
+  // ===== P3-B1：康奈尔笔记 AI 续写拓展 =====
+
+  /**
+   * 由当前正文往下续写一段（默认 ≥300 字），保持文风一致。
+   *
+   * 契约上刻意只返回「增量段落」而不返回整篇改写版：
+   * 前端要提供「另起新段落」与「插入光标处」两种落点，整篇改写会让用户只能全接受或全丢弃。
+   * 落库仍走既有 PUT /api/workbench/notes/:id，本接口不写任何表。
+   */
+  app.post('/note/extend', async (req, reply) => {
+    const b = (req.body || {}) as {
+      currentText?: string;
+      title?: string;
+      direction?: string;
+      minChars?: number;
+    };
+    const currentText = stripHtml(b.currentText);
+    if (!currentText || currentText.length < 30) {
+      return reply
+        .code(400)
+        .send({ code: 400, message: '正文太短（至少 30 字），先写一段再让 AI 接着写', aiCode: 'AI_BAD_INPUT' });
+    }
+    const minChars = Math.min(1200, Math.max(150, Number(b.minChars) || 300));
+    const input = {
+      title: b.title,
+      currentText,
+      direction: String(b.direction || '').trim() || undefined,
+      minChars,
+    };
+
+    /** 去掉模型偶尔套在整段外面的 ``` 围栏，避免整段续写被渲染成代码块 */
+    const unfence = (s: string) => {
+      const t = s.trim();
+      const m = /^```[a-zA-Z]*\n([\s\S]*?)\n?```$/.exec(t);
+      return (m ? m[1] : t).trim();
+    };
+
+    try {
+      let { data, raw } = await chatJson<NoteExtendOutput>(buildNoteExtendPrompt(input), { temperature: 0.7 });
+      let continuation = unfence(String(data.continuation || ''));
+
+      // 明显不达标（不到目标的一半）时补一刀：小模型常把「至少 300 字」理解成「大约 100 字」。
+      // 只重试一次，避免把用户卡在两轮 LLM 往返上。
+      if (continuation.length < minChars * 0.5) {
+        const retry = await chatJson<NoteExtendOutput>(
+          buildNoteExtendPrompt({
+            ...input,
+            direction: [input.direction, `上一版只写了 ${continuation.length} 字，太短了，请展开到 ${minChars} 字以上，多给机制、条件和例子`]
+              .filter(Boolean)
+              .join('；'),
+          }),
+          { temperature: 0.7 },
+        );
+        const retryText = unfence(String(retry.data.continuation || ''));
+        if (retryText.length > continuation.length) {
+          continuation = retryText;
+          data = retry.data;
+          raw = retry.raw;
+        }
+      }
+
+      if (!continuation) {
+        return reply
+          .code(502)
+          .send({ code: 502, message: 'AI 没有产出可用内容，请重试或换个模型', aiCode: 'AI_BAD_RESPONSE' });
+      }
+
+      return {
+        continuation,
+        summary: String(data.summary || '').trim(),
+        chars: continuation.length,
+        /** 未达字数下限时置 true，前端在对比窗给个轻提示即可，不阻断采纳 */
+        belowTarget: continuation.length < minChars,
+        minChars,
+        model: raw.model,
+        latencyMs: raw.latencyMs,
+      };
+    } catch (e) {
+      return fail(reply, e);
+    }
+  });
+
   // ===== P1-A1：收集箱一键提炼要点 =====
 
   /**
@@ -487,17 +571,22 @@ export default async function (app: FastifyInstance) {
       noteId?: number;
       categoryId?: number;
       autoSave?: boolean;
+      /** 'choice' = 只出单选题；'fill' = 只出填空题；缺省混合（旧契约） */
+      type?: 'choice' | 'fill' | 'mixed';
     };
     const note = stripHtml(b.noteColumn);
     if (!note || note.length < 30) {
       return reply.code(400).send({ code: 400, message: '内容太短（至少 30 字），先写充实一点', aiCode: 'AI_BAD_INPUT' });
     }
+    const wantType = b.type === 'choice' || b.type === 'fill' ? b.type : 'mixed';
     try {
       const { data, raw } = await chatJson<QuizOutput>(
-        buildQuizPrompt({ title: b.title, noteColumn: note, count: b.count }),
+        buildQuizPrompt({ title: b.title, noteColumn: note, count: b.count, type: wantType }),
         { temperature: 0.3 },
       );
-      const quiz = normalizeQuiz(data.quiz);
+      // 指定了题型就做二次过滤：提示词只是「要求」，模型仍可能夹带另一种题型，
+      // 混进来会让「生成选择题」的结果里冒出填空题，用户会当成 bug。
+      const quiz = normalizeQuiz(data.quiz).filter((q) => wantType === 'mixed' || q.type === wantType);
       if (!quiz.length) {
         return reply
           .code(502)

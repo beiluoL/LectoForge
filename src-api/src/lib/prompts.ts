@@ -345,11 +345,16 @@ export function buildFlashcardsPrompt(input: FlashcardsInput): ChatMessage[] {
 
 // ============================ 康奈尔笔记 · AI 自测题 ============================
 
+/** 出题类型：choice=全单选，fill=全填空，mixed=混合（默认，保持旧行为） */
+export type QuizType = 'choice' | 'fill' | 'mixed'
+
 export interface QuizInput {
   title?: string | null
   noteColumn: string
   /** 期望题目数量，默认 5，收敛到 3~8 */
   count?: number
+  /** 题型；缺省 mixed，与本接口最初的契约一致 */
+  type?: QuizType
 }
 
 /** 单题原始结构（模型输出未清洗前，字段一律按可选处理） */
@@ -374,16 +379,45 @@ export interface QuizOutput {
  */
 export function buildQuizPrompt(input: QuizInput): ChatMessage[] {
   const n = Math.max(3, Math.min(8, input.count || 5))
+  const type: QuizType = input.type === 'choice' || input.type === 'fill' ? input.type : 'mixed'
+
+  // 题型约束单独拼：三种模式只有这一句不同，其余规则完全共用，避免维护三份提示词
+  const typeRule =
+    type === 'choice'
+      ? `- 共出 ${n} 道题，全部为单选题（type 一律写 "choice"），不要出填空题；`
+      : type === 'fill'
+        ? `- 共出 ${n} 道题，全部为填空题（type 一律写 "fill"），不要出单选题；`
+        : `- 共出 ${n} 道题，单选题（type="choice"）与填空题（type="fill"）混合，单选题占多数；`
+
+  // 结构示例也跟着题型走，模型对「示例」的服从度远高于对「文字要求」的服从度
+  const sample =
+    type === 'fill'
+      ? ['    {"type": "fill", "question": "___ 是一种过程。", "answer": "应填内容", "explain": "一句话解析"}']
+      : type === 'choice'
+        ? [
+            '    {"type": "choice", "question": "题干", "options": ["选项A", "选项B", "选项C", "选项D"], "answer": "A", "explain": "一句话解析"}',
+          ]
+        : [
+            '    {"type": "choice", "question": "题干", "options": ["选项A", "选项B", "选项C", "选项D"], "answer": "A", "explain": "一句话解析"},',
+            '    {"type": "fill", "question": "___ 是一种过程。", "answer": "应填内容", "explain": "一句话解析"}',
+          ]
+
   return [
     {
       role: 'system',
       content: [
         '你是命题老师，负责把一段学习笔记出成可自测的题目，用于间隔重复复习。',
         '要求：',
-        '- 共出 ' + n + ' 道题，单选题（type="choice"）与填空题（type="fill"）混合，单选题占多数；',
-        '- 单选题必须给 4 个 options，其中恰有 1 个正确；干扰项要似是而非，不能明显荒谬；',
-        '- 单选题的 answer 只写正确选项的字母（A/B/C/D），不要写选项原文；',
-        '- 填空题的 question 用连续下划线 ___ 表示待填空位，answer 写应填入的内容；',
+        typeRule,
+        ...(type === 'fill'
+          ? []
+          : [
+              '- 单选题必须给 4 个 options，其中恰有 1 个正确；干扰项要似是而非，不能明显荒谬；',
+              '- 单选题的 answer 只写正确选项的字母（A/B/C/D），不要写选项原文；',
+            ]),
+        ...(type === 'choice'
+          ? []
+          : ['- 填空题的 question 用连续下划线 ___ 表示待填空位，answer 写应填入的内容；']),
         '- 一题只考一个知识点，题干自足（不依赖「上文」「如图」这类指代）；',
         '- explain 用一句话说明为什么，不超过 40 字；',
         '- 所有内容必须来自给定笔记，不得杜撰笔记里没有的事实。只输出 JSON。',
@@ -399,8 +433,7 @@ export function buildQuizPrompt(input: QuizInput): ChatMessage[] {
         '请按以下 JSON 结构输出：',
         '{',
         '  "quiz": [',
-        '    {"type": "choice", "question": "题干", "options": ["选项A", "选项B", "选项C", "选项D"], "answer": "A", "explain": "一句话解析"},',
-        '    {"type": "fill", "question": "___ 是一种过程。", "answer": "应填内容", "explain": "一句话解析"}',
+        ...sample,
         '  ]',
         '}',
       ].join('\n'),
@@ -942,6 +975,135 @@ export function buildMindMapPrompt(input: MindMapInput): ChatMessage[] {
         '  ]',
         '}',
       ].join('\n'),
+    },
+  ];
+}
+
+// ===================== 康奈尔笔记 · 由正文生成导图大纲 =====================
+
+export interface NoteMindMapInput {
+  /** 笔记标题，用作导图根节点的语义锚点 */
+  title?: string | null;
+  /** 笔记区正文（已 stripHtml） */
+  noteColumn: string;
+  /** 线索列，作为「作者本人认为的重点」提示，可为空 */
+  cueColumn?: string | null;
+  depth?: number;
+  branches?: number;
+}
+
+/**
+ * 由康奈尔笔记正文抽取思维导图大纲。
+ *
+ * 与 buildMindMapPrompt（主题词发散）的本质区别：这里是「归纳」而非「生成」——
+ * 只允许重组笔记里已有的信息，禁止补充笔记外的知识点，
+ * 否则导图会掺进模型的通用常识，回看时无法分辨哪些是自己记过的。
+ */
+export function buildNoteMindMapPrompt(input: NoteMindMapInput): ChatMessage[] {
+  const depth = Math.min(5, Math.max(2, Number(input.depth) || 3));
+  const branches = Math.min(8, Math.max(3, Number(input.branches) || 5));
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是知识结构化专家。用户会给你一份康奈尔笔记，请把它的知识结构抽成层级嵌套的思维导图大纲。',
+        '数组每一项包含 text（节点文本）和 children（子节点数组）。只输出纯 JSON，不要 Markdown 代码块。',
+        '',
+        '质量要求：',
+        `1. 一级分支 ${branches} 个左右，对应笔记的主要板块，彼此不重叠；`,
+        `2. 层级深度控制在 ${depth} 级，叶子节点落到具体结论、定义或步骤；`,
+        '3. 节点文本精炼，20 个汉字以内，保留原文的关键术语，不要改写成同义词；',
+        '4. 【最重要】只能归纳笔记里已经写到的内容，严禁补充笔记之外的知识点——',
+        '   宁可分支少一点，也不要杜撰；笔记没展开的地方就只留一个节点；',
+        '5. 叶子节点的 children 写成空数组 []，不要省略该字段；',
+        '6. title 用笔记标题或对笔记主旨的一句话概括。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【笔记标题】${input.title || '（未填写）'}`,
+        input.cueColumn ? `【线索列（作者标注的重点）】\n${truncate(input.cueColumn, 1500)}` : '',
+        '【笔记正文】',
+        truncate(input.noteColumn, 8000),
+        '',
+        '请严格按以下 JSON 结构输出（结构示意，内容必须来自上面的笔记）：',
+        '{',
+        '  "title": "导图标题",',
+        '  "outline": [',
+        '    { "text": "一级分支", "children": [',
+        '      { "text": "二级节点", "children": [ { "text": "三级节点", "children": [] } ] }',
+        '    ] }',
+        '  ]',
+        '}',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    },
+  ];
+}
+
+// ===================== 康奈尔笔记 · AI 续写拓展 =====================
+
+export interface NoteExtendInput {
+  title?: string | null;
+  /** 当前正文（已 stripHtml），模型据此判断文风与已覆盖的范围 */
+  currentText: string;
+  /** 用户可选的方向指令，如「多讲讲落地实践」 */
+  direction?: string | null;
+  /** 期望字数下限，默认 300 */
+  minChars?: number;
+}
+
+export interface NoteExtendOutput {
+  /** 续写正文，Markdown 片段 */
+  continuation: string;
+  /** 一句话说明这段补充了什么，用于对比窗标题 */
+  summary?: string;
+}
+
+/**
+ * 康奈尔笔记 AI 续写。
+ *
+ * 设计取舍：不让模型重写全文，只产出「可独立插入的增量段落」。
+ * 原因是前端提供了「另起新段落」与「插入光标处」两种落点，
+ * 若模型返回整篇改写版，用户就只能整体接受或整体丢弃，失去局部采纳的能力。
+ * 因此提示词明确要求：不复述已有内容、不写开场白、不带标题层级跳跃。
+ */
+export function buildNoteExtendPrompt(input: NoteExtendInput): ChatMessage[] {
+  const min = Math.min(1200, Math.max(150, Number(input.minChars) || 300));
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是这份笔记作者的写作助手，任务是「接着往下写」，而不是重写或总结。',
+        '要求：',
+        `- 基于前面的内容，延伸输出至少 ${min} 字的详细说明，保持文风一致；`,
+        '- 严格模仿原文的语气、人称、术语习惯和排版粒度（原文用列表你就用列表，原文是段落就写段落）；',
+        '- 只写「新增」的部分：不要复述已有内容，不要写「综上所述」「接下来我们来看」这类过渡口水话；',
+        '- 不要重复原文已经出现过的标题；如需分节，用比原文最深标题低一级的标题，或直接用加粗小标题；',
+        '- 内容要具体：给机制、给条件、给例子、给对比、给边界，避免正确但无信息量的空话；',
+        '- 如果涉及不确定的事实，用「一般来说 / 常见做法是」这类限定语，不要编造具体数字、人名和出处；',
+        '- 用 Markdown 书写，不要用代码块包裹整段输出；',
+        '- 只输出 JSON。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【笔记标题】${input.title || '（未填写）'}`,
+        input.direction ? `【本次续写方向】${truncate(input.direction, 300)}` : '',
+        '【已写正文】',
+        truncate(input.currentText, 8000),
+        '',
+        '请按以下 JSON 结构输出：',
+        '{',
+        `  "continuation": "接着上文写下去的正文（Markdown，不少于 ${min} 字）",`,
+        '  "summary": "一句话说明这段补充了什么，不超过 30 字"',
+        '}',
+      ]
+        .filter(Boolean)
+        .join('\n'),
     },
   ];
 }

@@ -468,14 +468,20 @@ export async function openMap(id: string): Promise<void> {
   }
 }
 
-/** 首次进入页面：拉列表 → 打开最近编辑的一份；后端不可用时退回内置示例 */
-export async function bootstrap(): Promise<void> {
+/**
+ * 首次进入页面：拉列表 → 打开最近编辑的一份；后端不可用时退回内置示例。
+ *
+ * preferId：由外部深链指定要打开哪一份（如康奈尔笔记「生成导图」后跳过来带的 ?id=）。
+ * 不直接信任这个 id——列表里找不到就退回默认行为，避免导图被删后跳过来白屏。
+ */
+export async function bootstrap(preferId?: string): Promise<void> {
   await loadList()
-  if (mapState.mindMaps.length) {
-    await openMap(mapState.mindMaps[0].id)
-  } else {
+  if (!mapState.mindMaps.length) {
     markClean()
+    return
   }
+  const hit = preferId && mapState.mindMaps.some((m) => m.id === preferId) ? preferId : mapState.mindMaps[0].id
+  await openMap(hit)
 }
 
 export async function createMap(title = '未命名导图'): Promise<void> {

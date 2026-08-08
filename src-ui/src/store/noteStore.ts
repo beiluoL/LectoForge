@@ -13,11 +13,30 @@
  */
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { createNote, deleteNote, listNotes } from '@/api/workbench';
+import {
+  createNote,
+  deleteNote,
+  listNoteBacklinks,
+  listNoteTags,
+  listNotes,
+  type ListNotesParams,
+  type NoteBacklink,
+  type NoteTagCount,
+} from '@/api/workbench';
 import type { WbNote, WbNotePayload } from '@/api/types';
 
 /** 列表视图模式 */
 export type NoteViewMode = 'grid' | 'list';
+
+/**
+ * 智慧筛选器标识。
+ * 之所以用「互斥的单选」而不是多个 boolean：这两条是两种截然不同的复盘动机
+ * （攻克薄弱 vs 补完半成品），同时勾选往往筛出空集，反而让用户以为功能坏了。
+ */
+export type NoteSmartFilter = 'none' | 'lowMastery' | 'noSummary';
+
+/** 「掌握度低」的判定阈值，与后端 mastery_lte 参数对齐 */
+export const LOW_MASTERY_THRESHOLD = 30;
 
 /** 三栏比例边界：防止用户把任意一栏拖到不可用尺寸 */
 export const CUE_RATIO_MIN = 0.16;
@@ -81,6 +100,23 @@ export const useNoteStore = defineStore(
       viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid';
     }
 
+    // ==================== 沉浸阅读模式（不持久化） ====================
+
+    /**
+     * 全屏阅读开关。刻意不持久化：全屏是「此刻要读」的临时态，
+     * 若跨会话保留，用户下次进来会看到一个没有工具栏的页面，误以为编辑功能没了。
+     */
+    const fullscreenMode = ref(false);
+    function enterFullscreen() {
+      fullscreenMode.value = true;
+    }
+    function exitFullscreen() {
+      fullscreenMode.value = false;
+    }
+    function toggleFullscreen() {
+      fullscreenMode.value = !fullscreenMode.value;
+    }
+
     // ==================== 极速新建浮窗（不持久化） ====================
 
     const quickCreateOpen = ref(false);
@@ -120,13 +156,88 @@ export const useNoteStore = defineStore(
       return Math.round(sum / notes.value.length);
     });
 
+    // ==================== 标签云 & 智慧筛选器（不持久化） ====================
+
+    const tags = ref<NoteTagCount[]>([]);
+    const tagsLoading = ref(false);
+    /** 当前选中的标签，空串表示不按标签过滤 */
+    const activeTag = ref('');
+    const smartFilter = ref<NoteSmartFilter>('none');
+
+    /** 是否有任一筛选条件生效（关键词也算），用于列表页显示「清空筛选」 */
+    const hasActiveFilter = computed(
+      () => !!keyword.value.trim() || !!activeTag.value || smartFilter.value !== 'none',
+    );
+
+    /** 标签云里出现频次最高的一批，列表页只渲染前 N 个避免刷屏 */
+    function topTags(limit = 24): NoteTagCount[] {
+      return tags.value.slice(0, limit);
+    }
+
+    async function fetchTags() {
+      tagsLoading.value = true;
+      try {
+        tags.value = await listNoteTags();
+      } finally {
+        tagsLoading.value = false;
+      }
+    }
+
+    /** 点同一个标签 = 取消选中，符合「标签云即开关」的直觉 */
+    async function selectTag(name: string) {
+      activeTag.value = activeTag.value === name ? '' : name;
+      await fetchNotes();
+    }
+
+    async function setSmartFilter(f: NoteSmartFilter) {
+      smartFilter.value = smartFilter.value === f ? 'none' : f;
+      await fetchNotes();
+    }
+
+    async function clearFilters() {
+      keyword.value = '';
+      activeTag.value = '';
+      smartFilter.value = 'none';
+      await fetchNotes();
+    }
+
+    /**
+     * 拉取笔记列表。
+     * 筛选条件一律以查询参数下推到 SQL，不在前端 filter——
+     * 标签匹配要处理 JSON / CSV 两种历史格式，前端复刻一遍必然与标签云的计数对不上。
+     */
     async function fetchNotes(params: { keyword?: string } = {}) {
       loading.value = true;
       try {
         const kw = (params.keyword ?? keyword.value).trim();
-        notes.value = await listNotes(kw ? { keyword: kw } : {});
+        const query: ListNotesParams = {};
+        if (kw) query.keyword = kw;
+        if (activeTag.value) query.tag = activeTag.value;
+        if (smartFilter.value === 'lowMastery') query.mastery_lte = LOW_MASTERY_THRESHOLD;
+        if (smartFilter.value === 'noSummary') query.has_summary = false;
+        notes.value = await listNotes(query);
       } finally {
         loading.value = false;
+      }
+    }
+
+    // ==================== 反向引用（不持久化） ====================
+
+    const backlinks = ref<NoteBacklink[]>([]);
+    const backlinksLoading = ref(false);
+
+    /** 拉取「谁引用了我」；切换笔记时先清空，避免闪现上一篇的引用列表 */
+    async function fetchBacklinks(id: number) {
+      backlinks.value = [];
+      if (!id) return;
+      backlinksLoading.value = true;
+      try {
+        backlinks.value = await listNoteBacklinks(id);
+      } catch {
+        // 反向引用是增强信息，拉不到就静默留空，不打断笔记编辑主流程
+        backlinks.value = [];
+      } finally {
+        backlinksLoading.value = false;
       }
     }
 
@@ -167,6 +278,11 @@ export const useNoteStore = defineStore(
       viewMode,
       setViewMode,
       toggleViewMode,
+      // 沉浸阅读
+      fullscreenMode,
+      enterFullscreen,
+      exitFullscreen,
+      toggleFullscreen,
       // 弹窗
       quickCreateOpen,
       openQuickCreate,
@@ -184,6 +300,21 @@ export const useNoteStore = defineStore(
       fetchNotes,
       removeNote,
       quickCreate,
+      // 标签云 & 智慧筛选
+      tags,
+      tagsLoading,
+      activeTag,
+      smartFilter,
+      hasActiveFilter,
+      topTags,
+      fetchTags,
+      selectTag,
+      setSmartFilter,
+      clearFilters,
+      // 反向引用
+      backlinks,
+      backlinksLoading,
+      fetchBacklinks,
     };
   },
   // v4 用 pick（v3 的 paths 已移除）：只持久化用户偏好，列表数据不入盘

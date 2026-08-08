@@ -85,3 +85,18 @@ export function deleteMindMap(id: string) {
 export function generateMindMapByAi(payload: { topic: string; depth?: number; branches?: number }) {
   return apiPost<AiMindMapResult>('/ai/generate-mindmap', payload, { timeout: AI_TIMEOUT })
 }
+
+/**
+ * 由康奈尔笔记正文归纳大纲（只算不存）。
+ * 与 generateMindMapByAi 的区别：那个是「主题词发散」，这个是「已有笔记归纳」，
+ * 服务端提示词禁止补充笔记之外的知识点。未配置 Key 时会按 Markdown 标题层级硬解析兜底。
+ */
+export function generateMindMapFromNote(payload: {
+  noteColumn: string
+  title?: string
+  cueColumn?: string
+  depth?: number
+  branches?: number
+}) {
+  return apiPost<AiMindMapResult>('/ai/note/generate-mindmap', payload, { timeout: AI_TIMEOUT })
+}
