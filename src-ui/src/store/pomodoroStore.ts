@@ -164,6 +164,8 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('update_tray_title', { title });
+      // 成功日志：DevTools Console 每跳一秒会看到一行，用于确认前端已把标题推给 Rust
+      console.log('[pomodoro] tray updated ->', title);
     } catch (e) {
       console.error('[pomodoro] update_tray_title 命令失败（事件通道兜底）:', e);
     }
