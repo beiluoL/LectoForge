@@ -32,6 +32,7 @@ import {
 } from '@/api/pomodoro';
 import { playCue, whiteNoise } from '@/utils/pomodoroAudio';
 import { notify } from '@/utils/toast';
+import { formatMMSS } from '@/lib/date';
 // 顶层静态导入 invoke/emit：避免 build 模式下从静态 dist 动态加载 @tauri-apps/api/core 的
 // chunk 时（由 server 侧车托管）因路径/MIME 问题静默失败，导致菜单栏标题推送不出去。
 // dev 模式由 Vite dev server 加载不受影响，build 模式必须用静态导入才稳。
@@ -139,13 +140,6 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
   const menuTitle = computed(() => `${phaseEmoji.value} ${phaseLabel.value} ${timeText.value}`);
   /** 菜单栏状态栏文本标题：阶段 emoji + MM:SS（如「🍅 24:59」），供 tray:update 推送给 Rust 侧 set_title */
   const trayTitle = computed(() => `${phaseEmoji.value} ${timeText.value}`);
-
-  function formatMMSS(sec: number): string {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
-  }
 
   /* ==================== 四、原生菜单栏联动 ==================== */
 

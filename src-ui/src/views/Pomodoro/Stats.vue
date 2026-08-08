@@ -81,6 +81,7 @@ import {
 } from 'chart.js';
 import Icon from '@/components/ui/Icon.vue';
 import { getPomodoroStats } from '@/api/pomodoro';
+import { formatDuration } from '@/lib/date';
 import type { PomodoroStatsResult } from '@/api/pomodoro';
 
 // 注册 chart.js 必需组件（局部注册避免污染全局）
@@ -98,14 +99,6 @@ function cssVar(name: string): string {
   return v || '#000';
 }
 
-function fmtDuration(sec: number): string {
-  const m = Math.round(sec / 60);
-  if (m < 60) return `${m} 分`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return rm ? `${h} 时 ${rm} 分` : `${h} 时`;
-}
-
 const summary = computed(
   () =>
     stats.value?.summary ?? {
@@ -115,8 +108,8 @@ const summary = computed(
       completedPomodoros: 0,
     },
 );
-const totalWorkText = computed(() => fmtDuration(summary.value.totalWorkSeconds));
-const avgWorkText = computed(() => fmtDuration(summary.value.avgWorkSecondsPerDay));
+const totalWorkText = computed(() => formatDuration(summary.value.totalWorkSeconds));
+const avgWorkText = computed(() => formatDuration(summary.value.avgWorkSecondsPerDay));
 const hasData = computed(() => (stats.value?.points ?? []).some((p) => p.work > 0 || p.breakTotal > 0));
 
 const chartData = computed(() => {

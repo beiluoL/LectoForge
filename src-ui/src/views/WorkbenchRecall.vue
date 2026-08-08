@@ -150,7 +150,7 @@
           <p class="recall-write-desc">{{ currentRoundInfo.desc }}</p>
           <span v-if="activeSession.currentRound === 3 && activeSession.round3DueTime" class="recall-countdown">
             <Icon name="clock" :size="14" />
-            建议复测时间：{{ formatTime(activeSession.round3DueTime) }}
+            建议复测时间：{{ formatMonthDayTime(activeSession.round3DueTime) }}
           </span>
         </div>
 
@@ -400,6 +400,7 @@ import {
   deleteRecallSession,
 } from '@/api/workbench'
 import { scoreRecallSemantic, adviseRecall, type RecallScoreResult, type RecallAdviceResult } from '@/api/ai'
+import { formatMonthDayTime } from '@/lib/date'
 import type { WbRecallSession, WbRecallSessionPayload } from '@/api/types'
 
 const route = useRoute()
@@ -673,13 +674,6 @@ function scoreColor(score: number) {
   if (score >= 80) return 'var(--kb-accent)'
   if (score >= 50) return 'var(--kb-warning)'
   return 'var(--kb-destructive)'
-}
-
-function formatTime(iso?: string) {
-  if (!iso) return ''
-  const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T'))
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 onMounted(() => {

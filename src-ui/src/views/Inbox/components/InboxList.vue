@@ -313,7 +313,7 @@ import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import { useInboxStore } from '@/store/inbox-store';
 import { notify, getApiError, confirmDialog } from '@/utils/toast';
-import { fromNow, formatDateTime } from '@/utils/time';
+import { fromNow, formatDateTime } from '@/lib/date';
 import { inboxTypeIcon, inboxTypeLabel } from '@/constants/inbox';
 import { apiGet } from '@/api/request';
 import type { BatchTarget, InboxFilter, InboxItem, ProcessTarget } from '@/api/inbox';

@@ -597,6 +597,7 @@ import {
 } from '@/api/ai'
 import { createMindMap, generateMindMapFromNote, type OutlineNode } from '@/api/mindmap'
 import { renderMarkdown, renderNoteBody } from '@/lib/markdown'
+import { formatClock } from '@/lib/date'
 import type { WbNotePayload, CategoryVO } from '@/api/types'
 import {
   useNoteStore,
@@ -1295,7 +1296,7 @@ async function runSave(silent: boolean): Promise<boolean> {
       await updateNote(noteId.value!, snapshot)
       if (!silent) notify('已保存', 'success')
     }
-    lastSavedAt.value = formatTime(new Date())
+    lastSavedAt.value = formatClock(new Date())
     dirty.value = false
     return true
   } catch (e) {
@@ -1426,11 +1427,6 @@ async function runAiGenerate(mode: 'cue' | 'summary') {
   } finally {
     aiGen.value = false
   }
-}
-
-function formatTime(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 /**

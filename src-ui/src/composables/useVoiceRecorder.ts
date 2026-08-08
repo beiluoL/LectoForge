@@ -15,6 +15,7 @@
  *   并根据最终 mimeType 推断文件扩展名（后端按扩展名归档）。
  */
 import { computed, onBeforeUnmount, ref } from 'vue';
+import { formatFileStamp, formatMMSS } from '@/lib/date';
 
 /** 候选容器格式，按「体积小 + 兼容好」排序 */
 const MIME_CANDIDATES = [
@@ -55,11 +56,7 @@ export function useVoiceRecorder() {
   let chunks: Blob[] = [];
   let timer: ReturnType<typeof setInterval> | null = null;
 
-  const elapsedText = computed(() => {
-    const m = Math.floor(seconds.value / 60);
-    const s = seconds.value % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  });
+  const elapsedText = computed(() => formatMMSS(seconds.value));
 
   /** 释放麦克风：stop() 之后必须做，否则系统录音指示灯不灭 */
   function releaseStream() {
@@ -150,9 +147,7 @@ export function useVoiceRecorder() {
           resolve(null);
           return;
         }
-        const now = new Date();
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        const stamp = formatFileStamp();
         resolve({
           blob,
           fileName: `voice-${stamp}.${extOf(mimeType)}`,

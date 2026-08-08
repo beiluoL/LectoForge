@@ -227,7 +227,7 @@ import Icon from '@/components/ui/Icon.vue';
 import { useInboxStore } from '@/store/inbox-store';
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
 import { notify, getApiError } from '@/utils/toast';
-import { fromNow } from '@/utils/time';
+import { fromNow } from '@/lib/date';
 import type { ClipResult, InboxType, UploadResult } from '@/api/inbox';
 
 const props = withDefaults(
