@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
-import { renderMarkdown } from '@/views/DocLibrary/markdown';
+import { renderMarkdown } from '@/lib/markdown';
 import type { ReviewCard } from '@/api/review';
 
 const props = defineProps<{

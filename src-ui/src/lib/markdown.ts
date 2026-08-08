@@ -4,8 +4,8 @@
  * 【为什么在 src/lib 而不是 views/DocLibrary】
  * 双链 [[笔记]] 是跨模块的核心语法：文档库、康奈尔笔记、复习闪卡都要解析。
  * 各处各写一份，语法迟早漂移（这边支持别名那边不支持）。所以渲染器收敛到这里作为
- * 唯一事实源；views/DocLibrary/markdown.ts 退化成再导出的薄壳，老引用零改动，
- * 新模块一律 `from '@/lib/markdown'`。
+ * 唯一事实源，全项目一律 `from '@/lib/markdown'`。
+ * （历史上 views/DocLibrary/markdown.ts 曾作再导出薄壳过渡，结构重构后已删除。）
  *
  * 【与右侧大纲的锚点对齐】
  * 大纲跳转依赖预览区标题的 DOM id。这里导出的 createSlugger() 是 useTOC.ts 与渲染器

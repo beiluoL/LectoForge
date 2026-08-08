@@ -115,7 +115,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 import { notify } from '@/utils/toast'
 
-import { assetUrl, renderMarkdown, slugify } from './markdown'
+import { assetUrl, renderMarkdown, slugify } from '@/lib/markdown'
 import { docState, flushSave, openNote, resolveVaultRef } from './useDocStore'
 import { findAsset, getNoteContent } from '@/api/library'
 

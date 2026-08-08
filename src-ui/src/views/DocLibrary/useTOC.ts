@@ -7,12 +7,12 @@
  * 这里直接吃 markdown-it 的 token 流，结果和预览区渲染出的标题严格一一对应。
  *
  * 【锚点如何保证和预览区一致】
- * 与 markdown.ts 的 heading_open 渲染器共用 createSlugger()：同样按文档顺序遍历、
+ * 与 @/lib/markdown 的 heading_open 渲染器共用 createSlugger()：同样按文档顺序遍历、
  * 同样的重名计数，所以第 N 个标题两边算出的 id 必然相同。
  */
 import { computed, type ComputedRef, type Ref } from 'vue'
 
-import { createSlugger, parseMarkdown } from './markdown'
+import { createSlugger, parseMarkdown } from '@/lib/markdown'
 
 export interface TocItem {
   /** 标题级别 1~6 */
