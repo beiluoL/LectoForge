@@ -199,8 +199,9 @@ async function handleUpload(req: FastifyRequest, reply: FastifyReply, kind: Uplo
       },
       kind,
     );
-  } catch (e: any) {
-    return reply.code(e?.statusCode || 400).send({ message: e?.message || fallbackMsg });
+  } catch (e) {
+    const err = e as { statusCode?: number; message?: string } | null | undefined;
+    return reply.code(err?.statusCode || 400).send({ message: err?.message || fallbackMsg });
   }
 }
 

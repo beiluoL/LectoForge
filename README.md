@@ -23,15 +23,32 @@
 
 ```
 desktopApp/
-├── src-api/         # Node 后端（Fastify + SQLite + Drizzle）
-│   ├── src/routes/  # 10 张表对应 110 个端点（学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve）+ SM-2 + 遗忘曲线
-│   ├── src/services/sm2.ts  # SM-2 算法（与 Web 端逐位一致）
-│   └── src/db/      # schema + 建表 + WAL
+├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
+│   ├── src/routes/      # 薄路由 18 模块 / 353 行：只绑定「路径 → Controller」，无任何 SQL
+│   │                    # 10 张表对应 110 个端点（学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve）
+│   ├── src/controllers/ # 控制层 18 模块 / 1319 行：解析请求、调 Service、决定 HTTP 状态码
+│   ├── src/services/    # 服务层 26 模块 / 4803 行：Drizzle 查询、文件 IO、axios 外呼
+│   │   └── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
+│   ├── src/types/       # 契约层 17 模块 / 1216 行：DTO / VO / 结果判别联合
+│   └── src/db/          # schema + 建表 + WAL
 ├── src-ui/          # Vue 3 前端（20 个业务视图 / 24 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎）+ lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本
 ```
+
+## 后端分层约定（2026-08-08 三层重构完成）
+
+18 个路由模块已全量下沉为 **Route → Controller → Service**，新增代码必须遵守边界：
+
+- **Route** 只声明路径、方法、参数 schema 并绑定 Controller，**禁止出现** `db.` / `drizzle-orm` / `axios` / `fetch(`。
+- **Controller** 解析请求、调用 Service、决定 HTTP 状态码，**禁止写 SQL**。
+- **Service** 承载 Drizzle 查询、事务、文件 IO、外部调用，**禁止引用** `FastifyRequest` / `FastifyReply`。
+- 跨层错误用判别联合（如 `AiResult<T>`、`ImportOutcome`）传递，由 Controller 翻译成状态码。
+- 响应信封由 `index.ts` 的 `onSend` 钩子唯一负责，Controller 直接 `return` 纯数据即可，不要手写 `{ code: 200, data }`。
+- better-sqlite3 是同步的：`db.transaction((tx) => {...})` 回调**不得写成 async**，否则事务会在首个 `await` 处提前提交。
+
+详细的层职责表、AI 模块的 `{ code, message, aiCode }` 例外契约见《技术架构与功能手册.md》§2.3.1。
 
 ## 快速开始（开发，无需 Rust）
 
