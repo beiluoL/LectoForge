@@ -16,11 +16,6 @@
         @form-field="onFormField"
         @form-color="(c: string) => (createForm.coverColor = c)"
       />
-      <div class="mt-4 text-center">
-        <button class="kb-btn kb-btn-sm" @click="goMock">
-          <Icon name="flask-conical" :size="14" /> 没有数据？打开演示宫殿「并发编程公寓」
-        </button>
-      </div>
     </div>
 
     <!-- ===== 编辑模式：单宫殿空间 / 漫游 / 复习 ===== -->
@@ -30,19 +25,15 @@
         <div>
           <h1 class="kb-h1 mb-1 flex items-center gap-2" style="color: var(--kb-foreground);">
             <Icon name="map-pin" :size="24" style="color: var(--kb-primary);" />
-            {{ palace?.name || (isMock ? '并发编程公寓' : '记忆宫殿') }}
+            {{ palace?.name || '记忆宫殿' }}
           </h1>
           <p class="kb-body" style="color: var(--kb-muted-foreground);">
-            {{
-              isMock
-                ? '演示数据（纯本地，可拖拽布置 / 漫游 / 复习，不落库）'
-                : '拖拽位点布置空间布局，点击位点编辑绑定的知识点。沿路线漫游回忆。'
-            }}
+            拖拽位点布置空间布局，点击位点编辑绑定的知识点。沿路线漫游回忆。
           </p>
         </div>
         <div class="flex items-center gap-2">
           <button class="kb-btn" @click="goHome"><Icon name="chevron-left" :size="16" /> 返回</button>
-          <button v-if="!isMock" class="kb-btn kb-btn-primary" @click="openCreateLoci">
+          <button class="kb-btn kb-btn-primary" @click="openCreateLoci">
             <Icon name="plus" :size="16" /> 添加位点
           </button>
           <button class="kb-btn" @click="openAiLoci">
@@ -60,18 +51,6 @@
             >{{ store.reviewDueLoci.length }}</span>
           </button>
         </div>
-      </div>
-
-      <!-- 演示数据被清空兜底 -->
-      <div
-        v-if="isMock && store.lociList.length === 0"
-        class="border p-4 rounded-md flex items-center justify-between"
-        style="background: var(--kb-card); border-color: var(--kb-border);"
-      >
-        <span class="kb-body-sm" style="color: var(--kb-muted-foreground);">演示位点已清空。</span>
-        <button class="kb-btn kb-btn-primary" @click="loadMock">
-          <Icon name="rotate-ccw" :size="14" /> 重新加载演示数据
-        </button>
       </div>
 
       <!-- 编辑网格 -->
@@ -177,7 +156,7 @@ import type {
   WbPalaceLociPayload,
   CategoryVO,
 } from '@/api/types'
-import { useMemoryPalaceStore, MOCK_PALACE_ID } from '@/store/memory-palace-store'
+import { useMemoryPalaceStore } from '@/store/memory-palace-store'
 
 import PalaceHome from './components/PalaceHome.vue'
 import SpaceCanvas from './components/SpaceCanvas.vue'
@@ -193,7 +172,6 @@ const store = useMemoryPalaceStore()
 const { currentTourIndex, masterLevels } = storeToRefs(store)
 
 const palaceId = computed(() => (route.params.id ? Number(route.params.id) : null))
-const isMock = computed(() => palaceId.value === MOCK_PALACE_ID)
 
 const palace = ref<WbPalace | null>(null)
 const mode = ref<'space' | 'tour' | 'review'>('space')
@@ -217,9 +195,6 @@ async function loadPalaces() {
 }
 function goPalace(p: WbPalace) {
   router.push(`/workbench/palace/${p.id}`)
-}
-function goMock() {
-  router.push(`/workbench/palace/${MOCK_PALACE_ID}`)
 }
 async function onDeletePalace(p: WbPalace) {
   const ok = await confirmDialog('确认删除该宫殿及其所有位点？')
@@ -262,14 +237,6 @@ function onDeselect() {
   selectedId.value = null
 }
 function onPositionChange(id: number, x: number, y: number) {
-  if (isMock.value) {
-    const t = store.lociList.find((l) => l.id === id)
-    if (t) {
-      t.posX = x
-      t.posY = y
-    }
-    return
-  }
   store
     .updateLociPosition(id, x, y)
     .catch((e) => notify(getApiError(e, '位置保存失败'), 'error'))
@@ -277,10 +244,6 @@ function onPositionChange(id: number, x: number, y: number) {
 
 async function onRemoveLoci(l: WbPalaceLoci) {
   if (selectedId.value === l.id) onDeselect()
-  if (isMock.value) {
-    store.lociList = store.lociList.filter((x) => x.id !== l.id)
-    return
-  }
   if (!window.confirm('确认删除该位点？')) return
   try {
     await deleteLoci(l.id)
@@ -339,22 +302,6 @@ function openEditLoci(l: WbPalaceLoci) {
 async function onSaveLoci(form: WbPalaceLociPayload) {
   if (!form.name?.trim()) {
     notify('位点名称不能为空', 'warning')
-    return
-  }
-  if (isMock.value) {
-    if (editingLociId.value) {
-      const t = store.lociList.find((x) => x.id === editingLociId.value)
-      if (t) Object.assign(t, form)
-    } else {
-      store.lociList.push({
-        ...form,
-        id: -Date.now(),
-        userId: 0,
-        palaceId: store.activePalaceId ?? MOCK_PALACE_ID,
-        sortOrder: store.lociList.length + 1,
-      })
-    }
-    showLociDrawer.value = false
     return
   }
   try {
@@ -436,44 +383,25 @@ async function addAllLoci() {
   aiAdding.value = true
   try {
     const n = aiPreview.value.length
-    if (isMock.value) {
-      for (let i = 0; i < n; i++) {
-        const l = aiPreview.value[i]
-        const p = positionFor(i, n)
-        store.lociList.push({
-          name: l.name,
-          knowledgePoint: l.knowledgePoint,
-          imageHint: l.imageHint,
-          icon: 'map-pin',
-          palaceId: store.activePalaceId ?? MOCK_PALACE_ID,
-          userId: 0,
-          id: -Date.now() - i,
-          posX: p.x,
-          posY: p.y,
-          sortOrder: store.lociList.length + i + 1,
-        })
-      }
-    } else {
-      for (let i = 0; i < n; i++) {
-        const l = aiPreview.value[i]
-        const p = positionFor(i, n)
-        await createLoci({
-          palaceId: palaceId.value!,
-          name: l.name,
-          knowledgePoint: l.knowledgePoint,
-          imageHint: l.imageHint,
-          icon: 'map-pin',
-          categoryId: undefined,
-          posX: p.x,
-          posY: p.y,
-          sortOrder: store.lociList.length + i + 1,
-        })
-      }
+    for (let i = 0; i < n; i++) {
+      const l = aiPreview.value[i]
+      const p = positionFor(i, n)
+      await createLoci({
+        palaceId: palaceId.value!,
+        name: l.name,
+        knowledgePoint: l.knowledgePoint,
+        imageHint: l.imageHint,
+        icon: 'map-pin',
+        categoryId: undefined,
+        posX: p.x,
+        posY: p.y,
+        sortOrder: store.lociList.length + i + 1,
+      })
     }
     notify(`已添加 ${n} 个位点`, 'success')
     showAiDrawer.value = false
     aiPreview.value = []
-    if (!isMock.value) await store.fetchLoci(palaceId.value!)
+    await store.fetchLoci(palaceId.value!)
   } catch (e) {
     notify(getApiError(e, '添加失败'), 'error')
   } finally {
@@ -531,9 +459,6 @@ async function loadCategories() {
 function goHome() {
   router.push('/workbench/palace')
 }
-function loadMock() {
-  store.initMockData(MOCK_PALACE_ID)
-}
 function themeLabel(t?: string) {
   return (
     ({ ROOM: '房间', STREET: '街道', CAMPUS: '校园', CUSTOM: '自定义' } as Record<string, string>)[t || ''] ||
@@ -546,18 +471,6 @@ function themeLabel(t?: string) {
 onMounted(async () => {
   if (!palaceId.value) {
     await loadPalaces()
-    return
-  }
-  if (isMock.value) {
-    store.initMockData(MOCK_PALACE_ID)
-    palace.value = {
-      id: MOCK_PALACE_ID,
-      userId: 0,
-      name: '并发编程公寓（演示）',
-      description: '并发编程核心概念的场景化记忆',
-      theme: 'ROOM',
-      coverColor: '#3B6FE0',
-    }
     return
   }
   try {

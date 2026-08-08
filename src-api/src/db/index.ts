@@ -1,6 +1,9 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { sql } from 'drizzle-orm';
+import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from './schema';
+import { categories, wbCapture, wbPalace, wbPalaceLoci } from './schema';
 import { getDbPath } from '../lib/paths';
 
 /* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 LECTOFORGE_DATA_DIR
@@ -266,67 +269,6 @@ addColumn('wb_story', 'word_count', 'INTEGER');
   }
 }
 
-// 初始化默认分类（首次运行时）
-const catCount = (sqlite.prepare('SELECT COUNT(*) AS c FROM categories').get() as { c: number }).c;
-if (catCount === 0) {
-  const insert = sqlite.prepare('INSERT INTO categories (name, parent_id, sort) VALUES (?, 0, ?)');
-  ['未分类', '工作', '学习', '生活'].forEach((name, i) => insert.run(name, i));
-}
-
-/* 收集箱示例数据：**仅在 wb_capture 整表为空时**注入，绝不覆盖用户已有数据。
- * 目的是让新用户首次打开 /inbox 就能看到「速记 / 网页剪藏 / 待读链接」三种形态，
- * 而不是一个空列表。created_at 刻意错开，用于验证时间线倒序。 */
-{
-  const capCount = (sqlite.prepare('SELECT COUNT(*) AS c FROM wb_capture').get() as { c: number }).c;
-  if (capCount === 0) {
-    const now = Date.now();
-    const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
-    const seed = sqlite.prepare(
-      `INSERT INTO wb_capture
-         (user_id, title, content, source_type, source_url, cover_image, tags, status, starred, created_at, updated_at)
-       VALUES (1, ?, ?, ?, ?, NULL, ?, 'INBOX', 0, ?, ?)`,
-    );
-    const rows: Array<[string, string, string, string | null, string, string]> = [
-      [
-        '今晚思考一下微服务的熔断机制如何抽象',
-        '今晚思考一下微服务的熔断机制如何抽象。\n\n关键问题：熔断器的状态机（Closed / Open / Half-Open）能否抽出一层与具体传输协议无关的通用接口？如果能，Sentinel 和 Resilience4j 的差异就只剩配置层了。',
-        'text',
-        null,
-        JSON.stringify(['灵感', '架构']),
-        minutesAgo(6),
-      ],
-      [
-        'Vue.js - 渐进式 JavaScript 框架',
-        'Vue 是一款用于构建用户界面的 JavaScript 框架。它基于标准 HTML、CSS 和 JavaScript 构建，并提供了一套声明式的、组件化的编程模型。',
-        'link',
-        'https://cn.vuejs.org/',
-        JSON.stringify(['网页剪藏', '前端']),
-        minutesAgo(95),
-      ],
-      [
-        'SQLite 的 WAL 模式到底快在哪',
-        '写前日志（Write-Ahead Logging）让读写不再互斥，读事务可以和写事务并发执行。回头补一篇对比测试。',
-        'link',
-        'https://www.sqlite.org/wal.html',
-        JSON.stringify(['待读']),
-        minutesAgo(60 * 26),
-      ],
-      [
-        '费曼学习法的第四步最容易被跳过',
-        '大多数人做到「用简单语言复述」就停了，但真正拉开差距的是第四步——回到原始材料，补上复述时卡壳的地方。',
-        'text',
-        null,
-        JSON.stringify(['灵感', '学习方法']),
-        minutesAgo(60 * 50),
-      ],
-    ];
-    for (const [title, content, type, url, tags, ts] of rows) {
-      seed.run(title, content, type, url, tags, ts, ts);
-    }
-    console.log(`[lectoforge-desktop] 收集箱示例数据已注入 (${rows.length} 条)`);
-  }
-}
-
 export const db = drizzle(sqlite, { schema });
 
 // 单本地用户
@@ -335,3 +277,217 @@ export const CURRENT_USER = 1;
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+/* ===================================================================
+ * 种子数据（Seed Data）
+ *
+ * 这不是「模拟数据」——它们是**真正写进 SQLite 的真实行**，用户可以编辑、
+ * 删除、复习，与自己创建的数据没有任何区别。前端不得再持有任何硬编码副本。
+ *
+ * 三条铁律：
+ * 1) 幂等：只在目标表**整表为空**时写入。用户删光了示例也不会被反复塞回来。
+ * 2) 可辨识：文案带「示例 / 演示」前缀或标签，用户一眼知道这是可删的引导内容。
+ * 3) 同步：better-sqlite3 是同步 API，播种全程不得引入 async/await。
+ * =================================================================== */
+
+/** 表是否为空（SELECT COUNT(*) === 0），幂等播种的唯一判据 */
+function isTableEmpty(table: SQLiteTable): boolean {
+  const row = db.select({ count: sql<number>`count(*)` }).from(table).get();
+  return (row?.count ?? 0) === 0;
+}
+
+/**
+ * 幂等播种器：表为空才执行 insert，并打印注入条数。
+ * insert 回调必须是同步函数并返回写入行数（better-sqlite3 同步 API 红线）。
+ */
+function seedIfEmpty(table: SQLiteTable, label: string, insert: () => number): void {
+  if (!isTableEmpty(table)) return;
+  try {
+    const n = insert();
+    console.log(`[lectoforge-desktop] 种子数据已注入：${label}（${n} 条）`);
+  } catch (e) {
+    // 播种失败不能阻断应用启动：大不了首屏是空态，用户照样能自己创建
+    console.error(`[lectoforge-desktop] 种子数据注入失败：${label}`, e);
+  }
+}
+
+// ---- 分类：四个基础分类，用户可在设置里改名/新增 ----
+seedIfEmpty(categories, '默认分类', () => {
+  const rows = ['未分类', '工作', '学习', '生活'].map((name, sort) => ({ name, parentId: 0, sort }));
+  db.insert(categories).values(rows).run();
+  return rows.length;
+});
+
+/* ---- 收集箱：让新用户首次打开 /inbox 就能看到「速记 / 网页剪藏 / 待读链接」
+ * 三种形态，而不是一个空列表。createdAt 刻意错开，同时验证时间线倒序。
+ * 每条都带「示例」标签，方便用户识别并批量清理。 ---- */
+seedIfEmpty(wbCapture, '收集箱示例条目', () => {
+  const now = Date.now();
+  const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
+  const rows = [
+    {
+      title: '今晚思考一下微服务的熔断机制如何抽象',
+      content:
+        '今晚思考一下微服务的熔断机制如何抽象。\n\n关键问题：熔断器的状态机（Closed / Open / Half-Open）能否抽出一层与具体传输协议无关的通用接口？如果能，Sentinel 和 Resilience4j 的差异就只剩配置层了。',
+      sourceType: 'text',
+      sourceUrl: null as string | null,
+      tags: ['示例', '灵感', '架构'],
+      at: minutesAgo(6),
+    },
+    {
+      title: 'Vue.js - 渐进式 JavaScript 框架',
+      content:
+        'Vue 是一款用于构建用户界面的 JavaScript 框架。它基于标准 HTML、CSS 和 JavaScript 构建，并提供了一套声明式的、组件化的编程模型。',
+      sourceType: 'link',
+      sourceUrl: 'https://cn.vuejs.org/',
+      tags: ['示例', '网页剪藏', '前端'],
+      at: minutesAgo(95),
+    },
+    {
+      title: 'SQLite 的 WAL 模式到底快在哪',
+      content:
+        '写前日志（Write-Ahead Logging）让读写不再互斥，读事务可以和写事务并发执行。回头补一篇对比测试。',
+      sourceType: 'link',
+      sourceUrl: 'https://www.sqlite.org/wal.html',
+      tags: ['示例', '待读'],
+      at: minutesAgo(60 * 26),
+    },
+    {
+      title: '费曼学习法的第四步最容易被跳过',
+      content:
+        '大多数人做到「用简单语言复述」就停了，但真正拉开差距的是第四步——回到原始材料，补上复述时卡壳的地方。',
+      sourceType: 'text',
+      sourceUrl: null as string | null,
+      tags: ['示例', '灵感', '学习方法'],
+      at: minutesAgo(60 * 50),
+    },
+  ];
+  db.insert(wbCapture)
+    .values(
+      rows.map((r) => ({
+        userId: CURRENT_USER,
+        title: r.title,
+        content: r.content,
+        sourceType: r.sourceType,
+        sourceUrl: r.sourceUrl,
+        coverImage: null,
+        tags: JSON.stringify(r.tags),
+        // ⚠️ 大写状态机：wb_capture 存 INBOX/PROCESSED/ARCHIVED/TRASHED。
+        // /api/inbox 对外的小写三态由 inboxService 的 toStatusVO/toStatusDb 映射，勿在此统一。
+        status: 'INBOX',
+        starred: 0,
+        createdAt: r.at,
+        updatedAt: r.at,
+      })),
+    )
+    .run();
+  return rows.length;
+});
+
+/* ---- 记忆宫殿：「并发编程公寓」演示宫殿 + 8 个位点。
+ * 这份数据原先硬编码在前端 store（MOCK_LOCI，纯本地不落库，拖拽/复习进度刷新即丢），
+ * 现下沉为真实数据库行：可拖拽落库、可 AI 扩写、可参与 SM-2 复习统计。 ---- */
+seedIfEmpty(wbPalace, '演示记忆宫殿', () => {
+  const now = nowIso();
+  const palace = db
+    .insert(wbPalace)
+    .values({
+      userId: CURRENT_USER,
+      name: '✨ 演示宫殿 - 并发编程公寓',
+      description: '示例宫殿，点击编辑替换为你自己的空间；不需要可直接删除',
+      theme: 'ROOM',
+      coverColor: '#3B6FE0',
+      categoryId: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning()
+    .get();
+
+  const loci = [
+    {
+      name: '玄关鞋柜',
+      knowledgePoint:
+        '进程 vs 线程：进程是资源分配的基本单位，线程是 CPU 调度的基本单位，一个进程可含多个线程并共享内存',
+      imageHint: '一只巨大的货架（进程）上挂着好几只敏捷的小猴子（线程）一起搬同一批货',
+      icon: 'server',
+      posX: 15,
+      posY: 20,
+    },
+    {
+      name: '客厅沙发',
+      knowledgePoint: '并发 vs 并行：并发是同一时段交替处理多任务，并行是同一时刻同时执行多任务',
+      imageHint: '一个人左右手同时耍两球（并发）vs 两人在两台机器上各耍一球（并行）',
+      icon: 'git-compare',
+      posX: 40,
+      posY: 15,
+    },
+    {
+      name: '厨房灶台',
+      knowledgePoint: '锁与互斥：用锁保证同一时间只有一个线程进入临界区，避免竞态条件',
+      imageHint: '一扇只挂一把钥匙的卫生间门，谁拿钥匙谁进，其他人门外排队',
+      icon: 'lock',
+      posX: 68,
+      posY: 22,
+    },
+    {
+      name: '卧室床头',
+      knowledgePoint: '死锁：互斥、占有且等待、不可剥夺、循环等待四个条件同时成立时发生',
+      imageHint: '两只人偶各拿一根筷子互相等对方先放下，僵在原地谁也走不了',
+      icon: 'link-2',
+      posX: 88,
+      posY: 35,
+    },
+    {
+      name: '书房书桌',
+      knowledgePoint: 'volatile：保证变量在多线程间的可见性，但不保证复合操作的原子性',
+      imageHint: '一块大黑板，谁写一笔所有人立刻看到，但两人同时擦写会糊成一团',
+      icon: 'eye',
+      posX: 20,
+      posY: 50,
+    },
+    {
+      name: '阳台花架',
+      knowledgePoint: 'CAS（Compare And Swap）：无锁原子操作，比较旧值相等才更新，失败则重试',
+      imageHint: '自动售货机核对你投的币和标价一致才吐货，不一致就退币让你重投',
+      icon: 'repeat',
+      posX: 50,
+      posY: 55,
+    },
+    {
+      name: '卫生间',
+      knowledgePoint: '线程池：预先创建一组可复用线程，避免频繁创建/销毁开销，有核心与最大线程数',
+      imageHint: '一排随时待命的出租车，客人（任务）来了直接上车走，不用现造一辆车',
+      icon: 'users',
+      posX: 78,
+      posY: 60,
+    },
+    {
+      name: '走廊尽头',
+      knowledgePoint: 'ThreadLocal：线程私有变量，每个线程持有独立副本，互不干扰',
+      imageHint: '每个人手腕上专属的手环，存自己的东西，别人看不见也拿不到',
+      icon: 'user-round',
+      posX: 45,
+      posY: 85,
+    },
+  ];
+
+  db.insert(wbPalaceLoci)
+    .values(
+      loci.map((l, i) => ({
+        palaceId: palace.id,
+        userId: CURRENT_USER,
+        name: l.name,
+        knowledgePoint: l.knowledgePoint,
+        imageHint: l.imageHint,
+        icon: l.icon,
+        posX: l.posX,
+        posY: l.posY,
+        sortOrder: i + 1,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  return loci.length;
+});

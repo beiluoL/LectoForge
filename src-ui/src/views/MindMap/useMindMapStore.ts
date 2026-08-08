@@ -121,7 +121,10 @@ export const mapState = reactive<MindMapState>({
   mindMaps: [],
   activeMapId: '',
   title: '我的学习路线',
-  outlineData: defaultOutline(),
+  // 初始为空：真实大纲由后端 seedIfEmpty() 播种的「我的学习路线」文档提供，
+  // bootstrap() 加载后由 openMap() 覆盖。仅当加载到的文档 outline 为空时，
+  // 才在 safeOpenDoc 里回落到 defaultOutline() 兜底，避免编辑器空白。
+  outlineData: [],
   flowchartData: { nodes: [], edges: [] },
   viewMode: 'outline',
   loadingList: false,

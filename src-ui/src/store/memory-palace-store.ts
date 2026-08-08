@@ -21,20 +21,17 @@ import { defineStore } from 'pinia'
 import { listLoci, updateLoci } from '@/api/workbench'
 import type { WbPalace, WbPalaceLoci } from '@/api/types'
 
-/** 演示宫殿特殊 id（前端纯本地数据，不落库） */
-export const MOCK_PALACE_ID = -1
-
-/** 「并发编程公寓」演示位点：8 个并发编程核心概念，坐标错开，含夸张联想图像 */
-const MOCK_LOCI: Omit<WbPalaceLoci, 'palaceId'>[] = [
-  { id: -1, userId: 0, name: '玄关鞋柜', knowledgePoint: '进程 vs 线程：进程是资源分配的基本单位，线程是 CPU 调度的基本单位，一个进程可含多个线程并共享内存', imageHint: '一只巨大的货架（进程）上挂着好几只敏捷的小猴子（线程）一起搬同一批货', icon: 'server', posX: 15, posY: 20, sortOrder: 1 },
-  { id: -2, userId: 0, name: '客厅沙发', knowledgePoint: '并发 vs 并行：并发是同一时段交替处理多任务，并行是同一时刻同时执行多任务', imageHint: '一个人左右手同时耍两球（并发）vs 两人在两台机器上各耍一球（并行）', icon: 'git-compare', posX: 40, posY: 15, sortOrder: 2 },
-  { id: -3, userId: 0, name: '厨房灶台', knowledgePoint: '锁与互斥：用锁保证同一时间只有一个线程进入临界区，避免竞态条件', imageHint: '一扇只挂一把钥匙的卫生间门，谁拿钥匙谁进，其他人门外排队', icon: 'lock', posX: 68, posY: 22, sortOrder: 3 },
-  { id: -4, userId: 0, name: '卧室床头', knowledgePoint: '死锁：互斥、占有且等待、不可剥夺、循环等待四个条件同时成立时发生', imageHint: '两只人偶各拿一根筷子互相等对方先放下，僵在原地谁也走不了', icon: 'link-2', posX: 88, posY: 35, sortOrder: 4 },
-  { id: -5, userId: 0, name: '书房书桌', knowledgePoint: 'volatile：保证变量在多线程间的可见性，但不保证复合操作的原子性', imageHint: '一块大黑板，谁写一笔所有人立刻看到，但两人同时擦写会糊成一团', icon: 'eye', posX: 20, posY: 50, sortOrder: 5 },
-  { id: -6, userId: 0, name: '阳台花架', knowledgePoint: 'CAS（Compare And Swap）：无锁原子操作，比较旧值相等才更新，失败则重试', imageHint: '自动售货机核对你投的币和标价一致才吐货，不一致就退币让你重投', icon: 'repeat', posX: 50, posY: 55, sortOrder: 6 },
-  { id: -7, userId: 0, name: '卫生间', knowledgePoint: '线程池：预先创建一组可复用线程，避免频繁创建/销毁开销，有核心与最大线程数', imageHint: '一排随时待命的出租车，客人（任务）来了直接上车走，不用现造一辆车', icon: 'users', posX: 78, posY: 60, sortOrder: 7 },
-  { id: -8, userId: 0, name: '走廊尽头', knowledgePoint: 'ThreadLocal：线程私有变量，每个线程持有独立副本，互不干扰', imageHint: '每个人手腕上专属的手环，存自己的东西，别人看不见也拿不到', icon: 'user-round', posX: 45, posY: 85, sortOrder: 8 },
-]
+/**
+ * ⚠️ 已移除：MOCK_PALACE_ID / MOCK_LOCI / initMockData（2026-08-08）
+ *
+ * 原先这里硬编码了一份「并发编程公寓」演示位点（8 条），通过特殊 id = -1 走纯前端
+ * 分支渲染。问题是它假到底：拖拽不落库、AI 扩写只进内存、复习进度不计入 SM-2 统计，
+ * 首页 /api/dashboard/stats 的 palaceLoci 永远看不到它们。
+ *
+ * 现已下沉为**真实数据库行**——由 src-api/src/db/index.ts 的 seedIfEmpty(wbPalace, …)
+ * 幂等播种「✨ 演示宫殿 - 并发编程公寓」+ 8 个位点。前端这一层不再持有任何副本，
+ * 全部走 listPalaces() / listLoci() 真实接口。
+ */
 
 /** lociId -> 0..5 熟练度（SRS 简化版；持久化在 localStorage） */
 export type MasterLevelMap = Record<number, number>
@@ -45,6 +42,8 @@ export interface MemoryPalaceState {
   lociList: WbPalaceLoci[]
   currentTourIndex: number
   masterLevels: MasterLevelMap
+  /** 位点拉取中（渲染骨架屏用）；不持久化，每次进页面重新判定 */
+  lociLoading: boolean
 }
 
 export const useMemoryPalaceStore = defineStore('memoryPalace', {
@@ -54,6 +53,7 @@ export const useMemoryPalaceStore = defineStore('memoryPalace', {
     lociList: [],
     currentTourIndex: 0,
     masterLevels: {},
+    lociLoading: false,
   }),
 
   getters: {
@@ -73,17 +73,28 @@ export const useMemoryPalaceStore = defineStore('memoryPalace', {
   },
 
   actions: {
-    /** 拉取指定宫殿的全部位点，并重置漫游指针；用后端 masteredLevel 初始化本地熟练度（不覆盖已有进度） */
+    /**
+     * 拉取指定宫殿的全部位点，并重置漫游指针；用后端 masteredLevel 初始化本地熟练度（不覆盖已有进度）。
+     *
+     * 切换宫殿时先清空 lociList：持久化的是上一个宫殿的位点，不清会先闪一帧旧数据，
+     * 视觉上等同于「假数据」。清空 + lociLoading=true 让 UI 直接进骨架屏。
+     */
     async fetchLoci(palaceId: number) {
+      if (this.activePalaceId !== palaceId) this.lociList = []
       this.activePalaceId = palaceId
-      const list = await listLoci(palaceId)
-      this.lociList = list
-      list.forEach((l) => {
-        if (l.masteredLevel !== undefined && this.masterLevels[l.id] === undefined) {
-          this.masterLevels[l.id] = l.masteredLevel
-        }
-      })
-      this.currentTourIndex = 0
+      this.lociLoading = true
+      try {
+        const list = await listLoci(palaceId)
+        this.lociList = list
+        list.forEach((l) => {
+          if (l.masteredLevel !== undefined && this.masterLevels[l.id] === undefined) {
+            this.masterLevels[l.id] = l.masteredLevel
+          }
+        })
+        this.currentTourIndex = 0
+      } finally {
+        this.lociLoading = false
+      }
     },
 
     /**
@@ -140,40 +151,30 @@ export const useMemoryPalaceStore = defineStore('memoryPalace', {
     },
 
     /**
-     * 复习打分：本地记熟练度 + 真实宫殿（activePalaceId>0）落库 persisted；
-     * 演示宫殿（id<0）只更新本地，不触发后端。
+     * 复习打分：先本地记熟练度（即时反馈），再把 masteredLevel + lastReviewedAt 落库。
+     * 所有宫殿都是真实的库内数据，不再有「演示宫殿只更新本地」的分支。
      */
     async gradeLoci(lociId: number, level: number) {
       this.setMasterLevel(lociId, level)
-      if (this.activePalaceId && this.activePalaceId > 0) {
-        const l = this.lociList.find((x) => x.id === lociId)
-        if (l) {
-          try {
-            await updateLoci(lociId, {
-              palaceId: l.palaceId,
-              name: l.name,
-              knowledgePoint: l.knowledgePoint,
-              imageHint: l.imageHint,
-              icon: l.icon,
-              posX: l.posX,
-              posY: l.posY,
-              sortOrder: l.sortOrder,
-              categoryId: l.categoryId,
-              masteredLevel: this.masterLevels[lociId] ?? level,
-              lastReviewedAt: new Date().toISOString(),
-            })
-          } catch {
-            /* 本地已记录，后端落库失败静默处理 */
-          }
-        }
+      const l = this.lociList.find((x) => x.id === lociId)
+      if (!l) return
+      try {
+        await updateLoci(lociId, {
+          palaceId: l.palaceId,
+          name: l.name,
+          knowledgePoint: l.knowledgePoint,
+          imageHint: l.imageHint,
+          icon: l.icon,
+          posX: l.posX,
+          posY: l.posY,
+          sortOrder: l.sortOrder,
+          categoryId: l.categoryId,
+          masteredLevel: this.masterLevels[lociId] ?? level,
+          lastReviewedAt: new Date().toISOString(),
+        })
+      } catch {
+        /* 本地已记录，后端落库失败静默处理，下次打分会再次尝试 */
       }
-    },
-
-    /** 灌入「并发编程公寓」演示数据（纯前端，不落库）。用于无后端真实数据时快速体验记忆宫殿。 */
-    initMockData(palaceId: number = MOCK_PALACE_ID) {
-      this.activePalaceId = palaceId
-      this.lociList = MOCK_LOCI.map((l) => ({ ...l, palaceId }))
-      this.currentTourIndex = 0
     },
   },
 
