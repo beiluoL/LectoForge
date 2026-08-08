@@ -7,6 +7,8 @@
  * 是**两套独立契约**，严禁在类型层面合并复用，否则历史数据会大面积状态丢失。
  */
 
+import type { PageQuery } from './pagination';
+
 /** 收集项类型。audio / file 为「富媒体扩展」新增，历史数据仍是 text|link|image */
 export type InboxType = 'text' | 'link' | 'image' | 'audio' | 'file';
 
@@ -31,8 +33,8 @@ export interface InboxItemVO {
   processedAt: string | null;
 }
 
-/** GET /inbox/list 的查询参数（已由 controller 归一化） */
-export interface ListInboxQuery {
+/** GET /inbox/list 的查询参数（已由 controller 归一化）。继承 PageQuery 支持分页。 */
+export interface ListInboxQuery extends PageQuery {
   /** true 表示按创建时间升序（收件箱积压视图） */
   ascSort: boolean;
   filter: InboxFilter;

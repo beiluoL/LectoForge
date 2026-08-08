@@ -275,7 +275,30 @@ type NavItem = {
   path: string;
   label: string;
   icon: string;
-  /** 多路由高亮匹配（复习父级需要覆盖子路由） */
+  /**
+   * 高亮匹配前缀白名单。缺省时退化为 `[path]`，即「只有自己这条路径（及其子路径）会高亮」。
+   *
+   * 为什么需要它：顶栏是**功能分组**视图，而路由表是**扁平**的——同一个业务域的页面
+   * 因为历史原因散落在不同前缀下（详见 router/index.ts 的注释：/library、/mindmap、
+   * /inbox 都刻意没挂进 /workbench，否则会和「工作台」用 startsWith 互相误高亮）。
+   * 于是「一个顶栏项 ↔ 一条路由前缀」的假设不成立，必须显式声明它代表哪几段路由。
+   *
+   * 典型场景是「复习」这一项，它同时代表四条不同前缀的路由：
+   *   /workbench/review  旧复习驾驶舱（父级自身 path，点击后落这里）
+   *   /review            间隔重复闪卡（含别名 /review/flashcard，靠前缀吞掉）
+   *   /workbench/palace  记忆宫殿
+   *   /workbench/recall  主动回忆
+   * 这四者在产品语义上同属「巩固」，用户从任意一个进去都应看到「复习」高亮；
+   * 若不写 match，只有停在 /workbench/review 时才亮，点进「间隔复习」顶栏就整个熄灭，
+   * 用户会以为自己跳出了当前模块。
+   *
+   * 匹配方式为 `route.path === p || route.path.startsWith(p)`（见 isActive），
+   * 因此前缀会连带吃掉全部子路由（/review → /review/flashcard 一并高亮）。
+   * ⚠️ 正因为是前缀匹配，新增前缀时要确认它不会误吞别的顶栏项：
+   * 例如给「番茄钟」写死 match: ['/pomodoro'] 而非留空，是为了明确它同时覆盖
+   * /pomodoro/stats；而「工作台」在 isActive 里被特判为**精确匹配**，
+   * 否则 '/workbench' 前缀会把 notes / review / palace 等全部子路由一起点亮。
+   */
   match?: string[];
   /** 角标数据源 */
   badge?: 'pendingCaptures' | 'dueReviews';
@@ -320,6 +343,16 @@ const primaryItems = navItems.slice(0, 5);
 const moreItems = navItems.slice(5);
 
 /* ---------------- 高亮 / 角标 ---------------- */
+/**
+ * 判断顶栏项是否处于激活态。
+ *
+ * 规则：`/workbench`（工作台）**精确匹配**，其余项按 `match ?? [path]` 做前缀匹配。
+ * 工作台必须特判，因为它的 path 是所有 /workbench/* 子路由的公共前缀，
+ * 走 startsWith 会导致打开「笔记」「复习」时工作台跟着一起亮（双高亮）。
+ *
+ * @param it 顶栏项配置，其 `match` 字段的完整语义见 NavItem 类型定义
+ * @returns true 表示当前路由属于该项代表的业务域，应渲染 is-active 样式
+ */
 function isActive(it: NavItem): boolean {
   if (it.path === '/workbench') return route.path === '/workbench'; // 工作台精确匹配，避免误吞子路由
   const prefixes = it.match ?? [it.path];

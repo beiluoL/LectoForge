@@ -54,6 +54,10 @@
           </div>
 
           <div class="wb-hero-actions">
+            <!-- 待复习清单：先挑后背，也能在这里批量挂起不想背的卡 -->
+            <button class="kb-btn wb-ghost-btn" @click="reviewStore.openQueueList()">
+              <Icon name="layers" :size="14" /> 待复习清单
+            </button>
             <router-link to="/workbench/recall" class="kb-btn wb-ghost-btn">
               <Icon name="edit-2" :size="14" /> 主动回忆
             </router-link>
@@ -175,7 +179,22 @@
                 :x="p.x" :y="SVG_H - 8" text-anchor="middle"
                 font-size="10" font-family="var(--font-mono)" fill="var(--kb-muted-foreground)"
               >{{ p.dateLabel }}</text>
+
+              <!-- 透明命中区：点某天 → 下钻当日复盘。放最后，保证盖在柱/线之上 -->
+              <rect
+                v-for="(p, i) in chartPoints"
+                :key="'h' + i"
+                class="rc-curve-hit"
+                :x="p.hitX" :y="PAD_T" :width="p.hitW" :height="SVG_H - PAD_T - PAD_B"
+                fill="transparent"
+                @click="openDay(p.date, p.reviews)"
+              >
+                <title>{{ p.date }} · 复习 {{ p.reviews }} 次 · 没记住 {{ p.lapses }} 次（点击查看明细）</title>
+              </rect>
             </svg>
+            <p class="rc-curve-tip">
+              <Icon name="mouse-pointer" :size="11" /> 点击图表任意一天，查看当天复习了哪些卡、哪些没记住
+            </p>
           </div>
         </div>
       </div>
@@ -242,6 +261,10 @@
         </article>
       </div>
     </section>
+
+    <!-- 抽屉 / 弹窗（内部自带 Teleport，可见性由 store 驱动，两个图表共用同一个实例） -->
+    <ReviewQueueList />
+    <ReviewDayDetail />
   </div>
 </template>
 
@@ -253,8 +276,11 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import Icon from '@/components/ui/Icon.vue'
 import ReviewHeatmap from '@/components/ReviewHeatmap.vue'
+import ReviewQueueList from '@/components/ReviewQueueList.vue'
+import ReviewDayDetail from '@/components/ReviewDayDetail.vue'
 import { useReviewStore } from '@/store/review-store'
 import { useDashboardStore } from '@/store/dashboard-store'
+import { notify } from '@/utils/toast'
 import './workbench-shared.css'
 
 const router = useRouter()
@@ -309,6 +335,9 @@ const chartPoints = computed(() => {
   const innerH = SVG_H - PAD_T - PAD_B
   const maxReviews = Math.max(1, ...pts.map((p) => p.reviews))
   const barW = Math.max(2, Math.min(14, innerW / n - 2))
+  // 点击热区宽度：柱子最窄只有 2px，直接点柱子几乎点不中，
+  // 故每个数据点额外铺一条通栏透明 rect 作为命中区域。
+  const hitW = n === 1 ? innerW : innerW / (n - 1)
   return pts.map((p, i) => {
     const x = PAD_L + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1))
     const barH = (p.reviews / maxReviews) * innerH
@@ -319,6 +348,11 @@ const chartPoints = computed(() => {
       barW,
       lineY: PAD_T + innerH - p.lapseRate * innerH,
       dateLabel: p.date.slice(5),
+      date: p.date,
+      reviews: p.reviews,
+      lapses: p.lapses,
+      hitX: Math.max(PAD_L, x - hitW / 2),
+      hitW,
     }
   })
 })
@@ -340,6 +374,18 @@ function toggleCurve() {
 function switchCurveDays(d: number) {
   reviewStore.curveDays = d
   void reviewStore.loadForgettingCurve(d)
+}
+
+/**
+ * 下钻某天的复习明细。
+ * 复习数为 0 的日子直接给个提示就好，开一个空弹窗只会让人以为加载失败。
+ */
+function openDay(date: string, reviews: number) {
+  if (reviews <= 0) {
+    notify(`${date} 没有复习记录`, 'info')
+    return
+  }
+  void reviewStore.openDayDetail(date)
 }
 
 onMounted(() => {
@@ -507,6 +553,21 @@ onMounted(() => {
 .rc-curve-svg {
   width: 100%;
   height: auto;
+}
+/* 通栏透明命中区：hover 时淡淡高亮一列，提示「这里可以点」 */
+.rc-curve-hit {
+  cursor: pointer;
+}
+.rc-curve-hit:hover {
+  fill: color-mix(in srgb, var(--mc) 12%, transparent);
+}
+.rc-curve-tip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--kb-muted-foreground);
 }
 .rc-curve-state {
   height: 170px;

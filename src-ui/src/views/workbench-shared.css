@@ -381,6 +381,26 @@
   transform: scale(0.92);
 }
 
+/* ===== 卡片/行内动作按钮组 =====
+ * 默认隐藏，卡片或行 hover / 键盘聚焦时淡入。
+ * 抽成全局样式，因为网格卡片（WorkbenchNotes）与紧凑行（NoteRow）共用同一套结构。 */
+.note-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.note-danger-btn:hover {
+  color: var(--kb-destructive);
+}
+/* 网格卡片的悬停揭示（紧凑行在 NoteRow.vue 内自管） */
+.note-card:hover .note-card-actions,
+.note-card:focus-within .note-card-actions {
+  opacity: 1;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .wb-hero-inner { padding: 20px 18px 18px; }

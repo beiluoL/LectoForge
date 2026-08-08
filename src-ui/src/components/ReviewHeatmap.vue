@@ -30,8 +30,9 @@
           v-for="(cell, i) in cells"
           :key="i"
           class="rh-cell"
-          :class="cell ? 'rh-l' + cell.level : 'rh-cell--pad'"
-          :title="cell ? `${cell.date} · 复习 ${cell.count} 次` : ''"
+          :class="[cell ? 'rh-l' + cell.level : 'rh-cell--pad', { 'is-clickable': cell && cell.count > 0 }]"
+          :title="cell ? `${cell.date} · 复习 ${cell.count} 次${cell.count > 0 ? '（点击查看明细）' : ''}` : ''"
+          @click="cell && onCellClick(cell)"
         ></span>
       </div>
     </div>
@@ -109,6 +110,12 @@ const streak = computed(() => {
   }
   return n;
 });
+
+/** 点亮的格子可下钻当日明细；灰格子（当天没复习）不响应，避免开一个空弹窗 */
+function onCellClick(cell: Cell): void {
+  if (cell.count <= 0) return;
+  void store.openDayDetail(cell.date);
+}
 
 // 本轮复习结束后刷新一次，让今天的格子立刻变亮
 watch(isFinished, (v) => {
@@ -203,6 +210,14 @@ onMounted(() => {
 }
 .rh-cell:hover {
   transform: scale(1.18);
+}
+.rh-cell.is-clickable {
+  cursor: pointer;
+}
+.rh-cell.is-clickable:hover {
+  transform: scale(1.32);
+  outline: 1.5px solid color-mix(in srgb, var(--kb-primary) 60%, transparent);
+  outline-offset: 1px;
 }
 .rh-cell--pad {
   background: transparent;

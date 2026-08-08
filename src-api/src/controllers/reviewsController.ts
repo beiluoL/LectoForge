@@ -9,6 +9,7 @@
  */
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { pickPage } from '../lib/pagination';
 import * as reviewsService from '../services/reviewsService';
 import type { CreateReviewCardDTO, GradeReviewCardDTO, ListReviewCardQuery, UpdateReviewCardDTO } from '../types/reviews';
 
@@ -38,7 +39,8 @@ interface ForgettingCurveRawQuery {
  */
 export async function list(req: FastifyRequest) {
   const q = req.query as ListReviewCardRawQuery;
-  const query: ListReviewCardQuery = {};
+  // 分页：未传时 service 侧的 resolvePage 会套用 DEFAULT_PAGE_SIZE 兜底
+  const query: ListReviewCardQuery = { ...pickPage(req.query) };
   if (q.categoryId) query.categoryId = Number(q.categoryId);
   if (q.noteId) query.noteId = Number(q.noteId);
   return reviewsService.listCards(query);

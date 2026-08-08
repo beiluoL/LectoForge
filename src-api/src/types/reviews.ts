@@ -6,6 +6,7 @@
  * 两套契约并存、互不干扰，改名或合并都会破坏前端。
  */
 import type { wbReviewCard } from '../db/schema';
+import type { PageQuery } from './pagination';
 
 /** 数据库行（drizzle 推断，字段以 schema 为唯一定义源） */
 export type ReviewCardRow = typeof wbReviewCard.$inferSelect;
@@ -22,8 +23,8 @@ export type ReviewCardVO = ReviewCardRow & {
   categoryName: string | null;
 };
 
-/** GET /reviews 的筛选条件 */
-export interface ListReviewCardQuery {
+/** GET /reviews 的筛选条件。继承 PageQuery 支持分页。 */
+export interface ListReviewCardQuery extends PageQuery {
   categoryId?: number;
   noteId?: number;
 }

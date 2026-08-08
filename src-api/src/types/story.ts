@@ -1,3 +1,5 @@
+import type { PageQuery } from './pagination';
+
 export interface StoryVO {
   id: number;
   userId: number;
@@ -18,7 +20,7 @@ export interface StoryVO {
   updateTime: string;
 }
 
-export interface ListStoryQuery {
+export interface ListStoryQuery extends PageQuery {
   status?: string;
   categoryId?: number;
   keyword?: string;

@@ -157,7 +157,44 @@ impl SidecarManager {
         Ok(child)
     }
 
-    /// 启动监控线程：拉起 → 阻塞 wait → 异常退出则退避重启，无限循环
+    /// 启动侧车监控线程：拉起 → 阻塞 wait → 异常退出则退避重启，无限循环。
+    ///
+    /// 线程模型：本函数**不阻塞**调用方，内部 `spawn` 一条分离线程持有 `Arc<Self>`；
+    /// 就绪探测再单独开一条线程，绝不能放在监控线程里，否则 `child.wait()` 被推迟，
+    /// 侧车崩溃时无法第一时间感知。
+    ///
+    /// # 退避策略
+    /// - 基础间隔 `RESTART_BASE_DELAY`(2s)，每次失败经 `next_delay` 递增，
+    ///   上限 `RESTART_MAX_DELAY`(30s)。不设上限的话连续闪退会变成每 2 秒 fork 一次的进程炸弹。
+    /// - 子进程存活超过 `HEALTHY_UPTIME`(30s) 视为「这次真起来了」，退避计时归零。
+    ///   区分「启动就崩」和「跑着跑着崩」很重要：后者往往是偶发 OOM，
+    ///   没必要让用户等 30 秒才恢复。
+    /// - 退出码为 0 时**不重启**并广播 `sidecar://stopped`。这是后端孤儿自检发现宿主
+    ///   已消失后的主动退出，重启只会立刻再退一次。
+    /// - `st.code()` 在进程被信号杀死（如 OOM 的 SIGKILL）时返回 `None`，一律按异常处理。
+    ///
+    /// # ⚠️ 为什么端口必须固定，端口漂移会导致「断线重连失联」
+    /// 后端在遇到 `EADDRINUSE` 时会自行把端口 +1 漂移，这在纯命令行下是好事，
+    /// 在本应用里却是致命的，原因有两条相互独立的链路：
+    ///
+    /// 1. **ACL / Remote 来源不匹配。** 窗口加载的是 `http://127.0.0.1:8787`，
+    ///    对 Tauri 而言属于「远程来源」，必须在 `capabilities/*.json` 里用
+    ///    `remote.urls` 显式声明可信来源，而那份声明是**写死 8787** 的静态配置。
+    ///    侧车一旦漂到 8788，窗口 URL 随之改变，origin 与 capability 不再匹配，
+    ///    所有自定义命令会被 ACL 静默拒绝——表现为「dev 正常、打包后按钮全不响应」。
+    ///
+    /// 2. **前端持有的 baseURL 不会跟着变。** 前端在首帧就固化了 API 基址；
+    ///    重启后侧车换了端口，健康探测 `wait_for_backend` 打的是**旧端口**，
+    ///    可能恰好探到上一条尚未完全释放的残留监听而误报「已就绪」，
+    ///    而真正的新实例在另一个端口上无人连接。此时进程活着、日志正常、
+    ///    托盘也不报错，但界面所有请求 `ECONNREFUSED`，即「重连失联」——
+    ///    最难排查的一种故障形态。
+    ///
+    /// 因此循环体开头必须先 `wait_port_released` 等旧监听套接字彻底释放（最多 10s）
+    /// 再拉新进程；启动阶段则由 `free_port` + `pick_free_port` 保证 8787 一定可用
+    /// （8787 是本应用专用端口，占着它的只可能是自家残留侧车，强杀风险可控）。
+    /// 等待超时也仍然尝试启动，是两害相权：拿不到端口至少还有重试机会，
+    /// 卡在这里则永远不会恢复。
     fn supervise(self: &Arc<Self>) {
         let this = Arc::clone(self);
         std::thread::spawn(move || {
@@ -784,7 +821,11 @@ fn free_port(port: u16) {
 /// 绑定成功即刻释放，把这个端口交给侧车去正式监听；中间的竞态窗口只有毫秒级，
 /// 换来的是宿主与后端对端口达成一致，不会再出现「窗口连到别人的服务」。
 #[cfg(not(debug_assertions))]
-fn pick_free_port(preferred: u16) -> u16 {    for offset in 0..20u16 {
+fn pick_free_port(preferred: u16) -> u16 {
+    // 只在 preferred..preferred+19 内找。范围刻意收窄：capability 的 remote.urls
+    // 写死 8787，真漂到别的端口 ACL 就会失效（详见 SidecarManager::supervise 文档），
+    // 所以这里的循环是「兜底不崩」，正常路径应当第一轮就命中 preferred。
+    for offset in 0..20u16 {
         let port = preferred.saturating_add(offset);
         if TcpListener::bind(("127.0.0.1", port)).is_ok() {
             return port;

@@ -257,6 +257,16 @@ addColumn('wb_story', 'metaphor', 'TEXT');
 addColumn('wb_story', 'gap_note', 'TEXT');
 addColumn('wb_story', 'clarity_score', 'INTEGER');
 addColumn('wb_story', 'word_count', 'INTEGER');
+/* 复习流水补列：source_type 标记这条流水属于哪套卡源。
+ * ⚠️ wb_review_log 是**两套复习系统共用**的表：
+ *   - 新 SRS（/api/reviews/*）写 'note' / 'loci'，card_id 指向 wb_note / wb_palace_loci；
+ *   - 旧卡组（/api/workbench/reviews/*）历史上不写该列，card_id 指向 wb_review_card。
+ * 因此列可空：NULL 一律按「旧卡组」回溯解析，历史数据无需回填。
+ * 没有这一列时，card_id=5 到底是笔记 5 还是位点 5 无法区分，日复盘会张冠李戴。 */
+addColumn('wb_review_log', 'source_type', 'TEXT');
+/* 康奈尔笔记补 image_hint：让「AI 助记口诀」可以像记忆宫殿位点一样落库。
+ * wb_palace_loci 早就有该列，wb_note 此前没有，采纳口诀时无处可写。 */
+addColumn('wb_note', 'image_hint', 'TEXT');
 
 // 迁移：旧版本 wb_palace_loci 曾使用 label 列（TEXT NOT NULL），现统一为 name。
 // 若旧库表仍残留 label 列，将其数据并入 name 后删除该列；否则新建点位时 INSERT 只填 name、

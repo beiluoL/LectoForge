@@ -1,5 +1,6 @@
 <template>
-  <div class="wb-page animate-fade-in" :style="{ '--mc': themeColor }">
+  <!-- --note-row-h 由 script 的 ROW_HEIGHT 单向下发，保证虚拟滚动的行高与 CSS 永不漂移 -->
+  <div class="wb-page animate-fade-in" :style="{ '--mc': themeColor, '--note-row-h': `${ROW_HEIGHT}px` }">
     <!-- ============ Hero ============ -->
     <header class="wb-hero">
       <div class="wb-hero-bg">
@@ -178,89 +179,97 @@
 
     <!-- ============ 网格卡片视图 ============ -->
     <div v-else-if="noteStore.viewMode === 'grid'" class="notes-grid">
+      <!--
+        性能：遍历预计算好的 noteCards（见 script 内 NoteCardVm 注释），
+        模板里不再出现任何函数调用；v-memo 作为第二道防线——只要这几个标量没变，
+        Vue 会整块跳过该卡片的 diff，切换视图/搜索时不产生无谓的 patch。
+      -->
       <article
-        v-for="n in noteStore.notes"
-        :key="n.id"
+        v-for="c in noteCards"
+        :key="c.id"
+        v-memo="[c.title, c.preview, c.srs, c.mastery, c.tags.length]"
         class="note-card"
-        :class="{ 'is-due': srsOf(n) === 'due' }"
+        :class="{ 'is-due': c.srs === 'due' }"
         tabindex="0"
-        @click="open(n)"
-        @keydown.enter="open(n)"
+        @click="open(c.raw)"
+        @keydown.enter="open(c.raw)"
       >
         <!-- 到期徽章：右上角，只有真正落在复习队列里才出现 -->
-        <span v-if="srsOf(n) === 'due'" class="note-badge note-badge-due">需复习 🔥</span>
-        <span v-else-if="srsOf(n) === 'new'" class="note-badge note-badge-new">待首复习</span>
+        <span v-if="c.srs === 'due'" class="note-badge note-badge-due">需复习 🔥</span>
+        <span v-else-if="c.srs === 'new'" class="note-badge note-badge-new">待首复习</span>
 
-        <h3 class="note-card-title">{{ n.title }}</h3>
-        <p class="note-card-preview">{{ preview(n) }}</p>
+        <h3 class="note-card-title">{{ c.title }}</h3>
+        <p class="note-card-preview">{{ c.preview }}</p>
 
         <!-- 掌握度进度条 -->
         <div class="note-mastery">
           <div class="note-mastery-head">
             <span class="note-mastery-label">掌握度</span>
-            <span class="note-mastery-num" :style="{ color: masteryColor(n.mastery) }">{{ n.mastery || 0 }}%</span>
+            <span class="note-mastery-num" :style="{ color: c.masteryColor }">{{ c.mastery }}%</span>
           </div>
           <div class="note-mastery-track">
-            <span
-              class="note-mastery-fill"
-              :style="{ width: `${n.mastery || 0}%`, background: masteryColor(n.mastery) }"
-            ></span>
+            <span class="note-mastery-fill" :style="{ width: `${c.mastery}%`, background: c.masteryColor }"></span>
           </div>
         </div>
 
         <div class="note-card-foot">
           <div class="note-card-tags">
-            <span v-for="t in tagsOf(n)" :key="t" class="note-chip">#{{ t }}</span>
-            <span v-if="!tagsOf(n).length" class="note-card-time">{{ srsHint(n) }}</span>
+            <span v-for="t in c.tags" :key="t" class="note-chip">#{{ t }}</span>
+            <span v-if="!c.tags.length" class="note-card-time">{{ c.hint }}</span>
           </div>
           <div class="note-card-actions" @click.stop>
-            <button class="wb-icon-btn" title="转为复习卡" @click="toReview(n)"><Icon name="repeat" :size="14" /></button>
-            <button class="wb-icon-btn" title="转为故事" @click="toStory(n)"><Icon name="wand-2" :size="14" /></button>
-            <button class="wb-icon-btn note-danger-btn" title="删除" @click="remove(n)"><Icon name="trash-2" :size="14" /></button>
+            <button class="wb-icon-btn" title="转为复习卡" @click="toReview(c.raw)"><Icon name="repeat" :size="14" /></button>
+            <button class="wb-icon-btn" title="转为故事" @click="toStory(c.raw)"><Icon name="wand-2" :size="14" /></button>
+            <button class="wb-icon-btn note-danger-btn" title="删除" @click="remove(c.raw)"><Icon name="trash-2" :size="14" /></button>
           </div>
         </div>
       </article>
     </div>
 
     <!-- ============ 紧凑列表视图 ============ -->
-    <div v-else class="notes-list">
-      <div
-        v-for="n in noteStore.notes"
-        :key="n.id"
-        class="note-row"
-        :class="{ 'is-due': srsOf(n) === 'due' }"
-        tabindex="0"
-        @click="open(n)"
-        @keydown.enter="open(n)"
-      >
-        <span class="note-row-dot" :style="{ background: masteryColor(n.mastery) }"></span>
-        <div class="note-row-main">
-          <div class="note-row-titleline">
-            <span class="note-row-title">{{ n.title }}</span>
-            <span v-if="srsOf(n) === 'due'" class="note-badge note-badge-due note-badge-sm">需复习 🔥</span>
-            <span v-else-if="srsOf(n) === 'new'" class="note-badge note-badge-new note-badge-sm">待首复习</span>
-          </div>
-          <p class="note-row-preview">{{ preview(n) }}</p>
-        </div>
-
-        <div class="note-row-mastery">
-          <div class="note-mastery-track">
-            <span
-              class="note-mastery-fill"
-              :style="{ width: `${n.mastery || 0}%`, background: masteryColor(n.mastery) }"
-            ></span>
-          </div>
-          <span class="note-mastery-num" :style="{ color: masteryColor(n.mastery) }">{{ n.mastery || 0 }}%</span>
-        </div>
-
-        <span class="note-row-hint">{{ srsHint(n) }}</span>
-
-        <div class="note-card-actions" @click.stop>
-          <button class="wb-icon-btn" title="转为复习卡" @click="toReview(n)"><Icon name="repeat" :size="14" /></button>
-          <button class="wb-icon-btn" title="转为故事" @click="toStory(n)"><Icon name="wand-2" :size="14" /></button>
-          <button class="wb-icon-btn note-danger-btn" title="删除" @click="remove(n)"><Icon name="trash-2" :size="14" /></button>
+    <template v-else>
+      <!--
+        虚拟滚动分支：筛选后总数 > 120 时启用。列表自带固定高度滚动容器，
+        只渲染可视区内的行，offset 分页追加的条目不会让 DOM 无限膨胀。
+        容器与内层撑高由 useVirtualList 的 containerProps / wrapperProps 注入。
+      -->
+      <div v-if="virtualized" v-bind="containerProps" class="notes-list notes-list--virtual">
+        <div v-bind="wrapperProps">
+          <NoteRow
+            v-for="row in virtualRows"
+            :key="row.data.id"
+            :card="row.data"
+            @open="open"
+            @to-review="toReview"
+            @to-story="toStory"
+            @remove="remove"
+          />
         </div>
       </div>
+      <!--
+        普通分支：总数较少时保持整页滚动 + 原生 v-for，避免嵌套滚动条的交互代价。
+        行模板与虚拟分支完全一致（共用 NoteRow），仅数据源不同，杜绝复制漂移。
+      -->
+      <div v-else class="notes-list">
+        <NoteRow
+          v-for="c in noteCards"
+          :key="c.id"
+          :card="c"
+          @open="open"
+          @to-review="toReview"
+          @to-story="toStory"
+          @remove="remove"
+        />
+      </div>
+    </template>
+
+    <!-- 底部加载状态条：grid / list 共用，随滚动追加实时反馈 -->
+    <div v-if="noteStore.total > 0 && !noteStore.loading" class="notes-foot">
+      <span v-if="noteStore.loadingMore" class="notes-foot-loading">
+        <Icon name="loader-circle" :size="13" class="notes-foot-spin" /> 加载中…
+      </span>
+      <span v-else-if="!noteStore.hasMore" class="notes-foot-end">已经到底啦 · 共 {{ noteStore.total }} 则</span>
+      <span v-else class="notes-foot-more">向下滚动加载更多</span>
     </div>
   </div>
 </template>
@@ -274,14 +283,15 @@
  * - list：紧凑行，适合已有几十上百则时快速定位。
  * 视图偏好与三栏拖拽比例一起收在 useNoteStore 里持久化。
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDebounceFn } from '@vueuse/core'
+import { useDebounceFn, useInfiniteScroll, useVirtualList } from '@vueuse/core'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, confirmDialog, getApiError } from '@/utils/toast'
 import './workbench-shared.css'
 import { useNoteStore, getNoteSrsState, daysUntilDue, parseTags } from '@/store/note-store'
 import type { WbNote } from '@/api/types'
+import NoteRow, { type NoteCardVm } from '@/components/NoteRow.vue'
 
 const router = useRouter()
 const noteStore = useNoteStore()
@@ -337,6 +347,95 @@ function masteryColor(v?: number): string {
   if (m >= 50) return 'var(--kb-warning)'
   return 'var(--kb-destructive)'
 }
+
+/**
+ * 列表项视图模型（NoteCardVm）已抽到 components/NoteRow.vue 顶部导出，
+ * 列表与行组件共用同一份类型，避免两边各自声明后字段漂移。
+ *
+ * 为什么把派生函数预计算成静态字段：Vue 模板里的 `{{ preview(n) }}` / `srsOf(n)` 属于
+ * 「渲染期函数调用」，不参与缓存——组件内**任何**响应式依赖变化（切视图模式、改关键词、
+ * hover 态）都会让整棵列表重新求值。原网格卡片每张要调 8 次函数（srsOf×2、tagsOf×2、
+ * masteryColor×2、preview、srsHint），其中 preview() 还要对全文跑三轮正则；200 条笔记 =
+ * 单次重渲染 1600 次函数调用 + 600 次全文正则，这正是长列表卡顿的根因。
+ * 改为 computed 后，这些计算只在 `noteStore.notes` **引用真正变化**时执行一次。
+ */
+const noteCards = computed<NoteCardVm[]>(() =>
+  noteStore.notes.map((n) => {
+    const srs = srsOf(n)
+    const mastery = n.mastery || 0
+    return {
+      raw: n,
+      id: n.id,
+      title: n.title,
+      preview: preview(n),
+      tags: tagsOf(n),
+      srs,
+      hint: srsHint(n),
+      mastery,
+      masteryColor: masteryColor(mastery),
+    }
+  }),
+)
+
+/* ======================================================================
+ * 滚动加载 + 虚拟滚动
+ * ====================================================================== */
+
+/**
+ * 紧凑行的固定高度（px），含上下 padding 与下边框。
+ *
+ * 推导：标题 13px×1.5 ≈ 19.5 + 间距 2 + 摘要 11px×1.5 ≈ 16.5 = 38，
+ * 加上下 padding 11×2 = 22 与 1px 下边框，合计 61。
+ * 行内所有文本都是 nowrap + ellipsis，不会换行，所以定高是安全的。
+ *
+ * ⚠️ 这个数字必须与实际渲染高度完全一致，否则虚拟滚动的位移计算会累积偏差、
+ * 表现为「滚动时行与行错位跳动」。因此这里让 **JS 成为唯一真源**：
+ * 数值通过根元素的 `--note-row-h` 下发给 CSS，CSS 不再自己写死高度。
+ */
+const ROW_HEIGHT = 61
+
+/**
+ * 启用虚拟滚动的门槛。低于此值时保持普通 v-for + 页面滚动，
+ * 因为虚拟滚动要求列表自带固定高度的滚动容器，会引入嵌套滚动条——
+ * 几十条数据时那点性能收益不值得换来这个交互代价。
+ *
+ * 判定依据取「筛选后的总数」而非「已加载条数」：后者会在用户滚到第 4 页时
+ * 突然翻越阈值，导致滚动模式在半途切换、视口位置瞬移。
+ */
+const VIRTUAL_THRESHOLD = 120
+
+const virtualized = computed(
+  () => noteStore.viewMode === 'list' && noteStore.total > VIRTUAL_THRESHOLD,
+)
+
+const {
+  list: virtualRows,
+  containerProps,
+  wrapperProps,
+} = useVirtualList(noteCards, { itemHeight: ROW_HEIGHT, overscan: 6 })
+
+async function onLoadMore() {
+  try {
+    await noteStore.loadMore()
+  } catch (e) {
+    notify(getApiError(e, '加载更多失败'), 'error')
+  }
+}
+
+/**
+ * 两种滚动容器各挂一套加载器，用 canLoadMore 互斥：
+ * - 非虚拟模式下整页滚动，观察 window；
+ * - 虚拟模式下列表自带滚动容器，观察它自己。
+ *
+ * 用 useInfiniteScroll 而不是手写 IntersectionObserver，是因为它在回调完成后会
+ * nextTick 自复检，能处理「加载完一页仍填不满视口」的情况；朴素的哨兵观察器
+ * 在这种场景下不会二次触发（交叉状态没变化），加载就静默停住了。
+ */
+const canPageLoad = () => !virtualized.value && noteStore.hasMore && !noteStore.loading
+const canVirtualLoad = () => virtualized.value && noteStore.hasMore && !noteStore.loading
+
+useInfiniteScroll(() => window, onLoadMore, { distance: 260, canLoadMore: canPageLoad })
+useInfiniteScroll(containerProps.ref, onLoadMore, { distance: 260, canLoadMore: canVirtualLoad })
 
 async function remove(n: WbNote) {
   const ok = await confirmDialog(`确认删除笔记「${n.title}」？删除后无法恢复。`)
@@ -647,6 +746,10 @@ onMounted(() => {
   border: 1px solid var(--kb-border);
   box-shadow: var(--shadow-card);
   cursor: pointer;
+  /* 渐进增强：离开视口的卡片跳过渲染，千条网格也不卡；
+     contain-intrinsic-size 给浏览器一个估算高度，避免滚动条抖动 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 232px;
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
 .note-card:hover {
@@ -784,25 +887,9 @@ onMounted(() => {
   font-size: 11px;
   color: var(--kb-muted-foreground);
 }
-.note-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: none;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-.note-card:hover .note-card-actions,
-.note-card:focus-within .note-card-actions,
-.note-row:hover .note-card-actions,
-.note-row:focus-within .note-card-actions {
-  opacity: 1;
-}
-.note-danger-btn:hover {
-  color: var(--kb-destructive);
-}
 
 /* ===== 紧凑列表 ===== */
+/* 基础容器（普通 / 虚拟两分支共用）：卡片外观 + 圆角裁切 */
 .notes-list {
   display: flex;
   flex-direction: column;
@@ -812,86 +899,51 @@ onMounted(() => {
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
-.note-row {
+/*
+ * 虚拟滚动容器：必须自身成为带固定高度的滚动视口，useVirtualList 才生效。
+ * 否则列表随页面流动、没有内部滚动，虚拟位移永远触发不了。
+ * 高度取视口扣掉 Hero + 工具栏 + 页脚的剩余空间，并在窄屏收一点。
+ */
+.notes-list--virtual {
+  height: calc(100vh - 360px);
+  overflow-y: auto;
+}
+
+/* ===== 底部加载状态条 ===== */
+.notes-foot {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--kb-border);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.note-row:last-child {
-  border-bottom: none;
-}
-.note-row:hover {
-  background: color-mix(in srgb, var(--mc) 4%, transparent);
-}
-.note-row:focus-visible {
-  outline: 2px solid var(--mc);
-  outline-offset: -2px;
-}
-.note-row.is-due {
-  box-shadow: inset 3px 0 0 var(--kb-destructive);
-}
-.note-row-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-.note-row-main {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.note-row-titleline {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-.note-row-title {
-  font-size: var(--kb-fs-body-sm);
-  font-weight: 600;
-  color: var(--kb-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.note-row-preview {
-  margin: 2px 0 0;
-  font-size: var(--kb-fs-xs);
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  font-size: 12px;
   color: var(--kb-muted-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.note-row-mastery {
-  flex: none;
-  display: flex;
+.notes-foot-loading {
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  width: 130px;
+  gap: 6px;
+  color: var(--mc);
 }
-.note-row-mastery .note-mastery-track {
-  flex: 1 1 auto;
+.notes-foot-spin {
+  animation: notes-foot-spin 0.9s linear infinite;
 }
-.note-row-hint {
-  flex: none;
-  width: 96px;
-  text-align: right;
-  font-size: var(--kb-fs-xs);
-  color: var(--kb-muted-foreground);
+@keyframes notes-foot-spin {
+  to { transform: rotate(360deg); }
+}
+.notes-foot-end {
+  letter-spacing: 0.02em;
 }
 
 /* ===== 响应式 ===== */
 @media (max-width: 900px) {
-  .note-row-mastery,
-  .note-row-hint {
-    display: none;
-  }
   .notes-stats {
     gap: 14px;
+  }
+}
+@media (max-width: 640px) {
+  .notes-list--virtual {
+    height: calc(100vh - 420px);
   }
 }
 @media (max-width: 640px) {

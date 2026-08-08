@@ -1,10 +1,12 @@
 import { and, desc, eq, inArray, like, lte, or, sql, type AnyColumn, type SQL } from 'drizzle-orm';
 import { CURRENT_USER, db, nowIso, sqlite } from '../db';
 import { wbCapture, wbNote } from '../db/schema';
+import { NOTES_PAGE_SIZE, resolvePage } from '../lib/pagination';
 import type {
   BacklinkVO,
   CreateNoteDTO,
   ListNoteQuery,
+  NoteStatsVO,
   NoteVO,
   ResolveNoteVO,
   TagCountVO,
@@ -122,7 +124,17 @@ function markCaptureProcessed(captureId: number): void {
   }
 }
 
-export function listNotes(q: ListNoteQuery): NoteVO[] {
+/**
+ * 拼装笔记检索的 WHERE 条件集合（分页以外的全部筛选）。
+ *
+ * 抽成独立函数、而不是在 listNotes 里就地写，是因为「列表」和「头部统计」
+ * 必须共用同一套条件：一旦两处各拼一份，迟早会漂移成
+ * 「顶上写着共 500 则、列表却只筛出 3 条」这种自相矛盾的界面。
+ * 现在任何筛选条件的增改都只有这一个落点。
+ *
+ * @returns 条件数组；返回 `null` 表示标签命中空集，调用方应直接短路成空结果
+ */
+function buildNoteConds(q: ListNoteQuery): SQL[] | null {
   const conds: SQL[] = [eq(wbNote.userId, CURRENT_USER)];
   if (q.captureId !== undefined) conds.push(eq(wbNote.captureId, q.captureId));
   if (q.categoryId !== undefined) conds.push(eq(wbNote.categoryId, q.categoryId));
@@ -145,7 +157,7 @@ export function listNotes(q: ListNoteQuery): NoteVO[] {
   if (tag) {
     const ids = (sqlite.prepare(SQL_IDS_BY_TAG).all({ uid: CURRENT_USER, tag }) as { id: number }[]).map((r) => r.id);
     // 空集合直接短路：inArray([]) 在部分驱动下会生成非法 SQL
-    if (!ids.length) return [];
+    if (!ids.length) return null;
     conds.push(inArray(wbNote.id, ids));
   }
 
@@ -160,9 +172,77 @@ export function listNotes(q: ListNoteQuery): NoteVO[] {
         : sql`trim(coalesce(${wbNote.summaryColumn}, '')) = ''`,
     );
   }
+  return conds;
+}
 
-  const rows = db.select().from(wbNote).where(and(...conds)).orderBy(desc(wbNote.updatedAt)).all();
+/**
+ * 分页检索康奈尔笔记。
+ *
+ * wb_note 是本应用增长最快的业务表，且行内含 cue/note/summary 三段长文本，
+ * 全量返回时序列化开销远大于普通表——这是必须分页的首要理由。
+ *
+ * 默认页大小取 NOTES_PAGE_SIZE（30）而非全局 DEFAULT_PAGE_SIZE（200）：
+ * 列表页已改成滚动加载，能自行按需翻页，不再需要「一次拿全量」的兜底。
+ *
+ * @param q 过滤条件（captureId/categoryId/keyword/tag/masteryLte/hasSummary）+ 分页参数
+ * @returns 当前页笔记 VO 数组，按 updatedAt 倒序；tag 命中空集时直接返回 []
+ */
+export function listNotes(q: ListNoteQuery): NoteVO[] {
+  const conds = buildNoteConds(q);
+  if (!conds) return [];
+
+  const { limit, offset } = resolvePage(q, NOTES_PAGE_SIZE);
+  const rows = db
+    .select()
+    .from(wbNote)
+    .where(and(...conds))
+    .orderBy(desc(wbNote.updatedAt))
+    .limit(limit)
+    .offset(offset)
+    .all();
   return rows.map(toVO);
+}
+
+/**
+ * 笔记列表页头部统计（总数 / 待复习 / 待首复习 / 平均掌握度）。
+ *
+ * 与 listNotes 共用 buildNoteConds，但**不分页**——统计的语义就是
+ * 「当前筛选条件下的全量口径」，随滚动变化的数字是错的。
+ *
+ * 全部用 SQL 聚合算，一行结果回传，比过去「拉全表进 Node 再 reduce」
+ * 既准确又便宜（不再把 cue/note/summary 三段长文本读进内存）。
+ *
+ * 到期判定与前端 getNoteSrsState 严格对齐：
+ * - unreviewed：reviewCount = 0（从未复习，属「首学」不打红标）
+ * - due       ：reviewCount > 0 且 dueDate <= 今天 23:59:59
+ * dueDate 全链路由 `toISOString()` 写入，格式恒定，所以字典序比较即时序比较。
+ */
+export function getNoteStats(q: ListNoteQuery): NoteStatsVO {
+  const conds = buildNoteConds(q);
+  if (!conds) return { total: 0, due: 0, unreviewed: 0, avgMastery: 0 };
+
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const eod = endOfToday.toISOString();
+
+  // sum(...) 在空结果集上返回 NULL，一律 coalesce 兜 0，避免 VO 出现 null
+  const row = db
+    .select({
+      total: sql<number>`count(*)`,
+      due: sql<number>`coalesce(sum(case when ${wbNote.reviewCount} > 0 and ${wbNote.dueDate} <= ${eod} then 1 else 0 end), 0)`,
+      unreviewed: sql<number>`coalesce(sum(case when coalesce(${wbNote.reviewCount}, 0) = 0 then 1 else 0 end), 0)`,
+      avgMastery: sql<number>`coalesce(avg(${wbNote.mastery}), 0)`,
+    })
+    .from(wbNote)
+    .where(and(...conds))
+    .get();
+
+  return {
+    total: Number(row?.total ?? 0),
+    due: Number(row?.due ?? 0),
+    unreviewed: Number(row?.unreviewed ?? 0),
+    avgMastery: Math.round(Number(row?.avgMastery ?? 0)),
+  };
 }
 
 /** 标签聚合（标签云数据源）。 */

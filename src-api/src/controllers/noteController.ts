@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { pickPage } from '../lib/pagination';
 import * as noteService from '../services/noteService';
 import type { CreateNoteDTO, ListNoteQuery, UpdateNoteDTO } from '../types/note';
 
@@ -21,13 +22,25 @@ interface RawResolveQuery {
   title?: string;
 }
 
-export async function list(req: FastifyRequest) {
+/**
+ * 解析笔记列表的筛选参数。
+ *
+ * GET /notes 与 GET /notes/stats 必须用**同一份**解析结果：
+ * 统计卡显示的是「当前筛选下的总数」，两边若各自解析一遍，
+ * 迟早会因为某一边漏接一个筛选项而对不上号。
+ *
+ * @param req         Fastify 请求
+ * @param withPaging  是否带上分页四件套；统计接口不需要（统计天然是全量口径）
+ */
+function parseListQuery(req: FastifyRequest, withPaging: boolean): ListNoteQuery {
   const q = req.query as RawListQuery;
   const params: ListNoteQuery = {
     captureId: q.captureId ? Number(q.captureId) : undefined,
     categoryId: q.categoryId ? Number(q.categoryId) : undefined,
     keyword: q.keyword,
     tag: q.tag,
+    // 分页：未传时 service 侧的 resolvePage 会套用该接口的默认页大小兜底
+    ...(withPaging ? pickPage(req.query) : {}),
   };
 
   // mastery_lte：非空且能解析成有限数才生效，脏参数一律忽略而不是报错
@@ -43,7 +56,20 @@ export async function list(req: FastifyRequest) {
     params.hasSummary = String(rawHasSummary) === 'true' || String(rawHasSummary) === '1';
   }
 
-  return noteService.listNotes(params);
+  return params;
+}
+
+export async function list(req: FastifyRequest) {
+  return noteService.listNotes(parseListQuery(req, true));
+}
+
+/**
+ * 列表页头部统计。刻意与 list 拆成两个请求，而不是把 total 塞进列表响应体：
+ * 列表返回的是裸数组，改成 `{ items, total }` 会波及所有既有调用方，
+ * 也会让 onSend 信封外面再套一层壳。加一个只读聚合端点是代价最小的做法。
+ */
+export async function stats(req: FastifyRequest) {
+  return noteService.getNoteStats(parseListQuery(req, false));
 }
 
 /**

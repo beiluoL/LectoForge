@@ -388,6 +388,60 @@ export function recommendReview(payload: { limit?: number } = {}) {
   return apiPost<ReviewRecommendResult>('/ai/review/recommend', payload, { timeout: AI_TIMEOUT })
 }
 
+// ============================ 复习辅助记忆：助记口诀 / 本轮简报 ============================
+
+export interface ReviewMnemonicResult {
+  /** 首选口诀（<= 20 字） */
+  mnemonic: string
+  /** 口诀各部分对应什么，帮用户建立锚点 */
+  explanation: string
+  /** 0~2 条风格不同的备选，点「换一个」时本地轮换，不再请求模型 */
+  alternatives: string[]
+  model: string
+  latencyMs: number
+}
+
+/**
+ * 为单张复习卡生成助记口诀。
+ * 只算不存——采纳与否由用户决定，落库走 review.ts 的 adoptMnemonic（写 image_hint）。
+ */
+export function generateReviewMnemonic(payload: {
+  front: string
+  back: string
+  /** 学科上下文，如「Java 多线程」 */
+  context?: string
+}) {
+  return apiPost<ReviewMnemonicResult>('/ai/review/mnemonics', payload, { timeout: AI_TIMEOUT })
+}
+
+export interface ReviewWeakTopic {
+  topic: string
+  reason: string
+}
+
+export interface ReviewSummaryResult {
+  headline: string
+  weakTopics: ReviewWeakTopic[]
+  suggestions: string[]
+  encouragement: string
+  total: number
+  hardCount: number
+  model: string
+  latencyMs: number
+}
+
+/**
+ * 本轮复习结束后的 AI 复盘简报。
+ * 本轮记录由前端回传（库里没有「一轮」的概念），一般只传评为 hard 的卡片。
+ */
+export function summarizeReviewSession(payload: {
+  total: number
+  cards: { front: string; back?: string; rating: string }[]
+  minutes?: number
+}) {
+  return apiPost<ReviewSummaryResult>('/ai/review/summary', payload, { timeout: AI_TIMEOUT })
+}
+
 // ============================ P3-G3：内容向量索引 + 语义关联 ============================
 
 export interface SyncEmbeddingsResult {

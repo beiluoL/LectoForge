@@ -1,6 +1,7 @@
 import { and, desc, eq, like, type SQL } from 'drizzle-orm';
 import { CURRENT_USER, db, nowIso } from '../db';
 import { wbStory } from '../db/schema';
+import { resolvePage } from '../lib/pagination';
 import type { CreateStoryDTO, ListStoryQuery, StoryVO, UpdateStoryDTO } from '../types/story';
 
 type StoryRow = typeof wbStory.$inferSelect;
@@ -39,16 +40,26 @@ function toVO(r: StoryRow): StoryVO {
   };
 }
 
+/**
+ * 分页列出故事。story 行携带全文 content，是**单行体积最大**的业务表之一，
+ * 无上限查询时内存放大最明显，故同样接入 resolvePage。
+ *
+ * @param q 过滤条件（status/categoryId/keyword）+ 分页参数
+ * @returns 当前页故事 VO 数组，按 updatedAt 倒序
+ */
 export function listStories(q: ListStoryQuery): StoryVO[] {
   const conds: SQL[] = [eq(wbStory.userId, CURRENT_USER)];
   if (q.status) conds.push(eq(wbStory.status, String(q.status)));
   if (q.categoryId) conds.push(eq(wbStory.categoryId, Number(q.categoryId)));
   if (q.keyword) conds.push(like(wbStory.title, `%${q.keyword}%`));
+  const { limit, offset } = resolvePage(q);
   return db
     .select()
     .from(wbStory)
     .where(and(...conds))
     .orderBy(desc(wbStory.updatedAt))
+    .limit(limit)
+    .offset(offset)
     .all()
     .map(toVO);
 }

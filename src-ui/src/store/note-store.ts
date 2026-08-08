@@ -16,11 +16,13 @@ import { computed, ref } from 'vue';
 import {
   createNote,
   deleteNote,
+  getNoteStats,
   listNoteBacklinks,
   listNoteTags,
   listNotes,
   type ListNotesParams,
   type NoteBacklink,
+  type NoteStats,
   type NoteTagCount,
 } from '@/api/workbench';
 import type { WbNote, WbNotePayload } from '@/api/types';
@@ -37,6 +39,15 @@ export type NoteSmartFilter = 'none' | 'lowMastery' | 'noSummary';
 
 /** 「掌握度低」的判定阈值，与后端 mastery_lte 参数对齐 */
 export const LOW_MASTERY_THRESHOLD = 30;
+
+/**
+ * 列表每页条数，必须与后端 lib/pagination.ts 的 NOTES_PAGE_SIZE 保持一致。
+ *
+ * 前端显式传值而不是依赖后端默认：一旦两侧默认值哪天不同步，
+ * 「已加载数 vs 总数」的比较就会失准，滚动加载要么早停要么空转。
+ * 显式传参把这条契约摆到明面上。
+ */
+export const NOTES_PAGE_SIZE = 30;
 
 /** 三栏比例边界：防止用户把任意一栏拖到不可用尺寸 */
 export const CUE_RATIO_MIN = 0.16;
@@ -133,28 +144,38 @@ export const useNoteStore = defineStore(
     // ==================== 列表数据（不持久化） ====================
 
     const notes = ref<WbNote[]>([]);
+    /** 首屏 / 换筛选条件时的加载（会整屏换骨架屏） */
     const loading = ref(false);
+    /** 追加下一页时的加载（只在列表底部显示，不打断已渲染内容） */
+    const loadingMore = ref(false);
     const submitting = ref(false);
     const keyword = ref('');
+    /** 当前已加载到第几页，从 1 开始 */
+    const page = ref(1);
 
-    const total = computed(() => notes.value.length);
+    /**
+     * 头部统计。分页之后不能再用 notes.length 之类的本地推导——
+     * 那只反映「已加载」的部分，会随下滚一路变大。这四个数由服务端 SQL
+     * 聚合直出，套用与列表完全相同的筛选条件。
+     */
+    const stats = ref<NoteStats>({ total: 0, due: 0, unreviewed: 0, avgMastery: 0 });
 
-    /** 待复习数量：due_date 已到期且此前复习过的笔记 */
-    const dueCount = computed(
-      () => notes.value.filter((n) => isNoteDue(n)).length,
-    );
+    const total = computed(() => stats.value.total);
+    /** 待复习数量：已复习过且 due_date 已到期 */
+    const dueCount = computed(() => stats.value.due);
+    /** 从未复习过的笔记数（语义是「首学」而非「遗忘」） */
+    const newCount = computed(() => stats.value.unreviewed);
+    /** 平均掌握度，空结果集为 0 */
+    const avgMastery = computed(() => stats.value.avgMastery);
 
-    /** 从未复习过的笔记数（dueDate 默认是 1970，天然在队列里，但语义是「首学」而非「遗忘」） */
-    const newCount = computed(
-      () => notes.value.filter((n) => getNoteSrsState(n) === 'new').length,
-    );
-
-    /** 平均掌握度，用于列表页概览；空列表返回 0 */
-    const avgMastery = computed(() => {
-      if (!notes.value.length) return 0;
-      const sum = notes.value.reduce((acc, n) => acc + (n.mastery || 0), 0);
-      return Math.round(sum / notes.value.length);
-    });
+    /**
+     * 是否还有下一页。
+     *
+     * 用「已加载条数 < 总数」判定，而不是「上一页是否装满」：
+     * 后者在「总数恰好是页大小整数倍」时会多发一次注定为空的请求，
+     * 而我们本来就拿得到精确 total，没必要靠猜。
+     */
+    const hasMore = computed(() => notes.value.length < stats.value.total);
 
     // ==================== 标签云 & 智慧筛选器（不持久化） ====================
 
@@ -202,22 +223,83 @@ export const useNoteStore = defineStore(
     }
 
     /**
-     * 拉取笔记列表。
+     * 拼装当前筛选条件（不含分页）。
+     *
+     * 列表、下一页、统计三处请求共用同一个出口：任何筛选项只要在这里加一次，
+     * 三处就同时生效，不会出现「列表按标签筛了、统计没筛」的错位。
+     */
+    function buildQuery(kwOverride?: string): ListNotesParams {
+      const kw = (kwOverride ?? keyword.value).trim();
+      const query: ListNotesParams = {};
+      if (kw) query.keyword = kw;
+      if (activeTag.value) query.tag = activeTag.value;
+      if (smartFilter.value === 'lowMastery') query.mastery_lte = LOW_MASTERY_THRESHOLD;
+      if (smartFilter.value === 'noSummary') query.has_summary = false;
+      return query;
+    }
+
+    /**
+     * 拉取第一页并同步统计（换关键词 / 换标签 / 换筛选器都走这里）。
+     *
      * 筛选条件一律以查询参数下推到 SQL，不在前端 filter——
      * 标签匹配要处理 JSON / CSV 两种历史格式，前端复刻一遍必然与标签云的计数对不上。
+     *
+     * 列表与统计并发发出：两者互不依赖，串行只会白白多等一个往返。
      */
     async function fetchNotes(params: { keyword?: string } = {}) {
       loading.value = true;
+      page.value = 1;
       try {
-        const kw = (params.keyword ?? keyword.value).trim();
-        const query: ListNotesParams = {};
-        if (kw) query.keyword = kw;
-        if (activeTag.value) query.tag = activeTag.value;
-        if (smartFilter.value === 'lowMastery') query.mastery_lte = LOW_MASTERY_THRESHOLD;
-        if (smartFilter.value === 'noSummary') query.has_summary = false;
-        notes.value = await listNotes(query);
+        const query = buildQuery(params.keyword);
+        const [rows, s] = await Promise.all([
+          listNotes({ ...query, page: 1, pageSize: NOTES_PAGE_SIZE }),
+          getNoteStats(query),
+        ]);
+        notes.value = rows;
+        stats.value = s;
       } finally {
         loading.value = false;
+      }
+    }
+
+    /**
+     * 追加下一页（滚动到底部时触发）。
+     *
+     * 三重防护，缺一不可：
+     * 1. 并发闸门——观察器在快速滚动时会连发，不拦住会同页重复请求；
+     * 2. id 去重——offset 分页期间若有笔记被删/新增，窗口会平移并回带已有行，
+     *    直接 push 会产生重复 `:key`，Vue 会渲染错乱并在控制台刷警告；
+     * 3. 空返回时把 total 收敛到实际条数——否则 hasMore 恒真，
+     *    观察器会永远重试，变成一个静默的请求死循环。
+     */
+    async function loadMore() {
+      if (loading.value || loadingMore.value || !hasMore.value) return;
+      loadingMore.value = true;
+      const next = page.value + 1;
+      try {
+        const rows = await listNotes({ ...buildQuery(), page: next, pageSize: NOTES_PAGE_SIZE });
+        if (!rows.length) {
+          stats.value = { ...stats.value, total: notes.value.length };
+          return;
+        }
+        const seen = new Set(notes.value.map((n) => n.id));
+        const fresh = rows.filter((r) => !seen.has(r.id));
+        if (fresh.length) notes.value.push(...fresh);
+        page.value = next;
+      } finally {
+        loadingMore.value = false;
+      }
+    }
+
+    /**
+     * 单独刷新统计（删除笔记后调用）。
+     * 失败静默：统计是辅助信息，不该因为它拉不到就打断主流程。
+     */
+    async function refreshStats() {
+      try {
+        stats.value = await getNoteStats(buildQuery());
+      } catch {
+        /* 保留上一次的数字，好过闪成 0 */
       }
     }
 
@@ -241,15 +323,27 @@ export const useNoteStore = defineStore(
       }
     }
 
-    /** 删除：乐观移除，失败按原索引回滚 */
+    /**
+     * 删除：乐观移除，失败按原索引回滚。
+     *
+     * 统计要跟着一起乐观递减，否则头部会短暂出现「共 12 则」但列表只剩 11 条。
+     * 成功后再异步校准一次：due / unreviewed / avgMastery 具体掉哪个
+     * 取决于被删笔记的状态，前端猜不准，交给服务端重算最省心。
+     */
     async function removeNote(id: number) {
       const idx = notes.value.findIndex((n) => n.id === id);
       const snapshot = idx === -1 ? null : notes.value.splice(idx, 1)[0];
+      const statsSnapshot = stats.value;
+      if (snapshot) stats.value = { ...stats.value, total: Math.max(0, stats.value.total - 1) };
       submitting.value = true;
       try {
         await deleteNote(id);
+        void refreshStats();
       } catch (e) {
-        if (snapshot) notes.value.splice(idx, 0, snapshot);
+        if (snapshot) {
+          notes.value.splice(idx, 0, snapshot);
+          stats.value = statsSnapshot;
+        }
         throw e;
       } finally {
         submitting.value = false;
@@ -291,13 +385,19 @@ export const useNoteStore = defineStore(
       // 数据
       notes,
       loading,
+      loadingMore,
       submitting,
       keyword,
+      page,
+      stats,
+      hasMore,
       total,
       dueCount,
       newCount,
       avgMastery,
       fetchNotes,
+      loadMore,
+      refreshStats,
       removeNote,
       quickCreate,
       // 标签云 & 智慧筛选
@@ -347,10 +447,6 @@ export function getNoteSrsState(n: Pick<WbNote, 'dueDate' | 'reviewCount'>): Not
   const t = new Date(n.dueDate).getTime();
   if (!Number.isFinite(t)) return 'scheduled';
   return t <= endOfToday() ? 'due' : 'scheduled';
-}
-
-export function isNoteDue(n: Pick<WbNote, 'dueDate' | 'reviewCount'>): boolean {
-  return getNoteSrsState(n) === 'due';
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { pickPage } from '../lib/pagination';
 import * as storyService from '../services/storyService';
 import type { CreateStoryDTO, ListStoryQuery, UpdateStoryDTO } from '../types/story';
 
@@ -17,6 +18,8 @@ export async function list(req: FastifyRequest) {
     status: q.status,
     categoryId: q.categoryId ? Number(q.categoryId) : undefined,
     keyword: q.keyword,
+    // 分页：未传时 service 侧的 resolvePage 会套用 DEFAULT_PAGE_SIZE 兜底
+    ...pickPage(req.query),
   };
   return storyService.listStories(params);
 }

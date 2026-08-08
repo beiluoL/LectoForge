@@ -46,6 +46,8 @@ export const wbNote = sqliteTable('wb_note', {
   summaryColumn: text('summary_column').notNull().default(''),
   tags: text('tags'),
   mastery: integer('mastery').notNull().default(0),
+  // 助记口诀 / 联想图像：与 wb_palace_loci.imageHint 同语义，供「AI 生成助记口诀 → 采纳」落库
+  imageHint: text('image_hint'),
   // SRS 间隔重复（本表直接作为复习卡源，字段与 wb_review_card 的 SM-2 对齐）
   dueDate: text('due_date').notNull().default('1970-01-01T00:00:00.000Z'),
   easeFactor: integer('ease_factor').notNull().default(250),
@@ -87,6 +89,9 @@ export const wbReviewLog = sqliteTable('wb_review_log', {
   easeFactor: integer('ease_factor').notNull(),
   costMs: integer('cost_ms'),
   reviewedAt: text('reviewed_at').notNull(),
+  /** 卡源：'note' | 'loci' 由新 SRS 写入；NULL 表示旧卡组（card_id 指向 wb_review_card）。
+   *  可空是刻意的——两套系统共用本表，历史行不回填，读侧按 NULL 回溯解析。 */
+  sourceType: text('source_type'),
 });
 
 // ===== 模块三扩展：记忆宫殿（字段与 Web 端 WbPalace / WbPalaceLoci 对齐）=====

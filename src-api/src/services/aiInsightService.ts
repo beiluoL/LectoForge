@@ -14,10 +14,12 @@ import {
   buildInsightReportPrompt,
   buildRecallAdvicePrompt,
   buildReviewRecommendPrompt,
+  buildReviewSummaryPrompt,
   buildWeaknessDiagnosePrompt,
   type InsightReportOutput,
   type RecallAdviceOutput,
   type ReviewRecommendOutput,
+  type ReviewSummaryOutput,
   type WeaknessDiagnoseOutput,
 } from '../lib/prompts';
 import type {
@@ -28,6 +30,8 @@ import type {
   RecallAdviceVO,
   ReviewRecommendDTO,
   ReviewRecommendVO,
+  ReviewSummaryDTO,
+  ReviewSummaryVO,
   WeaknessDiagnoseVO,
 } from '../types/ai';
 
@@ -254,6 +258,72 @@ export async function recommendReview(b: ReviewRecommendDTO): Promise<AiResult<R
             .slice(0, 6)
         : [],
       suggestions: normalizeList(data.suggestions, 5),
+      model: raw.model,
+      latencyMs: raw.latencyMs,
+    },
+  };
+}
+
+// ===================== 本轮复习简报 =====================
+
+/** 入参不合法 —— 与 aiContentService.badInput 同形，两层各自持有避免跨服务耦合 */
+function badInput(message: string): AiResult<never> {
+  return { kind: 'fail', status: 400, message, aiCode: 'AI_BAD_INPUT' };
+}
+
+/**
+ * 刷完一轮后的 AI 复盘简报（纯计算，不落库）。
+ *
+ * ⚠️ 数据来源是**前端回传的本轮记录**，不是查库。
+ * 原因：一轮复习是个会话级概念，库里只有「最近一次复习时间」，
+ * 没有「这一轮包含哪些卡」的概念；要支持就得再建一张会话表，
+ * 而简报是一次性读物，为它加表不划算。
+ *
+ * 全部通过（0 张 hard）也应该出稿——一份「今天很稳」的正向简报同样有价值，
+ * 这时 weakTopics 为空，模型只写 headline + encouragement。
+ */
+export async function summarizeReviewSession(
+  b: ReviewSummaryDTO,
+): Promise<AiResult<ReviewSummaryVO>> {
+  const rawCards = Array.isArray(b.cards) ? b.cards : [];
+  const cards = rawCards
+    .filter((c) => c && String(c.front || '').trim())
+    .map((c) => ({
+      front: String(c.front || '').trim(),
+      back: String(c.back || '').trim(),
+      rating: String(c.rating || 'hard').trim(),
+    }))
+    .slice(0, 20);
+
+  const hardCount = cards.filter((c) => c.rating === 'hard').length;
+  // total 以前端回传为准；缺省时退化成卡片数，保证提示词里的分母不为 0
+  const total = Math.max(Number(b.total) || 0, cards.length);
+  const minutes = Number(b.minutes) > 0 ? Math.round(Number(b.minutes)) : null;
+
+  if (total === 0) return badInput('本轮还没有复习记录，无法生成简报');
+
+  const { data, raw } = await chatJson<ReviewSummaryOutput>(
+    buildReviewSummaryPrompt({ total, hardCount, cards, minutes }),
+    { temperature: 0.4 },
+  );
+
+  return {
+    kind: 'ok',
+    data: {
+      headline: String(data.headline || '').trim() || '本轮复习已完成',
+      weakTopics: Array.isArray(data.weakTopics)
+        ? data.weakTopics
+            .filter((t: any) => t && String(t.topic || '').trim())
+            .map((t: any) => ({
+              topic: String(t.topic).trim(),
+              reason: String(t.reason || '').trim(),
+            }))
+            .slice(0, 4)
+        : [],
+      suggestions: normalizeList(data.suggestions, 4),
+      encouragement: String(data.encouragement || '').trim(),
+      total,
+      hardCount,
       model: raw.model,
       latencyMs: raw.latencyMs,
     },

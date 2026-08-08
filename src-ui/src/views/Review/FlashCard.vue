@@ -28,15 +28,72 @@
       <div class="fc-face fc-back">
         <span class="fc-tag fc-tag--ans">答案</span>
         <div class="fc-back-md" v-html="backHtml"></div>
+
+        <!-- AI 助记口诀区。
+             ⚠️ 整块 @click.stop：卡片根节点绑了 flip，不拦住冒泡的话点「生成 / 采纳」会连带翻面。 -->
+        <div class="fc-mnemo" @click.stop>
+          <!-- ① 刚生成、尚未采纳 -->
+          <div v-if="result" class="fc-mnemo-panel">
+            <p class="fc-mnemo-line">
+              <span class="fc-mnemo-ic">🧠</span>
+              <b class="fc-mnemo-text">{{ currentVariant }}</b>
+            </p>
+            <p v-if="result.explanation" class="fc-mnemo-exp">{{ result.explanation }}</p>
+            <div class="fc-mnemo-acts">
+              <button class="fc-mnemo-act fc-mnemo-act--primary" :disabled="adopting" @click="adopt">
+                <Icon :name="adopting ? 'loader-2' : 'check'" :size="12" :class="adopting ? 'fc-spin' : ''" />
+                采纳
+              </button>
+              <button v-if="variants.length > 1" class="fc-mnemo-act" @click="nextVariant">
+                <Icon name="shuffle" :size="12" /> 换一个
+              </button>
+              <button class="fc-mnemo-act" :disabled="loading" @click="generate">
+                <Icon :name="loading ? 'loader-2' : 'refresh-cw'" :size="12" :class="loading ? 'fc-spin' : ''" />
+                重新生成
+              </button>
+              <button class="fc-mnemo-act fc-mnemo-act--ghost" @click="discard">放弃</button>
+            </div>
+          </div>
+
+          <!-- ② 已采纳（源表 image_hint 有值） -->
+          <div v-else-if="adopted" class="fc-mnemo-panel is-adopted">
+            <p class="fc-mnemo-line">
+              <span class="fc-mnemo-ic">🧠</span>
+              <b class="fc-mnemo-text">{{ adopted }}</b>
+              <span class="fc-mnemo-saved">已采纳</span>
+            </p>
+            <div v-if="aiReady" class="fc-mnemo-acts">
+              <button class="fc-mnemo-act" :disabled="loading" @click="generate">
+                <Icon :name="loading ? 'loader-2' : 'refresh-cw'" :size="12" :class="loading ? 'fc-spin' : ''" />
+                {{ loading ? '生成中…' : '换一条' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- ③ 入口：未配置 AI Key 时整块不渲染，避免点了才发现不能用 -->
+          <button
+            v-else-if="aiReady"
+            class="fc-mnemo-btn"
+            :disabled="loading"
+            @click="generate"
+          >
+            <Icon :name="loading ? 'loader-2' : 'sparkles'" :size="14" :class="loading ? 'fc-spin' : ''" />
+            {{ loading ? 'AI 正在编口诀…' : '生成助记口诀' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import { renderMarkdown } from '@/lib/markdown';
+import { generateReviewMnemonic, type ReviewMnemonicResult } from '@/api/ai';
+import { useReviewStore } from '@/store/review-store';
+import { notify, getApiError } from '@/utils/toast';
 import type { ReviewCard } from '@/api/review';
 
 const props = defineProps<{
@@ -68,6 +125,80 @@ const flyClass = computed(() => {
 function onAnimEnd(e: AnimationEvent) {
   if (e.animationName === 'fc-fly-out') emit('flyEnd');
 }
+
+/* ============ AI 助记口诀 ============
+ * 生成（/ai/review/mnemonics，只算不存）与采纳（PUT /reviews/mnemonic，写 image_hint）
+ * 刻意分成两步：模型输出质量不稳定，先让用户过目再决定要不要污染卡片数据。 */
+const store = useReviewStore();
+const { aiReady } = storeToRefs(store);
+
+const loading = ref(false);
+const adopting = ref(false);
+const result = ref<ReviewMnemonicResult | null>(null);
+/** 主口诀 + 备选轮换指针；「换一个」纯本地切换，不重复烧 token */
+const variantIndex = ref(0);
+
+/** 已落库的口诀（源表 image_hint） */
+const adopted = computed(() => props.card.imageHint || '');
+
+const variants = computed<string[]>(() => {
+  const r = result.value;
+  if (!r) return [];
+  return [r.mnemonic, ...(r.alternatives ?? [])].map((s) => (s || '').trim()).filter(Boolean);
+});
+const currentVariant = computed(() => variants.value[variantIndex.value] || '');
+
+function nextVariant(): void {
+  if (variants.value.length < 2) return;
+  variantIndex.value = (variantIndex.value + 1) % variants.value.length;
+}
+
+function discard(): void {
+  result.value = null;
+  variantIndex.value = 0;
+}
+
+async function generate(): Promise<void> {
+  if (loading.value) return;
+  const c = props.card;
+  if (!c.back || !c.back.trim()) {
+    notify('这张卡还没有答案内容，无法生成口诀', 'warning');
+    return;
+  }
+  loading.value = true;
+  try {
+    const res = await generateReviewMnemonic({ front: c.front, back: c.back });
+    result.value = res;
+    variantIndex.value = 0;
+    if (!res?.mnemonic && !(res?.alternatives ?? []).length) {
+      notify('AI 这次没憋出口诀，换个说法再试试', 'warning');
+      result.value = null;
+    }
+  } catch (e) {
+    notify(getApiError(e, '生成助记口诀失败'), 'error');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function adopt(): Promise<void> {
+  const text = currentVariant.value;
+  if (!text || adopting.value) return;
+  adopting.value = true;
+  try {
+    // store 内部会同步 patch queue / pendingList 里的副本，adopted 计算属性随之更新
+    const ok = await store.applyMnemonic(props.card.id, props.card.sourceType, text);
+    if (ok) discard();
+  } finally {
+    adopting.value = false;
+  }
+}
+
+// 换卡时清空未采纳的生成结果，避免把上一张的口诀带到下一张
+watch(
+  () => `${props.card.sourceType}:${props.card.id}`,
+  () => discard(),
+);
 </script>
 
 <style scoped>
@@ -255,6 +386,121 @@ function onAnimEnd(e: AnimationEvent) {
 .fc-back-md :deep(img) {
   max-width: 100%;
   border-radius: 8px;
+}
+
+/* ---------- AI 助记口诀区（反面底部） ---------- */
+.fc-mnemo {
+  margin-top: auto;
+  padding-top: 14px;
+  cursor: default;
+}
+.fc-mnemo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in srgb, var(--kb-highlight) 45%, var(--kb-border));
+  background: transparent;
+  color: var(--kb-highlight);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.fc-mnemo-btn:hover:not(:disabled) {
+  border-style: solid;
+  background: color-mix(in srgb, var(--kb-highlight) 10%, transparent);
+}
+.fc-mnemo-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.fc-mnemo-panel {
+  padding: 11px 13px;
+  border-radius: var(--kb-radius-md);
+  border: 1px solid color-mix(in srgb, var(--kb-highlight) 32%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-highlight) 7%, transparent);
+}
+.fc-mnemo-panel.is-adopted {
+  border-color: color-mix(in srgb, var(--kb-accent) 32%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-accent) 7%, transparent);
+}
+.fc-mnemo-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.fc-mnemo-ic {
+  font-size: 15px;
+}
+.fc-mnemo-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--kb-foreground);
+  letter-spacing: 0.02em;
+  word-break: break-word;
+}
+.fc-mnemo-saved {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--kb-accent) 85%, black);
+  background: color-mix(in srgb, var(--kb-accent) 16%, transparent);
+}
+.fc-mnemo-exp {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--kb-muted-foreground);
+}
+.fc-mnemo-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.fc-mnemo-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+  color: var(--kb-muted-foreground);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.fc-mnemo-act:hover:not(:disabled) {
+  color: var(--kb-foreground);
+  border-color: var(--kb-primary);
+}
+.fc-mnemo-act:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.fc-mnemo-act--primary {
+  color: var(--kb-primary);
+  border-color: color-mix(in srgb, var(--kb-primary) 42%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-primary) 10%, var(--kb-card));
+}
+.fc-mnemo-act--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.fc-spin {
+  animation: fc-rotate 0.9s linear infinite;
+}
+@keyframes fc-rotate {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 飞出动画：困难→向左旋转飞出；轻松/完美→向右旋转飞出。

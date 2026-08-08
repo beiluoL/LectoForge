@@ -108,8 +108,18 @@ export function requireRootDir(): string {
 
 /**
  * 设置工作区根目录。
- * @param input 用户给的绝对路径（支持 ~ 开头）
- * @param create 目录不存在时是否自动创建
+ *
+ * ⚠️ 这是整个文档库权限模型的**信任锚点**：设定之后，safeResolve 只保证
+ * 「不越出 root」，而 root 本身有多大范围完全由这里决定。若允许把 root 设成 `/`，
+ * safeResolve 的全部校验会瞬间失效——`GET /api/library/notes/content?id=/etc/hosts`
+ * 之类的请求就都成了「合法的库内路径」。因此这里必须与 browseDirs 共用同一套
+ * 白名单（{@link assertBrowsable}：主目录子树 + /Volumes），
+ * 把可选范围收敛到用户真正会放文档库的地方。
+ *
+ * @param input 用户给的绝对路径（支持 `~` 开头）
+ * @param create 目录不存在时是否自动创建（仅在白名单内生效）
+ * @returns 归一化并经 realpath 解析后的根目录绝对路径
+ * @throws VaultError 400 入参为空 / 非目录；403 越界或不可读写；404 目录不存在且 create=false
  */
 export function setRootDir(input: string, create = false): string {
   if (!input || typeof input !== 'string' || !input.trim()) {
@@ -120,6 +130,8 @@ export function setRootDir(input: string, create = false): string {
     target = path.join(os.homedir(), target.slice(1));
   }
   target = path.resolve(target);
+  // 信任锚点校验：必须先于 mkdir，否则 create=true 能在任意位置造目录
+  assertBrowsable(target);
 
   if (!fs.existsSync(target)) {
     if (!create) throw new VaultError(`目录不存在：${target}`, 404);
@@ -135,7 +147,12 @@ export function setRootDir(input: string, create = false): string {
     throw new VaultError(`目录不可读写，请检查权限：${target}`, 403);
   }
 
-  rootDir = fs.realpathSync(target);
+  /* realpath 之后必须再校验一次：用户可能选中一个位于主目录、
+   * 但实际指向 /etc 的软链接，第一次校验看的是链接本身而非真实位置。 */
+  const real = fs.realpathSync(target);
+  assertBrowsable(real);
+
+  rootDir = real;
   loaded = true;
   try {
     const file = workspaceConfigPath();
@@ -549,10 +566,58 @@ export async function findAsset(name: string): Promise<string | null> {
 // ===================== 目录选择器（不受工作区约束） =====================
 
 /**
+ * 目录浏览的可达范围白名单（根）。
+ *
+ * ⚠️ 安全边界：browseDirs 是**唯一不受 vault root 约束**的接口，
+ * 因为它的用途正是「让用户挑一个新的 root」，锁死在 root 内会让功能失去意义。
+ * 但完全不设限同样不可接受——`GET /api/library/fs/browse?dir=/` 可以逐层枚举
+ * 全盘目录结构（`/etc`、`/Users/<别人>`、`/private/var` …）。目录名本身即情报：
+ * 能暴露用户装了什么软件、有哪些项目、甚至通过 ~/Library 下的目录名推断账号体系。
+ *
+ * 折中方案：限定在「用户可能放文档库的地方」。
+ *   - 主目录子树：覆盖 99% 场景（Documents / Desktop / iCloud 等）
+ *   - /Volumes：外接盘与网络卷，把文档库放移动硬盘是合理需求
+ * 其余一律 403。若将来需要放开更多位置，在此追加而不是取消校验。
+ */
+function browsableRoots(): string[] {
+  const roots = [os.homedir(), '/Volumes'];
+  // 默认文档库理论上总在主目录下，但允许被 defaultVaultDir 覆盖，稳妥起见显式加入
+  const dv = defaultVaultDir();
+  if (!roots.some((r) => dv === r || dv.startsWith(r + path.sep))) roots.push(dv);
+  return roots;
+}
+
+/**
+ * 校验目标目录是否落在允许浏览的白名单子树内。
+ *
+ * 用 `path.relative` 判前缀而非字符串 `startsWith(root)`——后者会把
+ * `/Users/alice-evil` 误判为 `/Users/alice` 的子目录（兄弟目录同前缀绕过）。
+ *
+ * @param target 已 `path.resolve` 归一化的绝对路径
+ * @throws VaultError 403 目标不在任何白名单根之下
+ */
+function assertBrowsable(target: string): void {
+  const ok = browsableRoots().some((root) => {
+    const rel = path.relative(root, target);
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  });
+  if (!ok) {
+    throw new VaultError('该位置不允许浏览，请在主目录或外接卷中选择', 403);
+  }
+}
+
+/**
  * 浏览本机目录，供前端实现「打开本地文件夹」选择器。
+ *
  * 说明：桌面端未安装 tauri-plugin-dialog（且窗口加载的是 http://127.0.0.1 远程源，
  * 插件 IPC 需额外的 remote 能力配置），因此改由后端提供目录列举，前端自建选择器。
  * 该接口只读、只返回目录名，不暴露文件内容。
+ *
+ * @param dir 目标目录绝对路径，支持 `~` 前缀；缺省为用户主目录。
+ *            必须落在 {@link browsableRoots} 白名单内，否则 403。
+ * @returns `current` 当前目录、`parent` 上级（已到白名单根则为 null）、
+ *          `dirs` 子目录列表（跳过隐藏目录与 SKIP_DIRS）、`shortcuts` 快捷入口
+ * @throws VaultError 403 越界或无读权限；404 目录不存在
  */
 export async function browseDirs(dir?: string): Promise<{
   current: string;
@@ -564,6 +629,8 @@ export async function browseDirs(dir?: string): Promise<{
   let current = dir && dir.trim() ? dir.trim() : home;
   if (current === '~' || current.startsWith('~/')) current = path.join(home, current.slice(1));
   current = path.resolve(current);
+  // 先校验再 stat：避免通过「目录存在与否」的报错差异探测白名单外的路径
+  assertBrowsable(current);
 
   if (!fs.existsSync(current)) throw new VaultError(`目录不存在：${current}`, 404);
   if (!fs.statSync(current).isDirectory()) throw new VaultError('该路径不是文件夹');
@@ -579,7 +646,18 @@ export async function browseDirs(dir?: string): Promise<{
     throw new VaultError('无权限读取该目录', 403);
   }
 
-  const parent = path.dirname(current);
+  /* 上级目录：走到白名单根（如主目录）就不再给 parent，
+   * 否则前端「返回上一层」按钮会把用户带到 /Users 然后吃 403，体验上像是坏了。 */
+  const rawParent = path.dirname(current);
+  let parent: string | null = rawParent === current ? null : rawParent;
+  if (parent) {
+    try {
+      assertBrowsable(parent);
+    } catch {
+      parent = null;
+    }
+  }
+
   const shortcuts: DirEntryVO[] = [
     { name: '主目录', path: home },
     { name: '文稿', path: path.join(home, 'Documents') },
@@ -587,5 +665,5 @@ export async function browseDirs(dir?: string): Promise<{
     { name: '默认文档库', path: defaultVaultDir() },
   ].filter((s, i) => i === 0 || fs.existsSync(s.path) || s.path === defaultVaultDir());
 
-  return { current, parent: parent === current ? null : parent, dirs, shortcuts };
+  return { current, parent, dirs, shortcuts };
 }

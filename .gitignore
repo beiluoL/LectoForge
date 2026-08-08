@@ -3,6 +3,12 @@ src-api/node_modules/
 src-ui/node_modules/
 node_modules/
 
+# 打包用的生产依赖树（scripts/prepare-bin.sh 生成，仅含 dependencies）
+src-api/.prod-modules/
+
+# 死类型清理器的备份文件
+src-ui/src/api/types.ts.bak
+
 # 构建产物
 src-api/dist/
 src-ui/dist/

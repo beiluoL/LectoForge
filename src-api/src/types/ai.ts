@@ -251,6 +251,62 @@ export interface ReviewRecommendVO extends AiMeta {
   suggestions: string[];
 }
 
+// ===================== 复习辅助记忆（助记口诀 / 本轮简报）=====================
+
+/**
+ * POST /ai/review/mnemonics 入参。
+ * ⚠️ 纯计算端点：只拿卡面文本算口诀，**不落库**。
+ * 采纳与否是用户的决定，落库走 PUT /reviews/mnemonic（写 image_hint）。
+ * 这样拆开的好处是「多生成几次挑一个」不会污染数据。
+ */
+export interface ReviewMnemonicDTO {
+  front?: string;
+  back?: string;
+  /** 学科上下文，如「Java 多线程」，帮模型选对领域的类比 */
+  context?: string;
+}
+
+export interface ReviewMnemonicVO extends AiMeta {
+  mnemonic: string;
+  explanation: string;
+  alternatives: string[];
+}
+
+/** 本轮复习里的一张卡，前端只需回传 front / back / rating */
+export interface ReviewSummaryCardDTO {
+  front?: string;
+  back?: string;
+  rating?: string;
+}
+
+/**
+ * POST /ai/review/summary 入参。
+ * 同样是纯计算端点，不落库——简报是一次性读物，用户关掉就没了，
+ * 存起来反而要面对「历史简报列表」这种没人看的功能。
+ */
+export interface ReviewSummaryDTO {
+  total?: number;
+  /** 需要复盘的卡片，一般是 rating='hard' 的那些 */
+  cards?: ReviewSummaryCardDTO[];
+  /** 本轮用时（分钟），可选 */
+  minutes?: number;
+}
+
+export interface ReviewWeakTopic {
+  topic: string;
+  reason: string;
+}
+
+export interface ReviewSummaryVO extends AiMeta {
+  headline: string;
+  weakTopics: ReviewWeakTopic[];
+  suggestions: string[];
+  encouragement: string;
+  /** 回显本轮统计，前端简报头部直接用，省得再算一遍 */
+  total: number;
+  hardCount: number;
+}
+
 // ===================== 向量索引 / 语义关联 =====================
 
 export interface EmbeddingsSyncDTO {

@@ -32,18 +32,25 @@
         <span v-if="currentBadge" class="rv-type" :class="currentBadge.cls">{{ currentBadge.text }}</span>
       </div>
 
-      <!-- 沉浸模式下隐藏进度条，只留卡片 -->
+      <!-- 沉浸模式下隐藏进度条，只留卡片。
+           分母 totalCount 取自 /reviews/due-stats（全量待复习），不是本批 20 张——
+           否则用户会疑惑「驾驶舱说 31 张，这里怎么只有 20」。 -->
       <div v-if="!isImmersive" class="rv-progress">
         <div class="rv-progress-bar">
           <div class="rv-progress-fill" :style="{ width: progressPct + '%' }"></div>
         </div>
-        <span class="rv-progress-text">已复习 {{ processedCount }} / {{ totalCount }}</span>
+        <span class="rv-progress-text">已复习 {{ processedCount }} / 总共 {{ totalCount }} 张</span>
       </div>
       <div v-else class="rv-progress rv-progress--mini">
         <span class="rv-progress-text">{{ processedCount }} / {{ totalCount }}</span>
       </div>
 
       <div class="rv-top-actions">
+        <!-- 待复习清单：抽屉里能看全量、挑着背、批量挂起 -->
+        <button v-if="!isImmersive" class="kb-btn rv-list-btn" title="查看待复习清单" @click="store.openQueueList()">
+          <Icon name="layers" :size="15" /> 清单
+          <span v-if="remainingCount > 0" class="rv-list-num">{{ remainingCount }}</span>
+        </button>
         <button class="kb-btn rv-fs" :title="isImmersive ? '退出全屏（Esc）' : '全屏专注'" @click="toggleFullscreen">
           <Icon :name="isImmersive ? 'minimize' : 'maximize'" :size="15" />
           {{ isImmersive ? '退出全屏' : '全屏专注' }}
@@ -102,12 +109,16 @@
           </div>
         </div>
 
-        <!-- 挂起：顺延 24h，不影响 ease / repetitions -->
+        <!-- 换一批：不评分，直接把当前卡挂起 24h 并跳下一张（不影响 ease / repetitions）。
+             与「评分」互斥的逃生通道——遇到今天实在不想背的卡，别硬评一个假分数污染 SM-2。 -->
         <div class="rv-secondary">
-          <button class="rv-snooze" :disabled="busy" @click="snooze">
-            <Icon name="pause-circle" :size="14" /> 稍后再背（挂起 24h）
+          <button class="rv-snooze" :disabled="busy" @click="shuffle">
+            <Icon name="shuffle" :size="14" /> 换一批（当前卡挂起 24h）
             <kbd class="rv-kbd">0</kbd>
           </button>
+          <span v-if="loadingMore" class="rv-more">
+            <Icon name="loader-2" :size="13" class="rv-spin" /> 正在加载下一批…
+          </span>
         </div>
       </template>
 
@@ -130,6 +141,40 @@
           暂时没有到期的卡片，去「收集箱 / 笔记 / 记忆宫殿」沉淀内容，稍后再来复习吧～
         </p>
 
+        <!-- AI 复习简报：本轮记录由前端回传（库里没有「一轮」的概念），只喂评为困难的卡，
+             逼模型给出聚类洞察而不是流水账。没配 Key 时整块不渲染。 -->
+        <section v-if="showSummaryBlock" class="rv-brief">
+          <div v-if="summaryLoading" class="rv-brief-state">
+            <Icon name="loader-2" :size="16" class="rv-spin" />
+            AI 正在复盘本轮表现…
+          </div>
+
+          <template v-else-if="summary">
+            <h3 class="rv-brief-title">
+              <Icon name="sparkles" :size="15" /> AI 复习简报
+            </h3>
+            <p class="rv-brief-headline">{{ summary.headline }}</p>
+
+            <div v-if="summary.weakTopics.length" class="rv-brief-topics">
+              <div v-for="(t, i) in summary.weakTopics" :key="i" class="rv-brief-topic">
+                <span class="rv-brief-topic-name">{{ t.topic }}</span>
+                <span class="rv-brief-topic-why">{{ t.reason }}</span>
+              </div>
+            </div>
+
+            <ul v-if="summary.suggestions.length" class="rv-brief-tips">
+              <li v-for="(s, i) in summary.suggestions" :key="i">{{ s }}</li>
+            </ul>
+
+            <p v-if="summary.encouragement" class="rv-brief-cheer">{{ summary.encouragement }}</p>
+            <p class="rv-brief-meta">{{ summary.model }} · {{ summary.latencyMs }}ms</p>
+          </template>
+
+          <button v-else class="rv-brief-retry" @click="loadSummary">
+            <Icon name="refresh-cw" :size="13" /> {{ summaryFailed ? '简报生成失败，重试' : '生成 AI 复习简报' }}
+          </button>
+        </section>
+
         <div class="rv-complete-actions">
           <button class="kb-btn" @click="restart">
             <Icon name="rotate-ccw" :size="15" /> 重新开始
@@ -150,19 +195,25 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 待复习清单抽屉（组件内部自带 Teleport，可见性由 store.queueListVisible 驱动） -->
+    <ReviewQueueList />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { onKeyStroke } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import FlashCard from './FlashCard.vue';
+import ReviewQueueList from '@/components/ReviewQueueList.vue';
 import { useReviewStore } from '@/store/review-store';
 import { usePomodoroStore } from '@/store/pomodoro-store';
-import type { ReviewCard, ReviewRating } from '@/api/review';
+import { summarizeReviewSession, type ReviewSummaryResult } from '@/api/ai';
+import { getApiError, notify } from '@/utils/toast';
+import type { ReviewRating } from '@/api/review';
 
 const router = useRouter();
 const store = useReviewStore();
@@ -172,11 +223,17 @@ const { phaseEmoji, phaseLabel, timeText, status, isRunning } = storeToRefs(pomo
 const {
   current,
   isLoading,
+  loadingMore,
+  isFinished,
   cardSide,
   totalCount,
   stats,
   processedCount,
   progressPct,
+  remainingCount,
+  hardCards,
+  elapsedMinutes,
+  aiReady,
 } = storeToRefs(store);
 
 /** 顶栏卡型徽章：与 FlashCard 内的判定口径保持一致（易忘 > 新卡 > 复习卡） */
@@ -191,9 +248,7 @@ const currentBadge = computed(() => {
 /* ============ 飞出动画编排 ============
  * 点评分 → 立即播放飞出动画 + 弹反馈浮层；动画结束（flyEnd）才真正调接口 + splice。
  * splice 期间用 swapping 把卡槽隐身，避免「旧卡回弹一帧」。 */
-type PendingAction =
-  | { type: 'rate'; rating: ReviewRating }
-  | { type: 'snooze'; cardId: number; sourceType: ReviewCard['sourceType'] };
+type PendingAction = { type: 'rate'; rating: ReviewRating } | { type: 'shuffle' };
 
 const flyState = ref<{ active: boolean; dir: 'left' | 'right' }>({ active: false, dir: 'right' });
 const pending = ref<PendingAction | null>(null);
@@ -201,17 +256,17 @@ const swapping = ref(false);
 /** 动画/请求进行中：锁住按钮与快捷键，防连点跳卡 */
 const busy = ref(false);
 
-const FEEDBACK: Record<ReviewRating | 'snooze', { text: string; tone: string }> = {
+const FEEDBACK: Record<ReviewRating | 'shuffle', { text: string; tone: string }> = {
   hard: { text: '🤔 记住它！', tone: 'hard' },
   good: { text: '👍 继续保持', tone: 'good' },
   easy: { text: '😄 轻松拿下', tone: 'easy' },
   perfect: { text: '✅ 完美！', tone: 'perfect' },
-  snooze: { text: '⏸️ 稍后再背', tone: 'snooze' },
+  shuffle: { text: '🔄 换一批', tone: 'snooze' },
 };
 
 const feedback = ref<{ text: string; tone: string } | null>(null);
 let feedbackTimer: ReturnType<typeof setTimeout> | null = null;
-function showFeedback(key: ReviewRating | 'snooze') {
+function showFeedback(key: ReviewRating | 'shuffle') {
   if (feedbackTimer) clearTimeout(feedbackTimer);
   feedback.value = FEEDBACK[key];
   feedbackTimer = setTimeout(() => {
@@ -234,17 +289,21 @@ function rate(rating: ReviewRating) {
   flyState.value = { active: true, dir: rating === 'hard' ? 'left' : 'right' };
 }
 
-/** 挂起：向左飞出（与「暂时放下」语义一致） */
-function snooze() {
-  const c = current.value;
-  if (!c || busy.value) return;
+/** 换一批：不评分，当前卡挂起 24h 后跳下一张。向左飞出（与「暂时放下」语义一致） */
+function shuffle() {
+  if (!current.value || busy.value) return;
   busy.value = true;
-  showFeedback('snooze');
-  pending.value = { type: 'snooze', cardId: c.id, sourceType: c.sourceType };
+  showFeedback('shuffle');
+  pending.value = { type: 'shuffle' };
   flyState.value = { active: true, dir: 'left' };
 }
 
-/** 飞出动画结束：隐身 → 复位动画 → 调接口（内部 splice） → 淡入下一张 */
+/**
+ * 飞出动画结束：隐身 → 复位动画 → 调接口（store 内部出队） → 淡入下一张。
+ *
+ * ⚠️ 出队一定发生在这里而不是点击时——点击就 splice 的话，卡片会在飞出途中被
+ * 下一张顶替，看起来像「闪了一下」。store 侧则保证接口失败也照样出队。
+ */
 async function onFlyEnd() {
   const act = pending.value;
   pending.value = null;
@@ -253,7 +312,7 @@ async function onFlyEnd() {
   flyState.value = { active: false, dir: flyState.value.dir };
   try {
     if (act.type === 'rate') await store.submitRating(act.rating);
-    else await store.snoozeCard(act.cardId, act.sourceType);
+    else await store.shuffleCurrent();
   } finally {
     await nextTick();
     swapping.value = false;
@@ -277,12 +336,54 @@ onKeyStroke((e) => {
   }
   if (e.key === '0') {
     e.preventDefault();
-    snooze();
+    shuffle();
     return;
   }
   if (e.key === ' ' && cardSide.value === 'front') {
     e.preventDefault();
     store.flipCard();
+  }
+});
+
+/* ============ AI 复习简报 ============
+ * 会话结束时自动跑一次（一轮只烧一次 token），失败留重试按钮。
+ * 只有「真的复习过卡片」且 AI 已配置时才出现——空轮次生成简报既没意义又浪费额度。 */
+const summary = ref<ReviewSummaryResult | null>(null);
+const summaryLoading = ref(false);
+const summaryFailed = ref(false);
+/** 本轮是否已发起过简报请求，防止 isFinished 反复置真时重复调用 */
+const summaryRequested = ref(false);
+
+const showSummaryBlock = computed(() => aiReady.value && stats.value.reviewed > 0);
+
+async function loadSummary(): Promise<void> {
+  if (summaryLoading.value) return;
+  summaryRequested.value = true;
+  summaryLoading.value = true;
+  summaryFailed.value = false;
+  try {
+    summary.value = await summarizeReviewSession({
+      total: stats.value.reviewed,
+      // 只喂没记住的卡：全量喂进去模型会退化成复述清单，抓不出共性弱点
+      cards: hardCards.value.map((c) => ({ front: c.front, back: c.back, rating: c.rating })),
+      minutes: elapsedMinutes.value,
+    });
+  } catch (e) {
+    summaryFailed.value = true;
+    notify(getApiError(e, 'AI 复习简报生成失败'), 'error');
+  } finally {
+    summaryLoading.value = false;
+  }
+}
+
+// 结束页出现的那一刻自动生成；重新开始一轮时（isFinished 回落）重置状态
+watch(isFinished, (done) => {
+  if (done) {
+    if (showSummaryBlock.value && !summaryRequested.value) void loadSummary();
+  } else {
+    summary.value = null;
+    summaryRequested.value = false;
+    summaryFailed.value = false;
   }
 });
 
@@ -330,6 +431,8 @@ onMounted(() => {
   // 每次进入都重新拉队列（loadQueue 内部已先 resetSession），
   // 保证从驾驶舱 ↔ 传统卡组来回切换时不会读到上一轮残留进度。
   void store.loadQueue();
+  // AI 可用性探测（轻量，不产生模型调用）：决定卡片上的口诀按钮与结束页简报是否出现
+  void store.ensureAiStatus();
   // 番茄钟配置水合（idempotent：若已在番茄钟页 init 过则直接跳过），让状态条拿到最新设置
   void pomoStore.init();
   document.addEventListener('fullscreenchange', syncImmersive);
@@ -464,8 +567,20 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 .rv-fs,
-.rv-exit {
+.rv-exit,
+.rv-list-btn {
   white-space: nowrap;
+}
+/* 清单入口上的剩余张数角标 */
+.rv-list-num {
+  margin-left: 2px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 14%, transparent);
 }
 
 .rv-main {
@@ -561,11 +676,26 @@ onBeforeUnmount(() => {
 .rv-rate-easy:hover:not(:disabled) { border-color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 10%, var(--kb-card)); }
 .rv-rate-perfect:hover:not(:disabled) { border-color: var(--kb-highlight); background: color-mix(in srgb, var(--kb-highlight) 12%, var(--kb-card)); }
 
-/* 挂起（次级操作） */
+/* 换一批（次级操作） */
 .rv-secondary {
   margin-top: 12px;
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+/* 续批提示：队列见底时自动拉下一批，给个可见反馈免得以为卡住了 */
+.rv-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--kb-muted-foreground);
+}
+.rv-more .rv-spin {
+  width: 13px;
+  height: 13px;
 }
 .rv-snooze {
   display: inline-flex;
@@ -647,6 +777,110 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 10px;
   margin-top: 16px;
+}
+
+/* ---------- AI 复习简报 ---------- */
+.rv-brief {
+  width: 100%;
+  max-width: 520px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  text-align: left;
+  border-radius: var(--kb-radius-md);
+  border: 1px solid color-mix(in srgb, var(--kb-highlight) 30%, var(--kb-border));
+  background: color-mix(in srgb, var(--kb-highlight) 6%, var(--kb-card));
+}
+.rv-brief-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--kb-muted-foreground);
+}
+.rv-brief-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--kb-highlight);
+}
+.rv-brief-headline {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--kb-foreground);
+}
+.rv-brief-topics {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+.rv-brief-topic {
+  padding: 8px 11px;
+  border-radius: var(--kb-radius-sm);
+  border: 1px solid var(--kb-border);
+  background: var(--kb-card);
+}
+.rv-brief-topic-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--kb-destructive);
+}
+.rv-brief-topic-why {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--kb-muted-foreground);
+}
+.rv-brief-tips {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rv-brief-tips li {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--kb-foreground);
+}
+.rv-brief-cheer {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--kb-border);
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--kb-muted-foreground);
+}
+.rv-brief-meta {
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--kb-muted-foreground);
+  opacity: 0.7;
+}
+.rv-brief-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px dashed var(--kb-border);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.rv-brief-retry:hover {
+  color: var(--kb-highlight);
+  border-color: var(--kb-highlight);
 }
 
 @media (max-width: 640px) {

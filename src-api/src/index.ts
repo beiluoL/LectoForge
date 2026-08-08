@@ -26,7 +26,31 @@ import pomodoro from './routes/pomodoro';
 
 const app = Fastify({ logger: false });
 
-app.register(cors, { origin: true });
+/**
+ * CORS 白名单。
+ *
+ * ⚠️ 原实现是 `{ origin: true }`，即**反射任意 Origin**。虽然服务只监听 127.0.0.1
+ * 不对局域网暴露，但这挡不住浏览器：用户在任意标签页打开的恶意网站，都能用
+ * fetch('http://127.0.0.1:8787/api/...') 直接读取本机学习数据——反射式 CORS
+ * 会让浏览器把响应体交给那个网站。本服务又完全没有鉴权，等于全库裸奔。
+ *
+ * 收敛为白名单后，只有应用自己的窗口来源可跨域读取：
+ *   - 生产：窗口从 http://127.0.0.1:<port> 加载，属同源，但 Origin 头仍会带上；
+ *   - 开发：Vite dev server 在 5173，通过 proxy 转发，同时直连也放行便于调试。
+ * 非浏览器请求（curl / Node / Tauri 原生侧）不带 Origin，一律放行——
+ * 它们本就不受同源策略约束，拦截没有意义，只会打断健康探测。
+ */
+const ALLOWED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
+
+app.register(cors, {
+  origin(origin, cb) {
+    // 无 Origin：同源导航、curl、Tauri 原生请求、健康探测
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGIN.test(origin)) return cb(null, true);
+    // 明确拒绝而不是静默放行；浏览器侧表现为标准 CORS 报错，便于定位
+    return cb(new Error('Origin not allowed'), false);
+  },
+});
 
 app.setErrorHandler((err, _req, reply) => {
   if (err.validation) return reply.code(400).send({ code: 400, message: 'invalid request' });

@@ -85,10 +85,38 @@ export interface ListNotesParams {
   mastery_lte?: number
   /** 智慧筛选：false = 只看没写总结的半成品笔记 */
   has_summary?: boolean
+  /** 分页页码，从 1 开始；滚动加载时递增 */
+  page?: number
+  /** 每页条数；不传时后端按 NOTES_PAGE_SIZE(30) 兜底 */
+  pageSize?: number
+}
+
+/**
+ * 列表页头部的四个统计数。
+ *
+ * 为什么不继续用 `notes.length` 算：列表已分页，数组长度只代表「已加载多少」，
+ * 会随用户下滚一路变大，拿来当总数是错的。
+ */
+export interface NoteStats {
+  total: number
+  /** 已复习过且今天到期 */
+  due: number
+  /** 从未复习过（对应 UI 的「待首复习」） */
+  unreviewed: number
+  /** 平均掌握度 0~100 整数 */
+  avgMastery: number
 }
 
 export function listNotes(params?: ListNotesParams) {
   return apiGet<WbNote[]>('/workbench/notes', params)
+}
+
+/**
+ * 拉取统计。入参与 listNotes 共用同一套筛选字段（分页字段后端会忽略），
+ * 保证「共 N 则」与列表实际筛得出的条数永远对得上。
+ */
+export function getNoteStats(params?: Omit<ListNotesParams, 'page' | 'pageSize'>) {
+  return apiGet<NoteStats>('/workbench/notes/stats', params)
 }
 
 /** 标签聚合，服务端 SQL GROUP BY 直出，不会把全表正文拉进内存 */

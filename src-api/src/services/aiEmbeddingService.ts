@@ -190,8 +190,26 @@ export async function associate(b: AssociateDTO): Promise<AiResult<AssociateVO>>
     }
   }
   const [sourceVec] = await embed([sourceText], { config: cfg });
-  // 拉取全部已索引向量，计算余弦相似度
-  const all = db.select().from(wbEmbedding).all() as any[];
+  /**
+   * 拉取全部已索引向量，计算余弦相似度。
+   *
+   * 只 select 打分真正需要的四列：向量本体动辄上千维 JSON，
+   * `select()` 全列会把 contentHash / createdAt / updatedAt 一并读进内存，纯属浪费。
+   *
+   * ⚠️ 这里**不能**再写 `as any[]`：历史上正是这个断言遮蔽了下方的字段名错误
+   * （读 `e.entity_type`，而 Drizzle 返回的是驼峰 `entityType`），
+   * 导致 /associate 的 entityType 恒为 undefined、title 恒为「(已删除)」，
+   * 且编译期毫无提示。保持强类型，让同类错误在 tsc 阶段就暴露。
+   */
+  const all = db
+    .select({
+      entityType: wbEmbedding.entityType,
+      entityId: wbEmbedding.entityId,
+      model: wbEmbedding.model,
+      vector: wbEmbedding.vector,
+    })
+    .from(wbEmbedding)
+    .all();
   const scored = all
     .map((e) => {
       let vec: number[];
@@ -200,15 +218,10 @@ export async function associate(b: AssociateDTO): Promise<AiResult<AssociateVO>>
       } catch {
         return null;
       }
+      // 维度不一致（用户中途换过 embedding 模型）时 cosineSimilarity 返回 0，
+      // 会被下方 score > 0 过滤掉，不会污染结果。
       const score = cosineSimilarity(sourceVec, vec);
-      /**
-       * ⚠️ 已知缺陷（重构前既有，此处**刻意原样保留**以保证契约快照零 diff）：
-       * Drizzle 返回的是驼峰键 entityType / entityId，这里读的是下划线键，
-       * 取值恒为 undefined，导致 /associate 返回的 entityType 为空、title 恒为「(已删除)」。
-       * 修复只需改成 e.entityType / e.entityId，但必须**单独提交、单独回归**，
-       * 不能混进本次结构重构，否则快照 diff 无法判定是重构引入还是修复引入。
-       */
-      return { type: e.entity_type, id: e.entity_id, score, model: e.model };
+      return { type: e.entityType, id: e.entityId, score, model: e.model };
     })
     .filter((x): x is { type: string; id: number; score: number; model: string } => !!x && x.score > 0)
     .filter((x) => !(sourceRef && x.type === sourceRef.type && x.id === sourceRef.id))

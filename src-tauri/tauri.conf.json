@@ -26,7 +26,7 @@
     "resources": {
       "../src-ui/dist": "web",
       "../src-api/dist": "api",
-      "../src-api/node_modules": "api/node_modules",
+      "../src-api/.prod-modules/node_modules": "api/node_modules",
       "../src-api/package.json": "api/package.json"
     },
     "externalBin": ["../binaries/server"]

@@ -1,3 +1,5 @@
+import type { PageQuery } from './pagination';
+
 /** 收集项出参（VO）。字段与响应字节完全对齐现状 toVO()，不得增删改名。 */
 export interface CaptureVO {
   id: number;
@@ -18,8 +20,8 @@ export interface CaptureVO {
   updateTime: string;
 }
 
-/** 列表查询入参（DTO） */
-export interface ListCaptureQuery {
+/** 列表查询入参（DTO）。继承 PageQuery 获得 page/pageSize/limit/offset。 */
+export interface ListCaptureQuery extends PageQuery {
   status?: string;
   categoryId?: number;
   keyword?: string;

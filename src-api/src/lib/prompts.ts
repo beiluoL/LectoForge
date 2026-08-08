@@ -1107,3 +1107,157 @@ export function buildNoteExtendPrompt(input: NoteExtendInput): ChatMessage[] {
     },
   ];
 }
+
+// ===================== 间隔复习：AI 辅助记忆 =====================
+
+export interface ReviewMnemonicInput {
+  /** 卡片正面（问题 / 线索） */
+  front: string;
+  /** 卡片背面（答案 / 知识点） */
+  back: string;
+  /** 学科上下文，如「Java 多线程」。缺省时模型自行判断领域 */
+  context?: string | null;
+}
+
+export interface ReviewMnemonicOutput {
+  /** 首选口诀，直接展示在卡片底部 */
+  mnemonic: string;
+  /** 口诀怎么对应知识点的一句话拆解，帮用户建立锚点 */
+  explanation: string;
+  /** 备选口诀（0~2 条），用户不满意时可换一个 */
+  alternatives?: string[];
+}
+
+/**
+ * 为单张复习卡生成助记口诀。
+ *
+ * 设计取舍：
+ * - 强制「短」。口诀超过 20 字就失去了口诀的意义，用户宁可背原文。
+ * - 要求同时给 explanation。只给一句谐音梗而不说明对应关系，用户第二天照样忘；
+ *   拆解本身就是记忆锚点，也是前端「采纳」前判断质量的依据。
+ * - 备选做成数组而非再请求一次：一次 LLM 调用拿三个候选，比点三次「换一个」便宜得多。
+ * - 明确禁止编造知识点：口诀只能重组 back 里已有的信息，不能引入新事实，
+ *   否则会把错误的记忆锚点焊进用户脑子里，比不给口诀更糟。
+ */
+export function buildReviewMnemonicPrompt(input: ReviewMnemonicInput): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是记忆法专家，擅长把枯燥知识点压缩成朗朗上口、过目不忘的助记口诀。',
+        '要求：',
+        '- 口诀必须**短**：不超过 20 个字，优先四字短语、对仗、押韵、谐音、首字母串联。',
+        '- 口诀要能直接映射到答案的关键要素，读一遍就能反推出知识点。',
+        '- 允许用夸张画面、生活化类比、谐音梗，越具体越好记；但不要低俗。',
+        '- 严禁编造：只能重组用户给出的答案里已有的信息，不得引入任何新的事实、数字或术语。',
+        '- explanation 用一句话说明口诀的每一部分对应什么，不超过 60 字。',
+        '- alternatives 给 0~2 条风格不同的备选口诀（比如一条走谐音、一条走画面）。',
+        '- 只输出 JSON。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        input.context ? `【学科领域】${truncate(input.context, 60)}` : '',
+        `【卡片正面 / 问题】${truncate(input.front, 500)}`,
+        `【卡片背面 / 答案】${truncate(input.back, 2000)}`,
+        '',
+        '请按以下 JSON 结构输出：',
+        '{',
+        '  "mnemonic": "不超过 20 字的助记口诀",',
+        '  "explanation": "口诀各部分对应什么，一句话，不超过 60 字",',
+        '  "alternatives": ["备选口诀1", "备选口诀2"]',
+        '}',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    },
+  ];
+}
+
+export interface ReviewSummaryCard {
+  front: string;
+  back?: string;
+  /** 本轮评分档位，用于区分「完全没记住」和「勉强想起来」 */
+  rating: string;
+}
+
+export interface ReviewSummaryInput {
+  /** 本轮总复习张数 */
+  total: number;
+  /** 其中评为 hard（没记住）的张数 */
+  hardCount: number;
+  /** 需要重点复盘的卡片（一般只传 hard，最多 20 张） */
+  cards: ReviewSummaryCard[];
+  /** 用时（分钟），可选，用于简报里的节奏点评 */
+  minutes?: number | null;
+}
+
+export interface ReviewSummaryOutput {
+  /** 一句话总评，展示在简报最上方 */
+  headline: string;
+  /** 从 hard 卡里归纳出的薄弱知识簇（2~4 条） */
+  weakTopics: { topic: string; reason: string }[];
+  /** 下一步行动建议（2~4 条），要具体可执行 */
+  suggestions: string[];
+  /** 鼓励语，一句话，避免用户被负面反馈劝退 */
+  encouragement: string;
+}
+
+/**
+ * 本轮复习结束后的 AI 简报。
+ *
+ * 设计取舍：
+ * - 输入只喂 hard 卡而非全量。全量会稀释信号，模型倾向于泛泛总结「你今天很努力」；
+ *   只喂没记住的，才能逼出「这几张都属于同一个概念簇」这种真正有用的归纳。
+ * - weakTopics 要求归纳成「簇」而不是逐张点评。逐张点评用户自己看卡片就行了，
+ *   AI 的增量价值在于发现跨卡片的共性（例如「都栽在 volatile 的可见性上」）。
+ * - 强制 encouragement 字段：复习简报天然全是负反馈，没有正向收尾会让人不想开第二轮。
+ * - 全 hard 与全 pass 都要能出稿，所以 weakTopics 允许为空数组。
+ */
+export function buildReviewSummaryPrompt(input: ReviewSummaryInput): ChatMessage[] {
+  const list = input.cards
+    .slice(0, 20)
+    .map((c, i) => {
+      const back = c.back ? truncate(c.back, 300) : '（无答案文本）';
+      return `${i + 1}. [${c.rating}] 问：${truncate(c.front, 120)} ｜ 答：${back}`;
+    })
+    .join('\n');
+
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是学习教练。用户刚做完一轮间隔复习，你要基于他「没记住」的卡片写一份简短复盘。',
+        '要求：',
+        '- headline 一句话总评，不超过 30 字，要具体，不要「继续加油」这种废话。',
+        '- weakTopics 把没记住的卡片**归纳成 2~4 个知识簇**，而不是逐张复述；',
+        '  每条给 topic（薄弱主题，不超过 12 字）和 reason（为什么会栽在这里，不超过 40 字）。',
+        '  如果没有任何 hard 卡，weakTopics 返回空数组。',
+        '- suggestions 给 2~4 条**下一步具体做什么**，例如「把 X 和 Y 放一起对比记」，',
+        '  不要写「多复习」「保持练习」这类无信息量建议。',
+        '- encouragement 一句真诚的鼓励，不超过 25 字，不要浮夸。',
+        '- 严禁编造用户没有涉及的知识点。',
+        '- 只输出 JSON。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【本轮复习】共 ${input.total} 张，其中没记住（hard）${input.hardCount} 张` +
+          (input.minutes ? `，用时约 ${input.minutes} 分钟` : ''),
+        '',
+        '【需要复盘的卡片】',
+        list || '（本轮全部通过，没有需要复盘的卡片）',
+        '',
+        '请按以下 JSON 结构输出：',
+        '{',
+        '  "headline": "一句话总评",',
+        '  "weakTopics": [{ "topic": "薄弱主题", "reason": "为什么栽在这里" }],',
+        '  "suggestions": ["具体行动建议1", "具体行动建议2"],',
+        '  "encouragement": "一句鼓励"',
+        '}',
+      ].join('\n'),
+    },
+  ];
+}

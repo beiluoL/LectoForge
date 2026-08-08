@@ -19,7 +19,9 @@ import type {
   PalaceLociImageHintDTO,
   RecallAdviceDTO,
   RecallScoreDTO,
+  ReviewMnemonicDTO,
   ReviewRecommendDTO,
+  ReviewSummaryDTO,
   StoryClarityDTO,
   StoryDraftDTO,
   TagsDTO,
@@ -191,6 +193,20 @@ export async function palaceLociImageHint(req: FastifyRequest, reply: FastifyRep
 export async function reviewRecommend(req: FastifyRequest, reply: FastifyReply) {
   const b = (req.body || {}) as ReviewRecommendDTO;
   return run(reply, () => aiInsightService.recommendReview(b));
+}
+
+// ===================== 复习辅助记忆：助记口诀 / 本轮简报 =====================
+
+/** POST /ai/review/mnemonics —— 纯计算，落库另走 PUT /reviews/mnemonic */
+export async function reviewMnemonics(req: FastifyRequest, reply: FastifyReply) {
+  const b = (req.body || {}) as ReviewMnemonicDTO;
+  return run(reply, () => aiContentService.generateReviewMnemonic(b));
+}
+
+/** POST /ai/review/summary —— 纯计算，本轮记录由前端回传，不落库 */
+export async function reviewSummary(req: FastifyRequest, reply: FastifyReply) {
+  const b = (req.body || {}) as ReviewSummaryDTO;
+  return run(reply, () => aiInsightService.summarizeReviewSession(b));
 }
 
 // ===================== P3-G3：内容向量索引 + 语义关联 =====================

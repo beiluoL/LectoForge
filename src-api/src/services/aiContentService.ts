@@ -23,6 +23,7 @@ import {
   buildPalaceLociImageHintPrompt,
   buildQuizPrompt,
   buildRecallScorePrompt,
+  buildReviewMnemonicPrompt,
   buildStoryClarityPrompt,
   buildTagsPrompt,
   type CaptureSummarizeOutput,
@@ -34,6 +35,7 @@ import {
   type PalaceLociImageHintOutput,
   type QuizOutput,
   type RecallScoreOutput,
+  type ReviewMnemonicOutput,
   type StoryClarityOutput,
   type TagsOutput,
 } from '../lib/prompts';
@@ -57,6 +59,8 @@ import type {
   QuizItem,
   RecallScoreDTO,
   RecallScoreVO,
+  ReviewMnemonicDTO,
+  ReviewMnemonicVO,
   StoryClarityDTO,
   StoryClarityVO,
   StoryDraftDTO,
@@ -486,6 +490,55 @@ export async function generateLociImageHint(
   if (!imageHint) return badResponse('AI 未返回有效联想图像', 'AI_EMPTY');
 
   return { kind: 'ok', data: { imageHint, model: raw.model, latencyMs: raw.latencyMs } };
+}
+
+// ===================== 复习助记口诀 =====================
+
+/** 口诀长度上限，与 reviewService.MNEMONIC_MAX_LEN 对齐，防止模型跑题写成小作文 */
+const MNEMONIC_MAX_LEN = 300;
+
+/**
+ * 为单张复习卡生成助记口诀（纯计算，不落库）。
+ *
+ * 落库刻意分离到 PUT /reviews/mnemonic：用户可能连点几次「换一个」再决定采纳哪条，
+ * 生成即写库会让 image_hint 被中间态反复覆盖。
+ *
+ * 兜底策略：模型偶尔会把口诀写成一整段解释，这里做两道清洗——
+ * ① 截断到 MNEMONIC_MAX_LEN；② mnemonic 为空但 alternatives 有内容时，提升第一条备选。
+ * 只有彻底空产出才报 502，尽量不让用户白等一次 LLM 往返。
+ */
+export async function generateReviewMnemonic(
+  b: ReviewMnemonicDTO,
+): Promise<AiResult<ReviewMnemonicVO>> {
+  const front = String(b.front || '').trim();
+  const back = String(b.back || '').trim();
+  if (!front && !back) return badInput('卡片内容为空，无法生成口诀');
+
+  const { data, raw } = await chatJson<ReviewMnemonicOutput>(
+    buildReviewMnemonicPrompt({ front, back, context: b.context ? String(b.context) : null }),
+    // 口诀需要一点创造力，但又不能天马行空跑离知识点，0.7 是试出来的折中
+    { temperature: 0.7 },
+  );
+
+  const alternatives = normalizeList(data.alternatives)
+    .map((s) => s.slice(0, MNEMONIC_MAX_LEN))
+    .filter(Boolean)
+    .slice(0, 2);
+  let mnemonic = String(data.mnemonic || '').trim().slice(0, MNEMONIC_MAX_LEN);
+  // 主口诀缺失时提升第一条备选，避免整次调用作废
+  if (!mnemonic && alternatives.length) mnemonic = alternatives.shift() as string;
+  if (!mnemonic) return badResponse('AI 未返回有效口诀，请重试或换个模型', 'AI_EMPTY');
+
+  return {
+    kind: 'ok',
+    data: {
+      mnemonic,
+      explanation: String(data.explanation || '').trim(),
+      alternatives,
+      model: raw.model,
+      latencyMs: raw.latencyMs,
+    },
+  };
 }
 
 /** 提供给依赖方复用的只读导出（当前仅测试与内部编排使用） */

@@ -22,6 +22,22 @@ export interface ReviewCard {
   repetitions: number;
   /** 累计遗忘次数（>2 标记易忘卡） */
   lapseCount: number;
+  /** 已采纳的助记口诀（源表 image_hint）；null = 尚未生成 */
+  imageHint: string | null;
+}
+
+/**
+ * 待复习总量与卡型分布。
+ * 存在的意义：/reviews/due 只吐 20 条，而驾驶舱显示 31 —— 进度条要用这里的 total 当分母，
+ * 文案「已复习 X / 共 Y 张」才对得上，用户不会以为系统漏卡。
+ */
+export interface ReviewDueStats {
+  total: number;
+  newCount: number;
+  reviewCount: number;
+  riskCount: number;
+  noteCount: number;
+  lociCount: number;
 }
 
 export interface SubmitReviewPayload {
@@ -30,13 +46,21 @@ export interface SubmitReviewPayload {
   rating: ReviewRating;
 }
 
+/**
+ * 提交评分的返回体。
+ *
+ * ⚠️ ok 是 boolean 而非恒 true：后端在「卡片已被删除」「落库失败」时会回
+ * HTTP 200 + { ok:false, message }。这是刻意设计——4xx/5xx 会把前端推进 catch 分支，
+ * 历史上正是那条路径导致用户被锁死在同一张卡。ok=false 时照常出队，只弹个 Toast。
+ */
 export interface SubmitReviewResult {
   ok: boolean;
-  sourceType: ReviewSourceType;
-  nextDue: string;
-  masteredLevel: number;
-  easeFactor: number;
-  lapsed: boolean;
+  message?: string;
+  sourceType?: ReviewSourceType;
+  nextDue?: string;
+  masteredLevel?: number;
+  easeFactor?: number;
+  lapsed?: boolean;
 }
 
 export interface SnoozeReviewPayload {
@@ -82,9 +106,60 @@ export interface ReviewForgettingCurveResult {
   overallLapseRate: number;
 }
 
-/** 拉取待复习卡片（后端已按 dueDate 升序、最多 20 条裁剪） */
-export function getDueReviews() {
-  return apiGet<ReviewCard[]>('/reviews/due');
+/** 单日复盘条目：热力图 / 遗忘曲线点击某天后展开的明细 */
+export interface ReviewDayItem {
+  cardId: number;
+  /** 'card' 表示旧卡组的历史流水（无法回源卡面时 front 为空） */
+  sourceType: ReviewSourceType | 'card';
+  front: string;
+  quality: number;
+  lapsed: boolean;
+  reviewedAt: string;
+}
+
+export interface ReviewDayResult {
+  date: string;
+  total: number;
+  lapses: number;
+  lapseRate: number;
+  items: ReviewDayItem[];
+}
+
+export interface AdoptMnemonicPayload {
+  cardId: number;
+  sourceType: ReviewSourceType;
+  /** 传空字符串 = 清除已采纳的口诀 */
+  mnemonic: string;
+}
+
+export interface AdoptMnemonicResult {
+  ok: boolean;
+  cardId: number;
+  sourceType: ReviewSourceType;
+  mnemonic: string;
+}
+
+/**
+ * 拉取待复习卡片（后端按 dueDate 升序裁剪）。
+ * @param limit 刷题页用默认 20；「待复习清单」抽屉传 100（服务端硬上限 200）。
+ */
+export function getDueReviews(limit?: number) {
+  return apiGet<ReviewCard[]>('/reviews/due', limit ? { limit } : undefined);
+}
+
+/** 待复习总量：进度条分母的唯一来源，与驾驶舱 dueReviews 同判据 */
+export function getDueStats() {
+  return apiGet<ReviewDueStats>('/reviews/due-stats');
+}
+
+/** 某天复习了什么、哪些没记住（热力图 / 遗忘曲线下钻） */
+export function getReviewDay(date: string) {
+  return apiGet<ReviewDayResult>('/reviews/day', { date });
+}
+
+/** 采纳助记口诀 → 写入源表 image_hint */
+export function adoptMnemonic(payload: AdoptMnemonicPayload) {
+  return apiPut<AdoptMnemonicResult>('/reviews/mnemonic', payload);
 }
 
 /** 提交一张卡片的评分，后端据此推进 SM-2 排程 */

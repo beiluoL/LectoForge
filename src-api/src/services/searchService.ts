@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { wbCapture, wbNote, wbStory } from '../db/schema';
 import { CURRENT_USER } from '../db';
-import { eq, and, or, like } from 'drizzle-orm';
+import { eq, and, or, like, desc } from 'drizzle-orm';
 import type { SearchResult } from '../types/search';
 
 type CaptureRow = typeof wbCapture.$inferSelect;
@@ -55,7 +55,25 @@ function mapStory(row: StoryRow): SearchResult {
   };
 }
 
-/** 跨三表实时模糊搜索，合并后按创建时间倒序，取前 15 条 */
+/**
+ * 每张表在 SQL 层最多取回的候选行数。
+ *
+ * 为什么需要它：最终只输出 MAX_RESULTS(15) 条，但三条子查询原先都是无上限 .all()，
+ * 意味着搜 "a" 这种高命中词会把三张表几乎整个读进内存再排序丢弃——⌘K 是**按键即触发**
+ * 的高频路径，这个开销会直接卡住 better-sqlite3 所在的同步线程。
+ *
+ * 取 60（= 4×MAX_RESULTS）的依据：三表各自已按 createdAt 倒序，
+ * 全局前 15 名必然落在「各表前 15 名」的并集内，60 提供了 4 倍冗余，
+ * 结果集与全量排序**完全等价**，不存在漏召回。
+ */
+const PER_TABLE_LIMIT = 60;
+
+/**
+ * 跨「收集箱 / 笔记 / 故事」三表实时模糊搜索。
+ *
+ * @param q 用户输入的原始关键词，内部 trim；空串直接短路返回 []
+ * @returns 合并后按创建时间倒序的前 MAX_RESULTS 条结果，每条带 type 与可跳转 path
+ */
 export function search(q: string): SearchResult[] {
   const query = q.trim();
   if (!query) return [];
@@ -67,6 +85,8 @@ export function search(q: string): SearchResult[] {
     .select()
     .from(wbCapture)
     .where(and(base, or(like(wbCapture.title, pattern), like(wbCapture.content, pattern))))
+    .orderBy(desc(wbCapture.createdAt))
+    .limit(PER_TABLE_LIMIT)
     .all() as CaptureRow[];
 
   const noteRows = db
@@ -83,12 +103,16 @@ export function search(q: string): SearchResult[] {
         ),
       ),
     )
+    .orderBy(desc(wbNote.createdAt))
+    .limit(PER_TABLE_LIMIT)
     .all() as NoteRow[];
 
   const storyRows = db
     .select()
     .from(wbStory)
     .where(and(eq(wbStory.userId, CURRENT_USER), or(like(wbStory.title, pattern), like(wbStory.content, pattern))))
+    .orderBy(desc(wbStory.createdAt))
+    .limit(PER_TABLE_LIMIT)
     .all() as StoryRow[];
 
   // 合并且保留创建时间用于全局排序（createdAt 为 ISO 字符串，字典序即时间序）

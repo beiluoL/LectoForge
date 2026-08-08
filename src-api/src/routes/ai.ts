@@ -43,6 +43,12 @@ export default async function (app: FastifyInstance) {
   // ===== 智能复习推荐 =====
   app.post('/review/recommend', aiController.reviewRecommend);
 
+  // ===== 复习辅助记忆（两个端点都只算不存）=====
+  // 助记口诀：翻到背面时按需生成；采纳后由 PUT /reviews/mnemonic 落 image_hint
+  app.post('/review/mnemonics', aiController.reviewMnemonics);
+  // 本轮简报：刷完一轮时前端回传 hard 卡，生成薄弱点复盘
+  app.post('/review/summary', aiController.reviewSummary);
+
   // ===== 本地向量索引 + 语义关联 =====
   app.post('/embeddings/sync', aiController.embeddingsSync);
   app.post('/associate', aiController.associate);

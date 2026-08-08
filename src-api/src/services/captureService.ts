@@ -1,6 +1,7 @@
 import { and, desc, eq, like, type SQL } from 'drizzle-orm';
 import { CURRENT_USER, db, nowIso } from '../db';
 import { wbCapture } from '../db/schema';
+import { resolvePage } from '../lib/pagination';
 import type {
   CaptureVO,
   CreateCaptureDTO,
@@ -29,16 +30,29 @@ function toVO(r: CaptureRow): CaptureVO {
   };
 }
 
+/**
+ * 分页列出收集项。
+ *
+ * wb_capture 是典型的**只增不减**表（浏览器剪藏 / 快速捕获每天都在写入），
+ * 一旦无上限全量返回，better-sqlite3 的同步查询会直接阻塞事件循环。
+ * 因此这里强制经过 resolvePage()，任何调用路径都不可能退化成全表扫描。
+ *
+ * @param q 过滤条件 + 分页参数（page/pageSize 或 limit/offset，均可省略）
+ * @returns 当前页的收集项 VO 数组；出参形状不变，仍是裸数组，由 onSend 包信封
+ */
 export function listCaptures(q: ListCaptureQuery): CaptureVO[] {
   const conds: SQL[] = [eq(wbCapture.userId, CURRENT_USER)];
   if (q.status) conds.push(eq(wbCapture.status, String(q.status)));
   if (q.categoryId) conds.push(eq(wbCapture.categoryId, Number(q.categoryId)));
   if (q.keyword) conds.push(like(wbCapture.title, `%${q.keyword}%`));
+  const { limit, offset } = resolvePage(q);
   return db
     .select()
     .from(wbCapture)
     .where(and(...conds))
     .orderBy(desc(wbCapture.starred), desc(wbCapture.createdAt))
+    .limit(limit)
+    .offset(offset)
     .all()
     .map(toVO);
 }

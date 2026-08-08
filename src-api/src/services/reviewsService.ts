@@ -10,6 +10,7 @@ import { and, eq, gte, lte, type SQL } from 'drizzle-orm';
 
 import { CURRENT_USER, db, nowIso } from '../db';
 import { categories, wbReviewCard, wbReviewLog } from '../db/schema';
+import { resolvePage } from '../lib/pagination';
 import { gradeCard } from './sm2';
 import type {
   CreateReviewCardDTO,
@@ -52,16 +53,27 @@ function toVO(card: ReviewCardRow): ReviewCardVO {
   };
 }
 
-/** 卡片列表（按下次复习时间升序） */
+/**
+ * 分页列出复习卡片（按下次复习时间升序）。
+ *
+ * 复习卡是「每张笔记可派生多张」的放大表，基数天然高于笔记本身，
+ * 是所有列表里最容易先撞到性能墙的一张，必须带上限。
+ *
+ * @param query 过滤条件（categoryId/noteId）+ 分页参数
+ * @returns 当前页卡片 VO 数组，按 nextReviewTime 升序（最该复习的排最前）
+ */
 export function listCards(query: ListReviewCardQuery): ReviewCardVO[] {
   const conds: SQL[] = [eq(wbReviewCard.userId, CURRENT_USER)];
   if (query.categoryId !== undefined) conds.push(eq(wbReviewCard.categoryId, query.categoryId));
   if (query.noteId !== undefined) conds.push(eq(wbReviewCard.noteId, query.noteId));
+  const { limit, offset } = resolvePage(query);
   const rows = db
     .select()
     .from(wbReviewCard)
     .where(and(...conds))
     .orderBy(wbReviewCard.nextReviewTime)
+    .limit(limit)
+    .offset(offset)
     .all();
   return rows.map(toVO);
 }

@@ -8,6 +8,7 @@ import * as inboxService from '../services/inboxService';
 import * as dedupeService from '../services/inboxDedupeService';
 import { clipUrl } from '../services/inboxClipService';
 import { MAX_UPLOAD_BYTES, saveUploadedFile } from '../services/inboxUploadService';
+import type { PageQuery } from '../types/pagination';
 import type {
   BatchTarget,
   CreateInboxDTO,
@@ -20,11 +21,11 @@ import type {
 interface IdParams {
   id: string;
 }
-interface ListQuery {
+interface ListQuery extends PageQuery {
   sort?: string;
   filter?: string;
 }
-interface StatusQuery {
+interface StatusQuery extends PageQuery {
   status?: string;
 }
 interface UrlPayload {
@@ -70,12 +71,17 @@ export async function list(req: FastifyRequest) {
   return inboxService.listUnprocessed({
     ascSort: String(q.sort || '').toLowerCase() === 'asc',
     filter: String(q.filter || 'all').toLowerCase() as InboxFilter,
+    // 分页参数原样透传，字符串→数字的归一化统一在 resolvePage 内部完成
+    page: q.page,
+    pageSize: q.pageSize,
+    limit: q.limit,
+    offset: q.offset,
   });
 }
 
 export async function listByStatus(req: FastifyRequest) {
   const q = (req.query ?? {}) as StatusQuery;
-  return inboxService.listByStatus(q.status);
+  return inboxService.listByStatus(q.status, q);
 }
 
 // ===================== 写入 =====================
