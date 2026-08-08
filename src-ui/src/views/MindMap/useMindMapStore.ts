@@ -25,12 +25,14 @@ import {
   listMindMaps,
   saveMindMap,
   type FlowchartData,
+  type MindMapEdge,
   type MindMapMeta,
+  type MindMapNode,
   type OutlineNode,
 } from '@/api/mindmap'
 import { getApiError, notify } from '@/utils/toast'
 
-export type { OutlineNode, FlowchartData, MindMapMeta }
+export type { OutlineNode, FlowchartData, MindMapEdge, MindMapMeta, MindMapNode }
 
 /** 自动保存防抖延迟（毫秒）。比文档库的 600ms 略长——结构变更往往连着好几步操作 */
 export const SAVE_DEBOUNCE_MS = 800
@@ -379,8 +381,8 @@ export function outlineToMarkdown(
  * 不追求自动美化——真要做正交布局得引 dagre，对这个场景性价比不高。
  */
 export function buildFlowFromOutline(): FlowchartData {
-  const nodes: any[] = []
-  const edges: any[] = []
+  const nodes: MindMapNode[] = []
+  const edges: MindMapEdge[] = []
   const levels: OutlineNode[][] = []
 
   const collect = (list: OutlineNode[], depth: number) => {

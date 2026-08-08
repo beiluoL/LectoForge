@@ -63,7 +63,7 @@
             <select v-model="form.categoryId" class="kb-input">
               <option :value="undefined">未归类</option>
               <option v-for="c in flatCategories" :key="c.id" :value="c.id">
-                {{ '　'.repeat((c as any).depth ?? 0) }}{{ c.name }}
+                {{ '　'.repeat(c.depth ?? 0) }}{{ c.name }}
               </option>
             </select>
           </div>

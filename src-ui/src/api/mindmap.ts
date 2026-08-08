@@ -16,10 +16,31 @@ export interface OutlineNode {
   children: OutlineNode[]
 }
 
+/** 流程图的单个节点：对应 vue-flow Node 的可序列化精简子集（形状由编辑器扩展） */
+export interface MindMapNode {
+  id: string
+  /** 节点形状：rounded=圆角（顶层主题）/ rect=矩形（普通节点）/ diamond 等由编辑器扩展 */
+  type?: string | null
+  position: { x: number; y: number }
+  data: { label: string }
+}
+
+/** 流程图的单条边 */
+export interface MindMapEdge {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+  type?: string | null
+  label?: unknown
+  markerEnd?: string
+}
+
 /** 流程图数据：vue-flow 的 { nodes, edges } 标准结构 */
 export interface FlowchartData {
-  nodes: any[]
-  edges: any[]
+  nodes: MindMapNode[]
+  edges: MindMapEdge[]
 }
 
 export interface MindMapMeta {
