@@ -1,4 +1,33 @@
-// 后端接口数据类型（与 com.lectoforge.vo / dto 对齐）
+// 后端接口数据类型定义。
+//
+// ⚠️ 本文件共 158 个导出，但全项目实际只 import 了其中 16 个，分界线在下方 §「学习工作台」注释：
+//
+//   · 分界线【之后】 —— 学习工作台在用类型（收集箱 / 笔记 / 记忆宫殿 / 复述 / 故事 / 总览），随后端契约演进；
+//   · 分界线【之前】 —— 社区、评论、排行榜、学习小组、单聊私信、编程 Agent、Ollama、代码题库、成就勋章等
+//     分区，均为 Web 端 LearnHub 时期带过来的历史类型，桌面端**没有任何对应功能**，属死代码，
+//     待独立 PR 清理（预计可删 ~1400 行）。新增功能请勿引用分界线之前的类型。
+//
+// 收敛方向：在用类型逐步指向 @shared（= src-api/src/types，后端契约单一事实源）。
+// 已完成：WorkbenchOverview + 五个 Payload 入参类型。
+// 未完成：6 个读模型 VO（WbCapture / WbNote / WbPalace / WbPalaceLoci / WbRecallSession / WbStory），
+//        原因是两侧在「可空写法」与「字面量联合」上存在 34 处差异，直接指过去会丢失
+//        status / theme / audience / sourceType 的字面量约束，需单独的契约对齐 PR，见重构方案 §6.2。
+import type { OverviewStats as SharedOverviewStats } from '@shared/overview'
+import type { CreateCaptureDTO } from '@shared/capture'
+import type { CreateNoteDTO } from '@shared/note'
+import type { CreatePalaceDTO, CreateLociDTO, UpdateLociDTO } from '@shared/palace'
+import type { CreateStoryDTO } from '@shared/story'
+
+/**
+ * 把后端 DTO 的可空写法（`T | null`）收紧成前端惯用的 `?: T`，同时保留 @shared 作为字段名的单一事实源。
+ *
+ * 为什么需要它：后端如实标注了库列可空，而前端从来只构造对象、不发送 null。
+ * 直接 `type X = CreateXxxDTO` 会把 null 引入前端类型并泄漏到下游 AI 请求参数上（实测 5 处报错），
+ * 而这些 null 在运行时根本不会出现——那是类型放宽带来的假阳性，不是真实缺陷。
+ * 这里用同态映射保留 `?` 修饰符、仅剔除 null，得到与重构前逐字段等价的形状：零行为变化。
+ * 后端 DTO 增删字段时，前端仍会自动同步。
+ */
+type FromDTO<T> = { [K in keyof T]: Exclude<T[K], null> }
 
 export interface ApiResult<T = unknown> {
   code: number
@@ -1562,20 +1591,11 @@ export interface PathImportFileEntry {
 
 // ===== 学习工作台（输入 → 整理 → 复习 → 输出 四模块闭环）=====
 
-/** 工作台总览统计 */
-export interface WorkbenchOverview {
-  captureTotal: number
-  captureInbox: number
-  captureStarred: number
-  noteTotal: number
-  reviewDue: number
-  reviewCount: number
-  palaceTotal: number
-  lociTotal: number
-  storyTotal: number
-  storyDraft: number
-  reviewLast7d: number
-}
+/**
+ * 工作台总览统计。
+ * 已收敛到 @shared：逐字段与后端 OverviewStats 完全一致，故直接复用，不再手写第二份。
+ */
+export type WorkbenchOverview = SharedOverviewStats
 
 /** 收集箱条目（知识输入） */
 export interface WbCapture {
@@ -1725,29 +1745,15 @@ export interface WbStory {
   updateTime?: string
 }
 
-/** 收集箱入参 */
-export interface WbCapturePayload {
-  title: string
-  content?: string
-  sourceType?: string
-  sourceUrl?: string
-  docId?: number
-  categoryId?: number
-  tags?: string
-  starred?: number
-}
+/**
+ * 收集箱入参。已收敛到 @shared。
+ * 入参是「只写」方向：前端构造对象交给后端，指向 DTO 属于放宽可空性（多接受 null），
+ * 不会收紧任何现有调用点，故可无损收敛。下同。
+ */
+export type WbCapturePayload = FromDTO<CreateCaptureDTO>
 
-/** 康奈尔笔记入参 */
-export interface WbNotePayload {
-  captureId?: number
-  categoryId?: number
-  title: string
-  cueColumn?: string
-  noteColumn?: string
-  summaryColumn?: string
-  tags?: string
-  mastery?: number
-}
+/** 康奈尔笔记入参。已收敛到 @shared。 */
+export type WbNotePayload = FromDTO<CreateNoteDTO>
 
 /** 复习卡片入参 */
 export interface WbReviewCardPayload {
@@ -1765,47 +1771,20 @@ export interface WbReviewGradePayload {
   costMs?: number
 }
 
-/** 记忆宫殿入参 */
-export interface WbPalacePayload {
-  name: string
-  description?: string
-  theme?: string
-  coverColor?: string
-  categoryId?: number
-}
+/** 记忆宫殿入参。已收敛到 @shared。 */
+export type WbPalacePayload = FromDTO<CreatePalaceDTO>
 
-/** 宫殿位点入参 */
-export interface WbPalaceLociPayload {
-  palaceId: number
-  captureId?: number
-  noteId?: number
-  categoryId?: number
-  name: string
-  knowledgePoint?: string
-  imageHint?: string
-  icon?: string
-  posX?: number
-  posY?: number
-  sortOrder?: number
-  /** SRS 熟练度 0-5（越高越熟） */
-  masteredLevel?: number
-  /** 最近一次复习打分时间（ISO 字符串） */
-  lastReviewedAt?: string
-}
+/**
+ * 宫殿位点入参。已收敛到 @shared。
+ * 前端同一个 payload 同时用于新建与编辑，而后端把两者拆成了 CreateLociDTO / UpdateLociDTO，
+ * 其中 masteredLevel、lastReviewedAt 只存在于 Update 侧，故在此取并集补回这两个字段。
+ */
+export type WbPalaceLociPayload = FromDTO<
+  CreateLociDTO & Pick<UpdateLociDTO, 'masteredLevel' | 'lastReviewedAt'>
+>
 
-/** 费曼故事入参 */
-export interface WbStoryPayload {
-  captureId?: number
-  noteId?: number
-  categoryId?: number
-  title: string
-  audience?: string
-  metaphor?: string
-  content?: string
-  gapNote?: string
-  status?: string
-  clarityScore?: number
-}
+/** 费曼故事入参。已收敛到 @shared。 */
+export type WbStoryPayload = FromDTO<CreateStoryDTO>
 
 /* 知识库分类树节点（与 doc_category 同源）：
  * 字段已合并进本文件上方的 CategoryVO 单一声明，此处不再重复声明，
