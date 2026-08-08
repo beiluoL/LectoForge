@@ -1,137 +1,263 @@
 <template>
-  <!-- 全局设置中心：数据目录 + AI 服务 + 关于。视觉沿用工作台令牌与 .kb-* 组件类。 -->
-  <div class="space-y-4 animate-fade-in">
+  <!-- 统一设置中心：通用配置 + AI 模型服务 + AI 能力清单 + 关于。
+       通过唯一「⚙️ 设置」入口进入（旧 /settings/ai 已重定向至此）。
+       视觉沿用工作台 --kb-* 设计令牌，卡片化、上下左右对称，贴近 macOS 系统偏好设置。 -->
+  <div class="lf-page animate-fade-in">
     <!-- 页头 -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="kb-h1 mb-1 flex items-center gap-2" style="color: var(--kb-foreground);">
-          <Icon name="settings" :size="24" style="color: var(--kb-primary);" /> 设置
-        </h1>
-        <p class="kb-body" style="color: var(--kb-muted-foreground);">
-          管理数据目录与 AI 服务。所有配置只保存在本机，随时可改。
-        </p>
+    <header class="lf-head">
+      <h1 class="lf-title">
+        <Icon name="settings" :size="22" class="lf-title-icon" /> 设置
+      </h1>
+      <p class="lf-sub">管理数据目录与 AI 服务。所有配置只保存在本机，随时可改。</p>
+    </header>
+
+    <!-- ============ 卡片 1：通用配置 ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="folder-open" :size="18" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">知识库数据目录</h2>
+          <p class="lf-card-desc">笔记、复习卡片、记忆宫殿等数据的存放位置。</p>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button class="kb-btn" @click="router.back()">
-          <Icon name="chevron-left" :size="16" /> 返回
+
+      <div class="lf-dir-row">
+        <input
+          v-model="form.dataDir"
+          class="kb-input"
+          placeholder="~/Library/Application Support/com.lectoforge.desktop"
+          spellcheck="false"
+        />
+        <button class="kb-btn" :disabled="picking" @click="pickDirectory">
+          <Icon :name="picking ? 'loader' : 'folder-search'" :size="15" :class="picking ? 'lf-spin' : ''" />
+          选择文件夹
         </button>
       </div>
-    </div>
+      <p class="lf-hint">修改后建议重启应用生效；迁移既有数据请手动拷贝。</p>
+    </section>
 
-    <div class="set-wrap">
-      <!-- ===== 数据目录 ===== -->
-      <section class="set-card">
-        <h2 class="set-card-title">
-          <Icon name="folder-open" :size="18" style="color: var(--kb-primary);" /> 知识库数据目录
-        </h2>
-        <p class="set-card-desc">
-          笔记、复习卡片、记忆宫殿等数据的存放位置。修改后建议重启应用生效；迁移既有数据请手动拷贝。
-        </p>
-        <div class="set-dir-row">
-          <input
-            v-model="form.dataDir"
-            class="kb-input set-dir-input"
-            placeholder="~/Library/Application Support/com.lectoforge.desktop"
-            spellcheck="false"
-          />
-          <button class="kb-btn" :disabled="picking" @click="pickDirectory">
-            <Icon :name="picking ? 'loader' : 'folder-search'" :size="15" :class="picking ? 'set-spin' : ''" />
-            选择文件夹
-          </button>
+    <!-- ============ 卡片 2：AI 模型配置（合并原 /settings/ai 全部功能） ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="bot" :size="18" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">AI 模型服务</h2>
+          <p class="lf-card-desc">配置一次，全局生效。所有 AI 能力均为可选增强，不配置也不影响原有功能。</p>
         </div>
-      </section>
+        <span class="lf-status" :class="statusClass">
+          <i class="lf-status-dot"></i>{{ statusText }}
+        </span>
+      </div>
 
-      <!-- ===== AI 服务 ===== -->
-      <section class="set-card">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <h2 class="set-card-title">
-            <Icon name="sparkles" :size="18" style="color: var(--kb-highlight);" /> AI 服务
-          </h2>
-          <span class="set-status" :class="aiConfigured ? 'is-on' : 'is-off'">
-            <i class="set-status-dot"></i>{{ aiConfigured ? '已配置' : '未配置' }}
-          </span>
+      <label class="lf-switch">
+        <input type="checkbox" v-model="form.enabled" />
+        <span class="lf-switch-track"></span>
+        <span class="lf-switch-label">启用 AI 增强功能</span>
+      </label>
+
+      <!-- 2 列网格：左列服务商/网关/Key，右列模型/温度/超时 -->
+      <div class="lf-grid2">
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">服务商</label>
+          <select v-model="form.provider" class="kb-input" @change="applyPreset">
+            <option v-for="p in presets" :key="p.value" :value="p.value">{{ p.label }}</option>
+          </select>
         </div>
-        <p class="set-card-desc">
-          任何 OpenAI 兼容接口皆可。API Key 只保存在本机数据目录（权限 600），不会上传、不进版本库。
-        </p>
 
-        <div class="set-form-grid">
-          <div class="set-span-2">
-            <label class="kb-label">API 网关地址</label>
-            <input v-model="form.apiUrl" class="kb-input" placeholder="https://api.deepseek.com" spellcheck="false" />
-          </div>
-          <div class="set-span-2">
-            <label class="kb-label">API Key</label>
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">API 网关地址</label>
+          <input v-model="form.baseUrl" class="kb-input" placeholder="https://api.deepseek.com/v1" spellcheck="false" />
+          <p class="lf-field-hint">填到 /v1 为止，不要带 /chat/completions。</p>
+        </div>
+
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">API Key</label>
+          <div class="lf-key-row">
             <input
               v-model="form.apiKey"
               class="kb-input"
               type="password"
               autocomplete="off"
-              :placeholder="aiConfigured ? `已保存 ${apiKeyMask}（留空表示不修改）` : 'sk-...'"
+              :placeholder="saved.apiKeyMask ? `已保存：${saved.apiKeyMask}（留空表示不修改）` : '粘贴你的 API Key'"
             />
+            <button
+              v-if="saved.apiKeyMask"
+              class="kb-btn kb-btn-danger"
+              title="清空已保存的 Key"
+              @click="clearKey"
+            >
+              <Icon name="trash-2" :size="14" /> 清空
+            </button>
           </div>
-          <div class="set-span-2">
-            <label class="kb-label">模型名称</label>
-            <input v-model="form.model" class="kb-input" placeholder="deepseek-chat" spellcheck="false" />
-          </div>
+          <p class="lf-field-hint">只保存在本机数据目录（权限 600），不会上传、不进版本库。</p>
         </div>
 
-        <div class="set-test-row">
-          <button class="kb-btn kb-btn-sm" :disabled="testing" @click="onTest">
-            <Icon :name="testing ? 'loader' : 'plug-zap'" :size="14" :class="testing ? 'set-spin' : ''" />
-            测试连通性
-          </button>
-          <router-link to="/settings/ai" class="kb-btn kb-btn-sm">
-            <Icon name="sliders-horizontal" :size="14" /> 高级 AI 设置
-          </router-link>
-          <span v-if="testResult" class="set-test-result" :class="testResult.ok ? 'is-ok' : 'is-fail'">
-            <Icon :name="testResult.ok ? 'check-circle-2' : 'x-circle'" :size="14" />
-            {{ testResult.text }}
-          </span>
+        <div class="lf-field">
+          <label class="kb-label">模型名称</label>
+          <input v-model="form.model" class="kb-input" placeholder="deepseek-chat" spellcheck="false" />
         </div>
-      </section>
 
-      <!-- ===== 关于 ===== -->
-      <section class="set-card">
-        <h2 class="set-card-title">
-          <Icon name="info" :size="18" style="color: var(--kb-muted-foreground);" /> 关于
-        </h2>
-        <dl class="set-about">
-          <div><dt>应用</dt><dd>LectoForge 学习工作台</dd></div>
-          <div><dt>版本</dt><dd>v1.0.0</dd></div>
-          <div><dt>运行模式</dt><dd><span class="set-badge"><Icon name="hard-drive" :size="12" /> 本地离线</span></dd></div>
-        </dl>
-        <div class="set-about-actions">
-          <button class="kb-btn kb-btn-sm" @click="rerunOnboarding">
-            <Icon name="rotate-ccw" :size="14" /> 重新运行新手引导
-          </button>
+        <div class="lf-field">
+          <label class="kb-label">超时（秒）</label>
+          <input type="number" min="5" max="180" class="kb-input" v-model.number="form.timeoutSec" />
+          <p class="lf-field-hint">长文生成建议 45 秒以上。</p>
         </div>
-      </section>
 
-      <!-- 底部保存条 -->
-      <div class="set-save-bar">
-        <button class="kb-btn kb-btn-primary" :disabled="saving" @click="save">
-          <Icon :name="saving ? 'loader' : 'save'" :size="16" :class="saving ? 'set-spin' : ''" />
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">采样温度 {{ form.temperature.toFixed(1) }}</label>
+          <input
+            type="range"
+            min="0.1"
+            max="2.0"
+            step="0.1"
+            v-model.number="form.temperature"
+            class="lf-range"
+          />
+          <p class="lf-field-hint">越低越稳定。评分类任务建议 0.1~0.3。</p>
+        </div>
+      </div>
+
+      <!-- 操作栏：测试连通性 + 保存设置（统一保存数据目录 + AI 全量配置） -->
+      <div class="lf-actions">
+        <button class="kb-btn kb-btn-sm" :disabled="testing" @click="onTest">
+          <Icon :name="testing ? 'loader' : 'plug-zap'" :size="14" :class="testing ? 'lf-spin' : ''" />
+          测试连通性
+        </button>
+        <button class="kb-btn kb-btn-primary" :disabled="saving" @click="saveAll">
+          <Icon :name="saving ? 'loader' : 'save'" :size="16" :class="saving ? 'lf-spin' : ''" />
           保存设置
         </button>
+        <span v-if="testState" class="lf-test-result" :class="testState.ok ? 'is-ok' : 'is-fail'">
+          <Icon :name="testState.ok ? 'check-circle' : 'x-circle'" :size="14" />
+          {{ testState.text }}
+        </span>
       </div>
-    </div>
+
+      <!-- 向量化服务（内容关联，可选，与原 /settings/ai 一致） -->
+      <div class="lf-embed">
+        <div class="lf-card-head" style="margin-bottom: .5rem;">
+          <Icon name="boxes" :size="16" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
+          <div>
+            <h3 class="lf-card-title" style="font-size: .9375rem;">向量化服务（内容关联）</h3>
+            <p class="lf-card-desc">用于「内容关联 / 学习路径」，与聊天服务可独立配置，可选。</p>
+          </div>
+          <span class="lf-status" :class="saved.embeddingsConfigured ? 'is-ok' : 'is-off'">
+            <i class="lf-status-dot"></i>{{ saved.embeddingsConfigured ? '已配置' : '未配置（可选）' }}
+          </span>
+        </div>
+
+        <div class="lf-grid2">
+          <div class="lf-field">
+            <label class="kb-label">向量化服务商</label>
+            <select v-model="form.embeddingsProvider" class="kb-input" @change="applyEmbeddingPreset">
+              <option v-for="p in embedPresets" :key="p.value" :value="p.value">{{ p.label }}</option>
+            </select>
+          </div>
+          <div class="lf-field">
+            <label class="kb-label">向量模型</label>
+            <input v-model="form.embeddingsModel" class="kb-input" placeholder="BAAI/bge-m3" spellcheck="false" />
+          </div>
+          <div class="lf-field lf-span-2">
+            <label class="kb-label">向量化 API 地址</label>
+            <input v-model="form.embeddingsBaseUrl" class="kb-input" placeholder="https://api.siliconflow.cn/v1" spellcheck="false" />
+          </div>
+          <div class="lf-field lf-span-2">
+            <label class="kb-label">向量化 API Key</label>
+            <div class="lf-key-row">
+              <input
+                v-model="form.embeddingsApiKey"
+                class="kb-input"
+                type="password"
+                autocomplete="off"
+                :placeholder="saved.embeddingsConfigured ? '已保存（留空表示不修改）' : '粘贴向量化服务的 API Key'"
+              />
+              <button
+                v-if="saved.embeddingsConfigured"
+                class="kb-btn kb-btn-danger"
+                title="清空已保存的向量化 Key"
+                @click="clearEmbeddingKey"
+              >
+                <Icon name="trash-2" :size="14" /> 清空
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 卡片 3：AI 能力清单 ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="brain-circuit" :size="18" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">已接入的 AI 能力</h2>
+          <p class="lf-card-desc">每项能力都是「按需触发 + 结果可编辑」：AI 只把结果填进输入框，是否采纳由你决定。</p>
+        </div>
+      </div>
+
+      <div class="lf-cap-grid">
+        <article v-for="c in capabilities" :key="c.name" class="lf-cap">
+          <span class="lf-cap-icon"><Icon :name="c.icon" :size="16" /></span>
+          <div class="lf-cap-body">
+            <p class="lf-cap-name">{{ c.name }}</p>
+            <p class="lf-cap-desc">{{ c.desc }}</p>
+          </div>
+          <router-link :to="c.to" class="kb-btn kb-btn-sm lf-cap-go">
+            前往 <Icon name="chevron-right" :size="12" />
+          </router-link>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ 卡片 4：关于 ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="info" :size="18" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
+        <div>
+          <h2 class="lf-card-title">关于</h2>
+          <p class="lf-card-desc">本机离线运行的个人学习工作台。</p>
+        </div>
+      </div>
+      <dl class="lf-about">
+        <div><dt>应用</dt><dd>LectoForge 学习工作台</dd></div>
+        <div><dt>版本</dt><dd>v1.0.0</dd></div>
+        <div><dt>运行模式</dt><dd><span class="lf-badge"><Icon name="hard-drive" :size="12" /> 本地离线</span></dd></div>
+      </dl>
+      <div class="lf-actions">
+        <button class="kb-btn kb-btn-sm" @click="rerunOnboarding">
+          <Icon name="rotate-ccw" :size="14" /> 重新运行新手引导
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-// 全局设置中心：复用 appStore 的 settings 与 saveSettings（保存时保持 hasOnboarded 不变）。
-import { onMounted, reactive, ref } from 'vue'
+// 统一设置中心（2026-08-08 重构）：将原 /settings（通用配置）与 /settings/ai（AI 详细配置 + 能力清单）
+// 三页面融合为单一设置界面，仅靠顶栏唯一「⚙️ 设置」入口进入。
+//
+// ⚠️ 架构红线（不改动后端契约）：
+// - 数据目录经 useAppStore.saveSettings() → POST /api/config/init 落盘；
+// - AI 全量配置经 saveAiConfig() → PUT /api/ai/config 落盘（完整保留 enabled / temperature / timeoutMs / embeddings）。
+// - 由于 /config/init 后端会把 enabled 写死 true 且仅收 apiUrl/apiKey/model，
+//   统一保存时**先存数据目录、再存 AI 全量配置（最后写）**，确保最终实现以表单为准、不丢温度/超时/向量化。
+// - 明文 apiKey 绝不进 localStorage：store 的 persist.pick 已排除；表单提交时留空表示保持已保存值。
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDebounceFn } from '@vueuse/core'
-// 顶层静态导入：build 模式下动态 import('@tauri-apps/api/core') 的 chunk 可能加载失败，
-// 错误会被 catch 静默吞掉，表现为"dev 能选目录、打包后点了没反应"
+// 顶层静态导入：build 模式下动态 import('@tauri-apps/api/core') 的 chunk 可能加载失败
 import { invoke } from '@tauri-apps/api/core'
 import Icon from '@/components/ui/Icon.vue'
-import { notify, getApiError } from '@/utils/toast'
+import { notify, getApiError, confirmDialog } from '@/utils/toast'
 import { useAppStore } from '@/store/app-store'
-import { testAiConnection } from '@/api/ai'
 import { getAppConfig } from '@/api/config'
+import {
+  getAiConfig,
+  saveAiConfig,
+  testAiConnection,
+  type AiConfigVO,
+  type AiProviderPreset,
+  type AiPingResult,
+} from '@/api/ai'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -139,31 +265,102 @@ const appStore = useAppStore()
 const picking = ref(false)
 const testing = ref(false)
 const saving = ref(false)
-const aiConfigured = ref(false)
-const apiKeyMask = ref('')
-const testResult = ref<{ ok: boolean; text: string } | null>(null)
+const testState = ref<{ ok: boolean; text: string } | null>(null)
+
+const presets = ref<AiProviderPreset[]>([])
+const embedPresets = ref<AiProviderPreset[]>([])
+
+/** 已保存配置的安全视图（掩码 + 状态），不持有明文 */
+const saved = reactive({
+  apiKeyMask: '',
+  configured: false,
+  embeddingsConfigured: false,
+})
 
 const form = reactive({
+  // 通用配置
   dataDir: '',
-  apiUrl: 'https://api.deepseek.com',
+  // AI 模型服务
+  enabled: true,
+  provider: 'deepseek',
+  baseUrl: '',
+  model: '',
   apiKey: '',
-  model: 'deepseek-chat',
+  temperature: 0.3,
+  timeoutSec: 45,
+  // 向量化（内容关联，可选，与聊天服务解耦）
+  embeddingsProvider: 'siliconflow',
+  embeddingsBaseUrl: '',
+  embeddingsApiKey: '',
+  embeddingsModel: '',
 })
+
+/** AI 能力清单（原 AiSettings.vue 迁移，图标均为 lucide 合法名，经 <Icon> 渲染） */
+const capabilities = [
+  { icon: 'wand-2', name: '费曼故事清晰度评分', desc: '按通俗度/完整度/准确度/类比质量四维打分，并指出你还没真正理解的地方。', to: '/workbench/story' },
+  { icon: 'edit-2', name: '主动回忆语义评分', desc: '换个说法也算对——按意思还原度评分，比字面比对准得多。', to: '/workbench/recall' },
+  { icon: 'notebook-pen', name: '康奈尔笔记线索列生成', desc: '从笔记正文自动生成问题式线索列与总结区。', to: '/workbench/notes' },
+  { icon: 'bar-chart-3', name: '学习周报 / 洞察', desc: '把复习量、遗忘率等硬数据讲成自然语言周报。', to: '/insights/ai' },
+  { icon: 'target', name: '薄弱点诊断', desc: '基于近期答错/遗忘记录，归纳常在哪类知识上翻车。', to: '/insights/ai' },
+  { icon: 'map-pin', name: '记忆宫殿位点生成', desc: '给知识点自动铺成有序空间位点，并配联想图像。', to: '/workbench/palace' },
+  { icon: 'list-ordered', name: '智能复习推荐', desc: '结合排程与遗忘记录，告诉你现在最该复习什么。', to: '/insights/ai' },
+  { icon: 'git-merge', name: '内容关联 / 学习路径', desc: '把收集箱、笔记、故事向量化后串成学习路径。', to: '/insights/ai' },
+]
+
+const statusClass = computed(() => {
+  if (!form.enabled) return 'is-off'
+  return saved.configured ? 'is-ok' : 'is-err'
+})
+const statusText = computed(() => {
+  if (!form.enabled) return '已关闭'
+  return saved.configured ? '已就绪' : '待配置'
+})
+
+function applyPreset() {
+  const p = presets.value.find((x) => x.value === form.provider)
+  if (!p || !p.baseUrl) return
+  form.baseUrl = p.baseUrl
+  form.model = p.model
+}
+
+function applyEmbeddingPreset() {
+  const p = embedPresets.value.find((x) => x.value === form.embeddingsProvider)
+  if (!p || !p.baseUrl) return
+  form.embeddingsBaseUrl = p.baseUrl
+  form.embeddingsModel = p.model
+}
+
+/** 用后端返回的完整配置视图回填表单（apiKey 字段留空，避免明文残留） */
+function syncAiForm(cfg: AiConfigVO) {
+  saved.apiKeyMask = cfg.apiKeyMask || ''
+  saved.configured = !!cfg.configured
+  saved.embeddingsConfigured = !!cfg.embeddingsConfigured
+  form.enabled = cfg.enabled
+  form.provider = cfg.provider
+  form.baseUrl = cfg.baseUrl
+  form.model = cfg.model
+  form.temperature = cfg.temperature
+  form.apiKey = ''
+  form.embeddingsApiKey = ''
+  form.embeddingsModel = cfg.embeddingsModel || ''
+  form.timeoutSec = Math.round(cfg.timeoutMs / 1000)
+}
 
 onMounted(async () => {
   await appStore.initFromBackend()
-  // 直接读一次后端拿到掩码与 configured（store 不缓存明文/掩码）
   try {
-    const cfg = await getAppConfig()
-    form.dataDir = cfg.dataDir || appStore.settings.dataDir
-    form.apiUrl = cfg.ai?.baseUrl || appStore.settings.ai.apiUrl
-    form.model = cfg.ai?.model || appStore.settings.ai.model
-    aiConfigured.value = !!cfg.ai?.configured
-    apiKeyMask.value = cfg.ai?.apiKeyMask || ''
+    const cfg = await getAiConfig()
+    presets.value = cfg.presets || []
+    embedPresets.value = cfg.embeddingPresets || []
+    syncAiForm(cfg)
+  } catch (e) {
+    notify(getApiError(e, '读取 AI 配置失败'), 'error')
+  }
+  try {
+    const app = await getAppConfig()
+    if (app.dataDir) form.dataDir = app.dataDir
   } catch {
     form.dataDir = appStore.settings.dataDir
-    form.apiUrl = appStore.settings.ai.apiUrl
-    form.model = appStore.settings.ai.model
   }
 })
 
@@ -183,45 +380,90 @@ async function pickDirectory() {
   }
 }
 
-const onTest = useDebounceFn(async () => {
+async function onTest() {
   if (testing.value) return
-  if (!form.apiUrl.trim() || (!form.apiKey.trim() && !aiConfigured.value)) {
-    notify('请先填写 API 地址与 Key 再测试', 'info')
+  if (!form.baseUrl.trim() || (!form.model.trim() && form.enabled)) {
+    notify('请先填写 API 地址与模型名再测试', 'info')
     return
   }
   testing.value = true
-  testResult.value = null
+  testState.value = null
   try {
     const r = await testAiConnection({
-      baseUrl: form.apiUrl.trim(),
-      apiKey: form.apiKey.trim() || undefined,
+      enabled: form.enabled,
+      provider: form.provider,
+      baseUrl: form.baseUrl.trim(),
       model: form.model.trim(),
-      provider: form.apiUrl.includes('deepseek') ? 'deepseek' : form.apiUrl.includes('openai') ? 'openai' : 'custom',
+      apiKey: form.apiKey.trim() || undefined,
+      temperature: form.temperature,
+      timeoutMs: Math.round(form.timeoutSec * 1000),
     })
-    testResult.value = { ok: true, text: `连通正常 · ${r.model} · ${r.latencyMs}ms` }
+    testState.value = { ok: true, text: `✅ 连接正常 · ${r.model} · ${r.latencyMs}ms` }
   } catch (e) {
-    testResult.value = { ok: false, text: getApiError(e, '连接失败') }
+    testState.value = { ok: false, text: `❌ 连接失败，请检查 Key 或网关地址（${getApiError(e, '')}）` }
   } finally {
     testing.value = false
   }
-}, 300)
+}
 
-async function save() {
+/**
+ * 统一保存：先存数据目录（POST /config/init），再存 AI 全量配置（PUT /ai/config，最后写）。
+ * 顺序保证 AI 的 enabled / temperature / timeoutMs / embeddings 不被 /config/init 的写死逻辑覆盖。
+ */
+async function saveAll() {
   if (saving.value) return
   saving.value = true
   try {
+    // 1) 数据目录：同步到 store 后走 POST /config/init
     appStore.updateSettings({
       dataDir: form.dataDir.trim(),
-      ai: { apiUrl: form.apiUrl.trim(), apiKey: form.apiKey, model: form.model.trim() },
+      ai: { apiUrl: form.baseUrl.trim(), apiKey: form.apiKey, model: form.model.trim() },
     })
     await appStore.saveSettings()
-    form.apiKey = ''
-    aiConfigured.value = true
+
+    // 2) AI 全量配置：最后写，权威覆盖（保留 enabled / 温度 / 超时 / 向量化）
+    const cfg = await saveAiConfig({
+      enabled: form.enabled,
+      provider: form.provider,
+      baseUrl: form.baseUrl.trim(),
+      model: form.model.trim(),
+      apiKey: form.apiKey.trim() || undefined,
+      temperature: form.temperature,
+      timeoutMs: Math.round(form.timeoutSec * 1000),
+      embeddingsBaseUrl: form.embeddingsBaseUrl.trim(),
+      embeddingsApiKey: form.embeddingsApiKey.trim() || undefined,
+      embeddingsModel: form.embeddingsModel.trim(),
+    })
+    presets.value = cfg.presets || presets.value
+    embedPresets.value = cfg.embeddingPresets || embedPresets.value
+    syncAiForm(cfg)
     notify('设置已保存', 'success')
   } catch (e) {
     notify(getApiError(e, '保存失败，请重试'), 'error')
   } finally {
     saving.value = false
+  }
+}
+
+async function clearKey() {
+  if (!(await confirmDialog('确定清空已保存的 API Key？清空后所有 AI 功能将自动降级为不可用。'))) return
+  try {
+    const cfg = await saveAiConfig({ apiKey: null })
+    syncAiForm(cfg)
+    notify('已清空 API Key', 'success')
+  } catch (e) {
+    notify(getApiError(e, '操作失败'), 'error')
+  }
+}
+
+async function clearEmbeddingKey() {
+  if (!(await confirmDialog('确定清空已保存的向量化 API Key？「内容关联」功能将降级为不可用。'))) return
+  try {
+    const cfg = await saveAiConfig({ embeddingsApiKey: null })
+    syncAiForm(cfg)
+    notify('已清空向量化 Key', 'success')
+  } catch (e) {
+    notify(getApiError(e, '操作失败'), 'error')
   }
 }
 
@@ -232,59 +474,89 @@ function rerunOnboarding() {
 </script>
 
 <style scoped>
-.set-wrap { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+.lf-page { max-width: 56rem; margin: 0 auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 
-.set-card {
+.lf-head { margin-bottom: -.25rem; }
+.lf-title { display: flex; align-items: center; gap: .5rem; font-size: var(--kb-fs-h2, 1.5rem); font-weight: 700; color: var(--kb-foreground); margin: 0; }
+.lf-title-icon { color: var(--kb-primary); }
+.lf-sub { color: var(--kb-muted-foreground); font-size: var(--kb-fs-body-sm, .8125rem); margin: .3rem 0 0; }
+
+.lf-card {
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
-  border-radius: var(--kb-radius-lg);
-  padding: 20px 22px;
+  border-radius: var(--kb-radius-lg, 16px);
+  padding: 1.25rem 1.375rem;
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,.04));
 }
-.set-card-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: var(--kb-fs-h4); font-weight: var(--kb-fw-h4); color: var(--kb-foreground); margin: 0;
-}
-.set-card-desc { font-size: var(--kb-fs-body-sm); line-height: 1.6; color: var(--kb-muted-foreground); margin: 8px 0 16px; }
+.lf-card-head { display: flex; align-items: flex-start; gap: .625rem; margin-bottom: .75rem; }
+.lf-card-icon { color: var(--kb-primary); margin-top: 2px; flex-shrink: 0; }
+.lf-card-title { font-size: var(--kb-fs-h4, 1rem); font-weight: 600; color: var(--kb-foreground); margin: 0; }
+.lf-card-desc { font-size: var(--kb-fs-body-sm, .8125rem); color: var(--kb-muted-foreground); margin: .125rem 0 0; line-height: 1.5; }
 
-.set-dir-row { display: flex; gap: 8px; }
-.set-dir-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12.5px; }
+.lf-hint { font-size: var(--kb-fs-caption, .75rem); color: var(--kb-muted-foreground); margin-top: .75rem; line-height: 1.5; }
 
-.set-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.set-span-2 { grid-column: span 2; }
+.lf-dir-row { display: flex; gap: .5rem; align-items: center; }
+.lf-dir-row .kb-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12.5px; }
 
-.set-test-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-.set-test-result { display: inline-flex; align-items: center; gap: 5px; font-size: var(--kb-fs-caption); }
-.set-test-result.is-ok { color: var(--kb-primary); }
-.set-test-result.is-fail { color: var(--kb-destructive); }
+/* 状态徽标 */
+.lf-status { display: inline-flex; align-items: center; gap: .375rem; font-size: var(--kb-fs-caption, .75rem); padding: .15rem .55rem; border-radius: 999px; margin-left: auto; align-self: center; background: var(--kb-muted); color: var(--kb-muted-foreground); }
+.lf-status-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--kb-muted-foreground); }
+.lf-status.is-ok { color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 12%, transparent); }
+.lf-status.is-ok .lf-status-dot { background: var(--kb-primary); }
+.lf-status.is-err { color: var(--kb-warning); background: color-mix(in srgb, var(--kb-warning) 14%, transparent); }
+.lf-status.is-err .lf-status-dot { background: var(--kb-warning); }
+.lf-status.is-off { color: var(--kb-muted-foreground); }
 
-.set-status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--kb-fs-caption); }
-.set-status-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--kb-muted-foreground); }
-.set-status.is-on { color: var(--kb-primary); }
-.set-status.is-on .set-status-dot { background: var(--kb-primary); }
-.set-status.is-off { color: var(--kb-muted-foreground); }
+/* 启用开关 */
+.lf-switch { display: inline-flex; align-items: center; gap: .5rem; margin: .25rem 0 .75rem; cursor: pointer; }
+.lf-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.lf-switch-track { width: 38px; height: 22px; border-radius: 999px; background: var(--kb-border); position: relative; transition: background .15s ease; flex-shrink: 0; }
+.lf-switch-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s ease; }
+.lf-switch input:checked + .lf-switch-track { background: var(--kb-primary); }
+.lf-switch input:checked + .lf-switch-track::after { transform: translateX(16px); }
+.lf-switch-label { font-size: var(--kb-fs-body-sm); color: var(--kb-foreground); font-weight: 500; }
 
-.set-about { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 0; }
-.set-about > div { display: flex; align-items: center; gap: 16px; }
-.set-about dt { width: 88px; flex-shrink: 0; font-size: var(--kb-fs-body-sm); color: var(--kb-muted-foreground); margin: 0; }
-.set-about dd { font-size: var(--kb-fs-body-sm); color: var(--kb-foreground); margin: 0; }
-.set-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 9px; border-radius: 999px;
-  background: var(--kb-muted); color: var(--kb-muted-foreground); font-size: 11.5px;
-}
-.set-about-actions { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--kb-border); }
+/* 2 列表单网格 */
+.lf-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.lf-span-2 { grid-column: span 2; }
+.lf-field { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.lf-field .kb-input { width: 100%; }
+.lf-field-hint { font-size: var(--kb-fs-caption, .75rem); color: var(--kb-muted-foreground); margin: 0; line-height: 1.4; }
+.lf-key-row { display: flex; align-items: center; gap: .5rem; }
+.lf-key-row .kb-input { flex: 1; min-width: 0; }
+.lf-range { width: 100%; accent-color: var(--kb-primary); }
 
-.set-save-bar {
-  position: sticky; bottom: 0;
-  display: flex; justify-content: flex-end;
-  padding: 12px 0 4px;
-}
+/* 操作栏 */
+.lf-actions { display: flex; align-items: center; gap: .625rem; margin-top: 1rem; flex-wrap: wrap; }
+.lf-test-result { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--kb-fs-caption, .75rem); }
+.lf-test-result.is-ok { color: var(--kb-accent); }
+.lf-test-result.is-fail { color: var(--kb-destructive); }
 
-.set-spin { animation: set-rotate 0.9s linear infinite; }
-@keyframes set-rotate { to { transform: rotate(360deg); } }
+/* 向量化服务子区 */
+.lf-embed { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--kb-border); }
 
-@media (max-width: 560px) {
-  .set-form-grid { grid-template-columns: 1fr; }
-  .set-span-2 { grid-column: span 1; }
+/* 能力清单网格 */
+.lf-cap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .625rem; margin-top: .5rem; }
+.lf-cap { display: flex; align-items: center; gap: .75rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md, 10px); padding: .625rem .75rem; background: var(--kb-card); }
+.lf-cap-icon { flex-shrink: 0; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: color-mix(in srgb, var(--kb-primary) 10%, transparent); color: var(--kb-primary); }
+.lf-cap-body { flex: 1; min-width: 0; }
+.lf-cap-name { font-size: var(--kb-fs-body-sm); font-weight: 600; color: var(--kb-foreground); margin: 0; }
+.lf-cap-desc { font-size: var(--kb-fs-caption, .75rem); color: var(--kb-muted-foreground); margin: .125rem 0 0; line-height: 1.4; }
+.lf-cap-go { flex-shrink: 0; }
+
+/* 关于 */
+.lf-about { display: flex; flex-direction: column; gap: .5rem; margin: 0; }
+.lf-about > div { display: flex; align-items: center; gap: 1rem; }
+.lf-about dt { width: 84px; flex-shrink: 0; font-size: var(--kb-fs-body-sm); color: var(--kb-muted-foreground); margin: 0; }
+.lf-about dd { font-size: var(--kb-fs-body-sm); color: var(--kb-foreground); margin: 0; }
+.lf-badge { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .55rem; border-radius: 999px; background: var(--kb-muted); color: var(--kb-muted-foreground); font-size: var(--kb-fs-caption, .75rem); }
+
+.lf-spin { animation: lf-rotate .9s linear infinite; }
+@keyframes lf-rotate { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+  .lf-grid2 { grid-template-columns: 1fr; }
+  .lf-span-2 { grid-column: span 1; }
+  .lf-cap-grid { grid-template-columns: 1fr; }
 }
 </style>

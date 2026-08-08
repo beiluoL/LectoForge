@@ -146,11 +146,10 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
-    // AI 配置中心：独立于学习闭环七模块，从顶栏齿轮入口进入
+    // 旧 AI 配置中心已合并进统一设置页 /settings（2026-08-08 重构），
+    // 这里保留重定向兜住历史链接与外部书签，避免 404。
     path: '/settings/ai',
-    name: 'AiSettings',
-    component: () => import('@/views/AiSettings.vue'),
-    meta: { layout: 'c', fullscreen: true },
+    redirect: '/settings',
   },
   {
     // AI 学习洞察（P2-G1/C2）：周报与薄弱点诊断，从 AI 设置页能力清单进入

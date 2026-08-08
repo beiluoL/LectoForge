@@ -65,7 +65,7 @@
           <Icon name="info" :size="14" />
           <span>
             尚未配置 AI 服务，
-            <router-link to="/settings/ai">前往 AI 设置</router-link>
+            <router-link to="/settings">前往 AI 设置</router-link>
             填入 API Key 后即可使用清晰度评分。
           </span>
         </div>

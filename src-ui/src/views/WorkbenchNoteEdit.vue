@@ -152,7 +152,7 @@
       <div v-if="aiHintVisible" class="ai-hint note-ai-hint">
         <Icon name="info" :size="14" />
         <span>尚未配置 AI 服务，无法生成线索/总结。</span>
-        <router-link to="/settings/ai">前往 AI 设置</router-link>
+        <router-link to="/settings">前往 AI 设置</router-link>
       </div>
       <!--
         倒 T 形康奈尔版式：上排「线索 | 笔记」由竖分割线切分，下排「总结」由横分割线切分。

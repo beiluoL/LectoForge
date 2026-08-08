@@ -67,7 +67,7 @@
     <div v-if="aiHintVisible" class="ai-hint cap-ai-hint">
       <Icon name="info" :size="14" />
       <span>尚未配置 AI 服务，无法使用智能整理。</span>
-      <router-link to="/settings/ai">前往 AI 设置</router-link>
+      <router-link to="/settings">前往 AI 设置</router-link>
     </div>
     <section class="wb-list">
       <div v-if="loading" class="wb-card-grid">

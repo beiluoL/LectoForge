@@ -213,14 +213,6 @@
       <router-link to="/settings" class="wb-icon-btn" title="设置">
         <Icon name="settings" size="md" />
       </router-link>
-      <router-link
-        to="/settings/ai"
-        class="wb-icon-btn"
-        title="AI 设置"
-        :style="aiReady ? { color: 'var(--kb-highlight)' } : undefined"
-      >
-        <Icon name="ai-sparkle" size="md" />
-      </router-link>
       <button type="button" class="wb-icon-btn" title="检查更新" @click="checkUpdate">
         <Icon name="refresh-cw" size="md" :class="updating ? 'animate-spin' : ''" />
       </button>
@@ -243,7 +235,6 @@ import { useRoute, useRouter } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import TimerCapsule from '@/components/layout/TimerCapsule.vue';
 import { notify } from '@/utils/toast';
-import { getAiStatus } from '@/api/ai';
 import { useSearchStore } from '@/store/search-store';
 import { useDashboardStore } from '@/store/dashboard-store';
 import { useReviewStore } from '@/store/review-store';
@@ -255,7 +246,6 @@ const route = useRoute();
 const reviewOpen = ref(false); // 复习下拉（桌面 + 窄窗共用）
 const moreOpen = ref(false);   // 更多下拉（窄窗）
 const updating = ref(false);
-const aiReady = ref(false);
 const searchStore = useSearchStore();
 
 /* ---------------- Pinia 状态（storeToRefs 解构） ---------------- */
@@ -274,11 +264,6 @@ function openSearch() {
 }
 
 onMounted(async () => {
-  try {
-    aiReady.value = (await getAiStatus()).ready;
-  } catch {
-    aiReady.value = false;
-  }
   // 拉取实时状态，驱动角标（仅首屏未拉取时补一次，避免重复请求）
   if (!loaded.value) dashboardStore.fetchStats();
   reviewStore.loadLegacyDueCount();

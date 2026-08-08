@@ -125,8 +125,8 @@
 ### 3.2 配置中心（P0，已实现）
 - **存储**：`resolveDataDir()` 下的 `ai-config.json`（落盘后 `chmod 600`），与 `workbench.db` 同级；不入库。
 - **端点**：`GET/PUT /api/ai/config`（PUT 接收 `{ provider, baseURL, apiKey, model }`；GET 脱敏为 `****`）、`POST /api/ai/test`（连通性）、`GET /api/ai/status`（各能力可用态）。
-- **前端**：`/settings/ai`（AiSettings.vue）填写 provider/Key/模型/温度/超时；向量化服务（SiliconFlow BAAI/bge-m3、OpenAI text-embedding-3-small、自定义）独立配置。未配置时各 AI 按钮置灰 + 提示。
-- **首次引导也可配**：`/onboarding` 引导页填的 AI 参数经 `POST /api/config/init` → `lib/llm.ts` 的 `saveConfig` 落入同一份 `ai-config.json`，与 `/settings/ai` 完全等价（详见《技术架构与功能手册.md》§7.15）。`/api/config` 初始化时一并返回 AI 公共视图（Key 仅掩码），供引导页预填。
+- **前端**：`/settings`（统一设置中心 `Settings/index.vue`，由原 `/settings` 与 `/settings/ai` 合并）填写 provider/Key/模型/温度（0.1~2.0）/超时；向量化服务（SiliconFlow BAAI/bge-m3、OpenAI text-embedding-3-small、自定义）独立配置。未配置时各 AI 按钮置灰 + 提示。
+- **首次引导也可配**：`/onboarding` 引导页填的 AI 参数经 `POST /api/config/init` → `lib/llm.ts` 的 `saveConfig` 落入同一份 `ai-config.json`，与统一设置中心 `/settings` 完全等价（详见《技术架构与功能手册.md》§7.15）。`/api/config` 初始化时一并返回 AI 公共视图（Key 仅掩码），供引导页预填。
 - **预设**：`PROVIDER_PRESETS`（deepseek / openai / custom）、`EMBEDDING_PRESETS`；默认 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat`。
 - **环境变量** `LECTOFORGE_AI_KEY` / `LECTOFORGE_AI_MODEL` / `LECTOFORGE_AI_BASE_URL` 优先级最高。
 
@@ -147,7 +147,7 @@
 > Prompt 模板集中在 `src-api/src/lib/prompts.ts`（**882 行，15 组** `buildXxxPrompt`，如 `buildStoryClarityPrompt` / `buildRecallScorePrompt` / `buildMindMapPrompt`），各组配套 TS 输出类型，前后端类型闭环。
 
 ### 3.5 前端接入（Pinia + lucide + AI 按钮）
-- 路由 24 条（20 个业务视图）含 `/onboarding`、`/settings`、`/settings/ai`、`/insights/ai`、`/pomodoro`、`/pomodoro/stats`；`main.ts` 已 `createPinia()` + `pinia-plugin-persistedstate`；`pomodoroStore` 计时引擎常驻后台（番茄钟为非 AI 模块，见《技术架构与功能手册.md》§7.16）。
+- 路由 23 条（19 个业务视图，另含 1 条 `/settings/ai` → `/settings` 历史重定向）含 `/onboarding`、`/settings`、`/insights/ai`、`/pomodoro`、`/pomodoro/stats`；`main.ts` 已 `createPinia()` + `pinia-plugin-persistedstate`；`pomodoroStore` 计时引擎常驻后台（番茄钟为非 AI 模块，见《技术架构与功能手册.md》§7.16）。原独立的「AI 配置中心」`/settings/ai` 已合并进统一设置页 `/settings`，顶栏仅保留唯一「⚙️ 设置」入口。
 - `Icon.vue` 重构为 **lucide-vue-next 包装器**，新代码统一用 lucide 图标名（如 `sparkles`/`brain`）。
 - 各 view 工具栏「✨ AI 生成」按钮：loading → 填充对应字段 → 用户可编辑后随既有自动保存落库（AI 建议、人终校）。
 - `AiAssociatePanel`（右侧）承载 `/embeddings/sync` + `/associate` 的内容关联；`AiInsights.vue` 承载周报/诊断/推荐。

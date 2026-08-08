@@ -20,7 +20,7 @@
     <div v-if="hintVisible" class="ai-hint">
       <Icon name="info" :size="14" />
       <span>未配置向量化服务，无法做内容关联。</span>
-      <router-link to="/settings/ai">前往 AI 设置</router-link>
+      <router-link to="/settings">前往 AI 设置</router-link>
     </div>
 
     <div v-if="syncedMsg" class="ai-assoc-synced">

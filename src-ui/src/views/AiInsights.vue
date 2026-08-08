@@ -32,7 +32,7 @@
 
         <div v-if="aiHintVisible" class="ai-hint">
           <Icon name="info" :size="14" />
-          <span>尚未配置 AI 服务，<router-link to="/settings/ai">前往 AI 设置</router-link> 后即可使用。</span>
+          <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="report" class="ai-panel">
@@ -71,7 +71,7 @@
 
         <div v-if="aiHintVisible" class="ai-hint">
           <Icon name="info" :size="14" />
-          <span>尚未配置 AI 服务，<router-link to="/settings/ai">前往 AI 设置</router-link> 后即可使用。</span>
+          <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="weak" class="ai-panel">
@@ -110,7 +110,7 @@
 
         <div v-if="aiHintVisible" class="ai-hint">
           <Icon name="info" :size="14" />
-          <span>尚未配置 AI 服务，<router-link to="/settings/ai">前往 AI 设置</router-link> 后即可使用。</span>
+          <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="rec" class="ai-panel">
@@ -153,7 +153,7 @@
 
         <div v-if="aiHintVisible" class="ai-hint">
           <Icon name="info" :size="14" />
-          <span>尚未配置 AI 服务，<router-link to="/settings/ai">前往 AI 设置</router-link> 后即可使用。</span>
+          <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="syncResult" class="ai-panel ai-panel-inline">
