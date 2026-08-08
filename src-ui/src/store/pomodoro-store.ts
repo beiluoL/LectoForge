@@ -39,7 +39,7 @@ import { formatMMSS } from '@/lib/date';
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 
-// 对外 re-export 番茄钟类型，让消费方（App.vue / PopupTimer.vue 等）统一从 store 入口引，
+// 对外 re-export 番茄钟类型，让消费方（TimerCapsule.vue / Pomodoro 页等）统一从 store 入口引，
 // 避免散落两处 import 路径（store 与 api）一旦调整类型位置出现编译错位。
 export type { PomodoroPhase } from '@/api/pomodoro';
 

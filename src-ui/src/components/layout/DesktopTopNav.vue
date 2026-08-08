@@ -75,7 +75,7 @@
           :to="it.path"
           class="nav-item"
           :class="{ 'is-active': isActive(it) }"
-          @click="onNavClick(it, $event)"
+          @click="closeMenus"
         >
           <span class="relative inline-flex">
             <Icon :name="it.icon" size="md" />
@@ -146,7 +146,7 @@
           :to="it.path"
           class="nav-item"
           :class="{ 'is-active': isActive(it) }"
-          @click="onNavClick(it, $event)"
+          @click="closeMenus"
         >
           <span class="relative inline-flex">
             <Icon :name="it.icon" size="md" />
@@ -179,7 +179,7 @@
                 class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
                        hover:bg-black/5 dark:hover:bg-white/10"
                 :class="isActive(it) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
-                @click="onNavClick(it, $event)"
+                @click="closeMenus"
               >
                 <Icon :name="it.icon" size="sm" />
                 <span>{{ it.label }}</span>
@@ -224,6 +224,8 @@
       <button type="button" class="wb-icon-btn" title="检查更新" @click="checkUpdate">
         <Icon name="refresh-cw" size="md" :class="updating ? 'animate-spin' : ''" />
       </button>
+      <!-- 顶栏最右：番茄钟胶囊（状态点 + MM:SS + 开始/暂停/重置），取代原菜单栏弹窗 -->
+      <TimerCapsule />
     </div>
   </header>
 </template>
@@ -234,10 +236,12 @@
 //   工作台(hub) / 收集箱(input) / 笔记·文档库(整理) / 复习(巩固·父级含间隔复习·记忆宫殿·主动回忆) /
 //   费曼故事·思维导图(输出) / 番茄钟(工具)
 // 关键约束：Vue3 <script setup lang="ts"> + Pinia(storeToRefs) + Tailwind + --kb-* token + lucide(Icon) + vue-router。
-// 注意：原「知识库」菜单入口已彻底删除；番茄钟走 popup 弹窗逻辑（同原实现）。
+// 注意：原「知识库」菜单入口已彻底删除；番茄钟（2026-08-08 起）不再走 pomodoro_popup 弹窗，
+// 菜单项就是普通路由跳转 /pomodoro，日常控制交给右侧内嵌的 TimerCapsule 胶囊。
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
+import TimerCapsule from '@/components/layout/TimerCapsule.vue';
 import { notify } from '@/utils/toast';
 import { getAiStatus } from '@/api/ai';
 import { useSearchStore } from '@/store/search-store';
@@ -245,8 +249,6 @@ import { useDashboardStore } from '@/store/dashboard-store';
 import { useReviewStore } from '@/store/review-store';
 import { storeToRefs } from 'pinia';
 // 顶层静态导入 Tauri API：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk 静默失败。
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 
 const route = useRoute();
@@ -292,8 +294,6 @@ type NavItem = {
   match?: string[];
   /** 角标数据源 */
   badge?: 'pendingCaptures' | 'dueReviews';
-  /** 番茄钟：点击不跳主窗口，改为呼出菜单栏弹窗 */
-  popup?: boolean;
   /** 视觉分组细竖线（位于该项之前） */
   dividerBefore?: boolean;
   /** 子菜单（仅复习父级） */
@@ -326,8 +326,8 @@ const navItems: NavItem[] = [
   { path: '/workbench/story', label: '费曼故事', icon: 'pen-line', dividerBefore: true },
   // 7. 输出
   { path: '/mindmap', label: '思维导图', icon: 'share-2' },
-  // 8. 工具（popup）
-  { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'], popup: true },
+  // 8. 工具（普通路由：番茄钟完整页，日常控制在顶栏胶囊里）
+  { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'] },
 ];
 
 // 窄窗常驻入口（1-5）与「更多」折叠入口（6-8）
@@ -355,7 +355,7 @@ function badgeTone(it: NavItem): 'danger' | 'warning' {
   return it.badge === 'dueReviews' ? 'danger' : 'warning';
 }
 
-/* ---------------- 交互：父级跳转驾驶舱 / 子项独立路由 / 番茄钟 popup ---------------- */
+/* ---------------- 交互：父级跳转驾驶舱 / 子项独立路由 ---------------- */
 const router = useRouter();
 
 /** 仅当不在当前路由时跳转，避免重复压栈 */
@@ -371,24 +371,13 @@ function goTo(it: NavItem) {
 }
 
 /**
- * 番茄钟菜单项拦截：popup 项不跳主窗口路由，改为呼出菜单栏弹窗（pomodoro_popup 窗口）。
- * 非 popup 项透传（router-link 正常跳转）。
+ * 普通导航项点击：仅收起两个下拉（复习 / 更多），跳转本身交给 router-link。
+ * 历史包袱说明：这里原先还负责拦截番茄钟项去呼出 pomodoro_popup 弹窗，
+ * 弹窗形态已于 2026-08-08 移除，拦截逻辑随之删干净，番茄钟回归普通路由。
  */
-async function onNavClick(it: NavItem, e: MouseEvent) {
+function closeMenus() {
   moreOpen.value = false;
   reviewOpen.value = false;
-  if (!it.popup) return;
-  e.preventDefault();
-  try {
-    const popup = await WebviewWindow.getByLabel('pomodoro_popup');
-    if (popup) {
-      await popup.show();
-      await popup.setFocus();
-      await getCurrentWindow().hide();
-    }
-  } catch {
-    /* 浏览器预览态：@tauri-apps/api 不存在，忽略 */
-  }
 }
 
 async function checkUpdate() {

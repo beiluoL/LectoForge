@@ -83,19 +83,13 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
-    // 番茄钟：专注计时 + 白噪音 + 提示音设置（计时引擎在 pomodoroStore，跨页面常驻）。
+    // 番茄钟完整页：专注计时 + 白噪音 + 提示音设置（计时引擎在 pomodoroStore，跨页面常驻）。
+    // 日常「开始 / 暂停 / 重置」已下沉到顶栏内嵌胶囊（TimerCapsule），此页专注设置与大盘展示。
+    // 注：原 /pomodoro-popup 路由（pomodoro_popup 透明弹窗窗口）已于 2026-08-08 随弹窗形态一并删除。
     path: '/pomodoro',
     name: 'Pomodoro',
     component: () => import('@/views/Pomodoro/index.vue'),
     meta: { layout: 'c', fullscreen: true },
-  },
-  {
-    // 番茄钟菜单栏弹窗：由 pomodoro_popup 窗口（380×460 无边框透明）渲染，
-    // 不在主窗口顶栏内。实际布局由 App.vue 按窗口 label 切换（isPopup），这里仅声明路由。
-    path: '/pomodoro-popup',
-    name: 'PomodoroPopup',
-    component: () => import('@/views/Pomodoro/PopupTimer.vue'),
-    meta: { fullscreen: true },
   },
   {
     // 番茄钟历史统计：vue-chartjs 柱状图 + 三张总结卡。

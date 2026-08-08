@@ -1,21 +1,11 @@
 <template>
   <!-- 与 Web 端 CLayout（route.meta.layout === 'c'）结构一致：
        顶部 56px 固定导航 + pt-14 内容区；工作台页为 fullscreen，取消 max-w-7xl 居中限制。
-       pomodoro_popup 窗口（菜单栏弹窗）：不渲染顶栏、去掉居中约束、背景透明，铺满 380×460。 -->
-  <div
-    class="kb-app-shell"
-    :class="{ 'kb-popup-shell': isPopup }"
-    :style="shellStyle"
-  >
-    <DesktopTopNav v-if="!route.meta.standalone && !isPopup" />
+       番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
+  <div class="kb-app-shell" :style="{ background: 'var(--kb-background)' }">
+    <DesktopTopNav v-if="!route.meta.standalone" />
     <main :class="mainClass">
-      <!-- 菜单栏弹窗：全幅铺满，无 pt-14 / max-w-7xl 包裹，透明宿主背景 -->
-      <template v-if="isPopup">
-        <router-view v-slot="{ Component }">
-          <component :is="Component" :key="route.path" />
-        </router-view>
-      </template>
-      <template v-else-if="route.meta.standalone">
+      <template v-if="route.meta.standalone">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
@@ -47,7 +37,7 @@
 
 <script setup lang="ts">
 // 桌面端应用根组件：等价于 Web 端 App.vue + CLayout 的组合（去掉登录态恢复与番茄钟等 Web 专属逻辑）。
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
@@ -59,12 +49,11 @@ import QuickCreateNote from '@/components/QuickCreateNote.vue';
 import { useSearchStore } from '@/store/search-store';
 import { useInboxStore } from '@/store/inbox-store';
 import { useNoteStore } from '@/store/note-store';
-import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoro-store';
+import { usePomodoroStore } from '@/store/pomodoro-store';
 import { initBackendHealth } from '@/utils/connection';
 // 顶层静态导入 Tauri API：避免 build 模式下从静态 dist（由 8787 侧车托管）动态加载
-// @tauri-apps/api/* 的 chunk 时静默失败（被 catch 吞），导致菜单栏弹窗自识别、事件监听失效。
+// @tauri-apps/api/* 的 chunk 时静默失败（被 catch 吞），导致原生菜单跳转、深链监听失效。
 // dev 模式走 Vite dev server 不受影响；build 模式必须用静态导入才稳（pomodoroStore 已验证此路）。
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 // 顶层静态导入 invoke：build 模式页面由 8787 侧车静态托管，动态 import 的 chunk 会静默失败
 // （与上面 listen 同理）。深链冷启动兜底需要从 Rust 取一次待消费剪藏，必须走静态导入。
@@ -78,14 +67,8 @@ const noteStore = useNoteStore();
 /** 全局速记弹窗开关（Cmd/Ctrl+Shift+I）—— 收敛到收集箱 store，与页面内状态同源 */
 const { quickOpen } = storeToRefs(inboxStore);
 
-/** 当前窗口是否为菜单栏番茄钟弹窗（pomodoro_popup）。决定顶栏渲染与布局约束。 */
-const isPopup = ref(false);
-const shellStyle = computed(() =>
-  isPopup.value ? { background: 'transparent' } : { background: 'var(--kb-background)' },
-);
-const mainClass = computed(() =>
-  isPopup.value ? 'kb-popup-host' : route.meta.standalone ? '' : 'pt-14',
-);
+/** 内容区上边距：standalone 全屏页（引导 / 设置）无顶栏，其余页面让开 56px 固定顶栏 */
+const mainClass = computed(() => (route.meta.standalone ? '' : 'pt-14'));
 
 /** 三个全局弹层互斥：新开一个就把其余的收起来，避免遮罩叠遮罩 */
 function closeAllOverlays() {
@@ -134,17 +117,6 @@ function handleKeydown(e: KeyboardEvent) {
 onMounted(() => {
   void initBackendHealth();
   window.addEventListener('keydown', handleKeydown);
-  // 菜单栏弹窗（pomodoro_popup）自识别：隐藏顶栏 + 透明全幅布局，并直跳番茄钟弹窗路由。
-  void (async () => {
-    try {
-      if (getCurrentWindow().label === 'pomodoro_popup') {
-        isPopup.value = true;
-        router.replace('/pomodoro-popup');
-      }
-    } catch {
-      /* 非桌面宿主（浏览器预览），忽略 */
-    }
-  })();
   // 原生菜单项（去学习复习 / 番茄钟）点击后由 Rust 侧 emit("navigate", path)，
   // 此处统一接管路由跳转；浏览器预览态下 @tauri-apps/api 不存在，静默跳过。
   void (async () => {
@@ -197,54 +169,13 @@ onMounted(() => {
     }
   })();
 
-  // 番茄钟全局常驻：计时引擎在应用级 store，这里统一初始化——
-  // 即便用户从不打开番茄钟页，状态栏托盘的「开始 / 暂停」也能驱动计时。
-  // 同时接收托盘菜单的快捷操作（开始/暂停/重置/切换模式）反控计时引擎。
-  const pomo = usePomodoroStore();
-  void pomo.init();
-  void (async () => {
-    try {
-      await listen(
-        'pomodoro:control',
-        (e: { payload: { action: string; phase?: PomodoroPhase } }) => {
-          const p = e.payload;
-          if (p.action === 'toggle') {
-            if (pomo.isRunning) pomo.pauseTimer();
-            else pomo.startTimer();
-          } else if (p.action === 'start') pomo.startTimer();
-          else if (p.action === 'pause') pomo.pauseTimer();
-          else if (p.action === 'reset') pomo.resetTimer();
-          else if (p.action === 'switch' && p.phase) pomo.switchPhase(p.phase);
-        },
-      );
-    } catch {
-      /* 非桌面宿主，忽略 */
-    }
-  })();
+  // 番茄钟全局常驻：计时引擎在应用级 store（主窗口内唯一一份），这里统一初始化——
+  // 顶栏胶囊 TimerCapsule、/pomodoro 完整页、菜单栏倒计时图标三者都消费这同一份状态，
+  // 即便用户从不打开番茄钟页，胶囊上点「开始」也照常驱动菜单栏倒计时。
+  void usePomodoroStore().init();
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
-<style>
-/* 菜单栏番茄钟弹窗宿主：透明、无滚动、精确铺满 380×460 窗口（100vh 相对 WebView 视口） */
-.kb-popup-shell {
-  min-height: 100vh;
-  height: 100vh;
-  overflow: hidden;
-  background: transparent;
-}
-.kb-popup-host {
-  height: 100vh;
-  overflow: hidden;
-  background: transparent;
-}
-/* 弹窗内深色模式跟随系统：Tauri 透明窗口下，用 prefers-color-scheme 兜底 */
-@media (prefers-color-scheme: dark) {
-  .kb-popup-shell,
-  .kb-popup-host {
-    background: transparent;
-  }
-}
-</style>

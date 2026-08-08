@@ -27,18 +27,6 @@ use tauri_plugin_updater::UpdaterExt;
 mod tray;
 use serde_json::json;
 
-/// 记录 pomodoro_popup 最近一次被 `show()` 的时刻。
-/// 用于 `WindowEvent::Focused(false)` 的「显示后宽限期」去抖：
-/// macOS 上点击菜单栏图标 `show()` 弹窗后，系统常把焦点让回（桌面/上一个 App），
-/// 触发一次伪失焦事件；若立即隐藏，弹窗会「刚弹出就消失」。宽限期内的失焦一律忽略，
-/// 只有用户真正去点弹窗以外的区域（发生在宽限期之后）才隐藏。
-pub(crate) static POPUP_SHOWN_AT: std::sync::OnceLock<
-    std::sync::Arc<std::sync::Mutex<std::time::Instant>>,
-> = std::sync::OnceLock::new();
-
-/// 显示后宽限期（毫秒）：此窗口内的失焦事件视为系统抖动，不触发隐藏。
-const POPUP_SHOW_GRACE_MS: u128 = 350;
-
 /// 浏览器剪藏深链（lectoforge://capture?url=&title=&text=）的待消费缓冲。
 ///
 /// macOS 通过自定义 URL Scheme 拉起应用时，`RunEvent::Opened` 可能在前端
@@ -500,14 +488,13 @@ pub fn run() {
             #[allow(unused_mut, unused_assignments)]
             let mut api_port: u16 = DEFAULT_BACKEND_PORT;
 
-            // 菜单栏形态：macOS 下设为 Accessory（无 Dock 图标，仅状态栏常驻），
-            // 配合托盘番茄钟实现「无需主窗口即可后台运行」。其它平台忽略。
-            #[cfg(target_os = "macos")]
-            {
-                let _ = app
-                    .handle()
-                    .set_activation_policy(tauri::ActivationPolicy::Accessory);
-            }
+            /* 激活策略保持默认的 Regular（有 Dock 图标、可 ⌘Tab、显示应用主菜单）。
+             *
+             * 2026-08-08 形态回归：番茄钟由「独立菜单栏弹窗应用」改为「主工作台内嵌胶囊 +
+             * 菜单栏倒计时指示器」。此前为纯菜单栏形态设过 ActivationPolicy::Accessory，
+             * 现在必须去掉——Accessory 下 macOS 不展示应用主菜单栏，而 WKWebView 的
+             * ⌘C/⌘V 依赖原生「编辑」菜单里的 copy:/paste: selector 接入响应链，
+             * 保留 Accessory 会让主窗口输入框的复制粘贴静默失效。 */
 
             // 深链剪藏的待消费缓冲（lectoforge://capture 拉起时写入，前端监听或命令兜底取用）
             app.manage(DeepLinkState {
@@ -585,22 +572,6 @@ pub fn run() {
                 .title("LectoForge 学习工作台")
                 .inner_size(1200.0, 800.0)
                 .build()?;
-
-                // 番茄钟菜单栏弹窗（无边框 / 透明 / 毛玻璃 / 置顶 / 固定 380×460 / 默认隐藏）
-                WebviewWindowBuilder::new(
-                    app,
-                    "pomodoro_popup",
-                    WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
-                )
-                .title("LectoForge 番茄钟")
-                .inner_size(380.0, 460.0)
-                .decorations(false)
-                .transparent(true)
-                .always_on_top(true)
-                .resizable(false)
-                .center()
-                .visible(false)
-                .build()?;
             }
 
             #[cfg(debug_assertions)]
@@ -612,22 +583,6 @@ pub fn run() {
                 )
                 .title("LectoForge 学习工作台 (dev)")
                 .inner_size(1200.0, 800.0)
-                .build()?;
-
-                // 番茄钟菜单栏弹窗（同生产配置）
-                WebviewWindowBuilder::new(
-                    app,
-                    "pomodoro_popup",
-                    WebviewUrl::External("http://localhost:5173".parse().unwrap()),
-                )
-                .title("LectoForge 番茄钟 (dev)")
-                .inner_size(380.0, 460.0)
-                .decorations(false)
-                .transparent(true)
-                .always_on_top(true)
-                .resizable(false)
-                .center()
-                .visible(false)
                 .build()?;
             }
 
@@ -692,10 +647,7 @@ pub fn run() {
                     });
                 }
                 "go_review" => {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.set_focus();
-                    }
+                    focus_main_window(app);
                     let _ = app.emit("navigate", "/reviews");
                 }
                 "toggle_reminder" => {
@@ -705,19 +657,9 @@ pub fn run() {
                     let _ = toggle_item.set_text(label);
                 }
                 "timer_menu" => {
-                    // 点「番茄钟」菜单项 → 切换菜单栏弹窗（与状态栏图标左键同款行为）
-                    if let Some(w) = app.get_webview_window("pomodoro_popup") {
-                        match w.is_visible() {
-                            Ok(true) => {
-                                let _ = w.hide();
-                            }
-                            _ => {
-                                let _ = w.center();
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
-                        }
-                    }
+                    // 点「番茄钟」菜单项 → 激活主工作台并跳到番茄钟页（不再有独立弹窗）
+                    focus_main_window(app);
+                    let _ = app.emit("navigate", "/pomodoro");
                 }
                 "reload" => {
                     if let Some(w) = app.get_webview_window("main") {
@@ -761,57 +703,8 @@ pub fn run() {
                 });
             }
 
-            // 菜单栏应用形态：启动即隐藏主窗口，仅状态栏托盘常驻；
-            // 用户点击托盘图标 / 番茄钟菜单项即可呼出弹窗，右键菜单可「显示主窗口」。
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.hide();
-            }
-
-            // 初始化「弹窗显示时刻」共享状态（供下方 Focused(false) 宽限期去抖使用）
-            let _ = POPUP_SHOWN_AT.set(std::sync::Arc::new(std::sync::Mutex::new(
-                std::time::Instant::now(),
-            )));
-
-            // 番茄钟弹窗：失去焦点（点击弹窗外任意区域 / 其它 App / 再次点托盘图标）后，
-            // 延迟 200ms 自动隐藏，形成 macOS 下拉面板的「点击外部关闭」体验。
-            // 延迟 + 二次焦点校验（sleep 后若窗口重新获得焦点则不再隐藏）规避：
-            // macOS 在窗口被 set_focus 激活瞬间偶发的伪失焦事件，避免「刚弹出就被抖动关掉」。
-            if let Some(win) = app.get_webview_window("pomodoro_popup") {
-                let win_clone = win.clone();
-                // 共享「弹窗最近一次 show 的时刻」，用于宽限期去抖
-                let shown_guard = POPUP_SHOWN_AT
-                    .get()
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        std::sync::Arc::new(std::sync::Mutex::new(std::time::Instant::now()))
-                    });
-                win.on_window_event(move |e| {
-                    if let WindowEvent::Focused(false) = e {
-                        // 1) 显示后宽限期内：视为系统因点击菜单栏让回焦点的伪失焦，直接忽略，
-                        //    否则弹窗会「刚弹出就消失」。
-                        let just_shown =
-                            shown_guard.lock().unwrap().elapsed().as_millis() < POPUP_SHOW_GRACE_MS;
-                        if just_shown {
-                            return;
-                        }
-                        // 2) 真正失焦（用户点到了弹窗外部）：延迟 200ms 再次确认仍失焦才隐藏，
-                        //    延迟期间若又发生了「显示弹窗」，说明这次失焦已是旧事件，跳过。
-                        let w = win_clone.clone();
-                        let g = shown_guard.clone();
-                        std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(200));
-                            if g.lock().unwrap().elapsed().as_millis() < POPUP_SHOW_GRACE_MS {
-                                return;
-                            }
-                            if let Ok(focused) = w.is_focused() {
-                                if !focused {
-                                    let _ = w.hide();
-                                }
-                            }
-                        });
-                    }
-                });
-            }
+            // 主工作台是一等公民：启动即可见（不再像纯菜单栏形态那样 hide），
+            // 番茄钟胶囊内嵌在顶栏里，托盘只作为倒计时指示器（点击回到本窗口）。
 
             // 5) 后台复习提醒调度（每 30 分钟轮询后端，有待复习卡片则弹原生通知）
             start_reminder_scheduler(app.handle().clone(), reminder_enabled.clone(), api_port);
@@ -1073,8 +966,22 @@ fn trigger_notification(app: tauri::AppHandle, title: String, body: String) {
     }
 }
 
-/// 供前端调用的「打开外部链接」命令：菜单栏番茄钟弹窗底部的「给我们好评 / 关于（外链）」
-/// 走这里直接交给系统默认浏览器处理，不引入 tauri-plugin-shell 的 `open` 全局
+/// 激活并前置主工作台窗口（唯一入口，托盘左键 / 原生菜单项共用）。
+///
+/// 三步缺一不可：
+/// - `show()`：主窗口可能被「关闭即隐藏」策略藏起来了（见 CloseRequested 处理）；
+/// - `unminimize()`：最小化到 Dock 的窗口 `set_focus` 不会自己还原；
+/// - `set_focus()`：把应用切到前台（macOS 下等价于 activate）。
+pub(crate) fn focus_main_window(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// 供前端调用的「打开外部链接」命令：设置/关于页的外链走这里直接交给系统默认浏览器处理，
+/// 不引入 tauri-plugin-shell 的 `open` 全局
 /// （避免给前端多开一个权限口子；URL 是否合法由调用方负责）。
 #[tauri::command]
 fn open_external_url(url: String) {
@@ -1094,7 +1001,7 @@ fn open_external_url(url: String) {
     }
 }
 
-/// 供前端调用的「退出应用」命令：菜单栏番茄钟弹窗底部的「退出」走这里。
+/// 供前端调用的「退出应用」命令：设置页 / 托盘右键菜单的「退出」走这里。
 /// 用 `app.exit(0)` 走正常的 Tauri 退出流程（回收 Node 侧车、关闭 webview），
 /// 不要用 std::process::exit，那样会跳过侧车清理留下孤儿进程。
 #[tauri::command]
