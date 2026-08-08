@@ -144,20 +144,19 @@ import { useReviewStore } from '@/store/review-store';
 import { confirmDialog } from '@/utils/toast';
 import type { ReviewCard } from '@/api/review';
 
-const props = defineProps<{ modelValue?: boolean }>();
-const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
-
 const router = useRouter();
 const store = useReviewStore();
 const { pendingList, pendingLoading, queueListVisible } = storeToRefs(store);
 
 /**
- * 双模式开关：既支持 v-model（父组件受控），也支持不传 prop 时回落到
- * store.queueListVisible（顶栏 / 驾驶舱 / 刷题页三处共用同一个抽屉实例）。
+ * 可见性完全由 store.queueListVisible 驱动（顶栏 / 驾驶舱 / 刷题页三处共用同一个抽屉实例）。
+ *
+ * ⚠️ 不要在此组件上用 v-model 做受控开关：声明为 `boolean` 的 `modelValue` prop，
+ * 父组件不传时 Vue 会默认解析成 `false`（而非 `undefined`），导致旧代码里的
+ * `modelValue === undefined ? store : modelValue` 判断永远走 `modelValue` 分支，
+ * 把 store 的开关信号彻底忽略——表现为「点击没反应」。当前没有任何父组件用 v-model，故直接由 store 驱动。
  */
-const visible = computed(() =>
-  props.modelValue === undefined ? queueListVisible.value : props.modelValue,
-);
+const visible = computed(() => queueListVisible.value);
 
 const list = computed<ReviewCard[]>(() => pendingList.value);
 const busyKey = ref('');
@@ -208,8 +207,7 @@ function dueLabel(iso: string): string {
 }
 
 function close(): void {
-  if (props.modelValue === undefined) store.closeQueueList();
-  else emit('update:modelValue', false);
+  store.closeQueueList();
 }
 
 function refresh(): void {
@@ -240,7 +238,7 @@ function startAll(): void {
   void router.push('/review');
 }
 
-// 抽屉打开时若还没有数据就拉一次（父组件用 v-model 直接打开的场景）
+// 抽屉打开时若还没有数据就拉一次（首次打开或数据已清空时补拉）
 watch(visible, (v) => {
   if (v && list.value.length === 0 && !pendingLoading.value) store.loadPendingList();
   if (!v) activeFilter.value = 'all';
