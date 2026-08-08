@@ -974,6 +974,10 @@ fn quit_app(app: tauri::AppHandle) {
 /// 事件通道（tray.rs 的 `tray:update` 监听）仍作兜底，二者都走同一套图标渲染逻辑。
 #[tauri::command]
 fn update_tray_title(app: tauri::AppHandle, title: String) {
+    // 落盘诊断：确认前端 invoke 是否真正到达 Rust（build 模式无终端，写 /tmp 便于 cat 排查）
+    crate::tray::append_pomodoro_log(&format!(
+        "[pomodoro] INVOKE update_tray_title -> {title}"
+    ));
     // 渲染逻辑与 tray id 收敛在 tray.rs 的 paint_tray_title，避免两处不一致
     crate::tray::paint_tray_title(&app, &title);
 }

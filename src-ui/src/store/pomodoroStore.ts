@@ -32,6 +32,11 @@ import {
 } from '@/api/pomodoro';
 import { playCue, whiteNoise } from '@/utils/pomodoroAudio';
 import { notify } from '@/utils/toast';
+// 顶层静态导入 invoke/emit：避免 build 模式下从静态 dist 动态加载 @tauri-apps/api/core 的
+// chunk 时（由 server 侧车托管）因路径/MIME 问题静默失败，导致菜单栏标题推送不出去。
+// dev 模式由 Vite dev server 加载不受影响，build 模式必须用静态导入才稳。
+import { invoke } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 
 // 对外 re-export 番茄钟类型，让消费方（App.vue / PopupTimer.vue 等）统一从 store 入口引，
 // 避免散落两处 import 路径（store 与 api）一旦调整类型位置出现编译错位。
@@ -160,9 +165,8 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     if (!force && sec === lastEmittedSec) return;
     lastEmittedSec = sec;
     const title = trayTitle.value;
-    // ① 命令通道（主）
+    // ① 命令通道（主）：invoke 为顶层静态导入，build 模式下也能稳定触达 Rust
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('update_tray_title', { title });
       // 成功日志：DevTools Console 每跳一秒会看到一行，用于确认前端已把标题推给 Rust
       console.log('[pomodoro] tray updated ->', title);
@@ -171,7 +175,6 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     }
     // ② 事件通道（兜底）
     try {
-      const { emit } = await import('@tauri-apps/api/event');
       await emit('tray:update', { title });
     } catch {
       /* 非桌面宿主环境，忽略 */
@@ -196,7 +199,6 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
           : `完成第 ${count} 个番茄，休息一下 ☕`
         : '休息结束，开始下一段专注 💪';
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('trigger_notification', { title, body });
     } catch {
       /* 非桌面宿主环境，忽略 */

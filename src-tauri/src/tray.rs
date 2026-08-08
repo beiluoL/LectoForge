@@ -18,6 +18,19 @@ use tauri::{
 };
 use tauri::AppHandle;
 
+/// 番茄钟诊断落盘：build 模式下 Rust 进程的 stdout/stderr 用户看不到，
+/// 写到 /tmp/knowflow_pomodoro.log 便于真机 `cat` 排查菜单栏刷新链路。
+pub(crate) fn append_pomodoro_log(line: &str) {
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/knowflow_pomodoro.log")
+    {
+        let _ = writeln!(f, "{line}");
+    }
+}
+
 /// 菜单栏番茄钟倒计时渲染：把「阶段色圆点 + MM:SS」烤进托盘图标位图。
 ///
 /// 为什么不用 set_title：Tauri 2 在部分 macOS 版本上，托盘初始标题能显示，
@@ -129,9 +142,9 @@ pub fn paint_tray_title(app: &AppHandle, title: &str) {
     if let Some(t) = app.tray_by_id("pomodoro_tray") {
         let _ = t.set_icon(Some(img));
         let _ = t.set_title(None::<String>);
-        eprintln!("[pomodoro] tray painted -> {title}");
+        append_pomodoro_log(&format!("[pomodoro] PAINTED -> {title}"));
     } else {
-        eprintln!("[pomodoro] tray painted but tray_by_id('pomodoro_tray') returned None");
+        append_pomodoro_log("[pomodoro] TRAY_NONE: tray_by_id('pomodoro_tray') returned None");
     }
 }
 
