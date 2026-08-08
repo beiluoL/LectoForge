@@ -124,6 +124,9 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
+// 顶层静态导入：build 模式下动态 import('@tauri-apps/api/core') 的 chunk 可能加载失败，
+// 错误会被 catch 静默吞掉，表现为"dev 能选目录、打包后点了没反应"
+import { invoke } from '@tauri-apps/api/core'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError } from '@/utils/toast'
 import { useAppStore } from '@/store/appStore'

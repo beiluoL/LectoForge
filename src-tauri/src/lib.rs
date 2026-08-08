@@ -39,6 +39,17 @@ pub(crate) static POPUP_SHOWN_AT: std::sync::OnceLock<
 /// 显示后宽限期（毫秒）：此窗口内的失焦事件视为系统抖动，不触发隐藏。
 const POPUP_SHOW_GRACE_MS: u128 = 350;
 
+/// 浏览器剪藏深链（knowflow://capture?url=&title=&text=）的待消费缓冲。
+///
+/// macOS 通过自定义 URL Scheme 拉起应用时，`RunEvent::Opened` 可能在前端
+/// `listen("deep-link")` 注册之前就触发（冷启动场景），直接 `emit` 会丢事件。
+/// 因此 Rust 侧把解析后的深链暂存在这里，既 `emit` 给已在监听的前端，
+/// 也允许前端 `onMounted` 后通过 `take_pending_deep_link` 命令再来取一次兜底，
+/// 两条路径任一命中即可，保证剪藏内容不丢失。
+struct DeepLinkState {
+    pending: Mutex<Option<serde_json::Value>>,
+}
+
 const DEFAULT_BACKEND_PORT: u16 = 8787;
 
 /// 注入给 Node 侧车的数据目录环境变量名（与 src-api/src/lib/paths.ts 的 DATA_DIR_ENV 一致）
@@ -438,6 +449,11 @@ pub fn run() {
                     .set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
+            // 深链剪藏的待消费缓冲（knowflow://capture 拉起时写入，前端监听或命令兜底取用）
+            app.manage(DeepLinkState {
+                pending: Mutex::new(None),
+            });
+
             // 1) 打开主窗口（生产起 Node 侧车，开发加载 vite）
             #[cfg(not(debug_assertions))]
             {
@@ -740,14 +756,45 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app, update_tray_title])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app, update_tray_title, take_pending_deep_link])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, _event| {
+        .run(|app_handle, event| {
+            // 浏览器扩展 / 外部以 knowflow://capture?url=&title=&text= 拉起应用时，
+            // 解析深链并通知前端唤起全局速记弹窗、预填剪藏内容。
+            // 无需引入深链插件依赖：CFBundleURLTypes 已在 src-tauri/Info.plist 注册，
+            // 由系统把 knowflow:// 路由到本应用，Tauri 2 以 RunEvent::Opened 暴露 URL。
+            if let tauri::RunEvent::Opened { urls } = &event {
+                for u in urls {
+                    if u.scheme() == "knowflow" {
+                        // 把查询参数收成 owned 的 (key,value) 列表，便于按 key 取用
+                        let pairs: Vec<(String, String)> = u.query_pairs().into_owned().collect();
+                        let get = |k: &str| {
+                            pairs
+                                .iter()
+                                .find(|(key, _)| key == k)
+                                .map(|(_, v)| v.clone())
+                                .unwrap_or_default()
+                        };
+                        let payload = serde_json::json!({
+                            "action": u.path().trim_start_matches('/'),
+                            "title": get("title"),
+                            "content": get("text"),
+                            "sourceUrl": get("url"),
+                        });
+                        // 双保险：① 实时 emit 给已监听的前端；② 写入缓冲供冷启动兜底取用
+                        if let Ok(mut g) = app_handle.state::<DeepLinkState>().pending.lock() {
+                            *g = Some(payload.clone());
+                        }
+                        let _ = app_handle.emit("deep-link", payload);
+                    }
+                }
+            }
+
             // 退出时回收 Node 侧车，避免它变成孤儿进程继续占着端口
             #[cfg(not(debug_assertions))]
-            if matches!(_event, tauri::RunEvent::Exit) {
-                if let Some(mgr) = _app_handle.try_state::<Arc<SidecarManager>>() {
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(mgr) = app_handle.try_state::<Arc<SidecarManager>>() {
                     mgr.shutdown();
                 }
             }
@@ -991,6 +1038,16 @@ fn open_external_url(url: String) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+/// 取出并清空一条待消费的深链剪藏（knowflow://capture 拉起时由 `RunEvent::Opened` 写入）。
+///
+/// 用途：冷启动场景下，应用被 URL Scheme 拉起时前端 `listen("deep-link")` 可能尚未注册，
+/// 直接 `emit` 会丢事件。前端 `onMounted` 注册监听后调用此命令取一次缓冲作为兜底，
+/// 与 `emit` 事件双保险，确保浏览器剪藏内容一定能抵达速记弹窗。
+#[tauri::command]
+fn take_pending_deep_link(state: tauri::State<DeepLinkState>) -> Option<serde_json::Value> {
+    state.pending.lock().ok().and_then(|mut g| g.take())
 }
 
 /// 菜单栏标题刷新命令：番茄钟 store 每秒把当前倒计时（如「🍅 24:59」）通过此命令推给 Rust，

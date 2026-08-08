@@ -9,7 +9,12 @@
               <Icon name="inbox" :size="16" />
               快速收集
             </span>
-            <span class="qcm-hint">先积累，再沉淀</span>
+            <!-- 由浏览器剪藏深链唤起时给个来源标记，用户才知道内容是自动填进来的 -->
+            <span v-if="fromClip" class="qcm-badge">
+              <Icon name="link" :size="11" />
+              来自浏览器剪藏
+            </span>
+            <span v-else class="qcm-hint">先积累，再沉淀</span>
             <button class="qcm-close" title="关闭 (Esc)" @click="close">
               <Icon name="x" :size="15" />
             </button>
@@ -62,11 +67,31 @@ const store = useInboxStore();
 
 /** 每次打开自增，用作 QuickCapture 的 key 以重置其内部状态 */
 const sessionKey = ref(0);
+/** 本次会话是否由浏览器剪藏深链唤起（仅用于标题栏标记） */
+const fromClip = ref(false);
 
 watch(
   () => props.open,
   (v) => {
-    if (v) sessionKey.value += 1;
+    if (v) {
+      fromClip.value = !!store.quickPrefill;
+      sessionKey.value += 1;
+    } else {
+      fromClip.value = false;
+    }
+  },
+);
+
+/* 弹窗已经开着时又来了一条剪藏深链：open 不变，key 也就不变，
+ * QuickCapture 不会重新 mount，预填内容会一直躺在 store 里没人消费。
+ * 这里显式再 bump 一次 key，强制重建组件去消费新的预填。 */
+watch(
+  () => store.quickPrefill,
+  (p) => {
+    if (p && props.open) {
+      fromClip.value = true;
+      sessionKey.value += 1;
+    }
   },
 );
 
@@ -129,6 +154,17 @@ function onCreated() {
 .qcm-hint {
   font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
+}
+.qcm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
+  color: var(--kb-primary);
+  font-size: var(--kb-fs-xs);
+  font-weight: 600;
 }
 .qcm-close {
   margin-left: auto;

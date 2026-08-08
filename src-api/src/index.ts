@@ -4,7 +4,7 @@ import staticPlugin from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolvePort, resolveWebDir, resolveDataDir, isLaunchedByHost } from './lib/paths';
+import { resolvePort, resolveWebDir, resolveDataDir, getUploadsDir, isLaunchedByHost } from './lib/paths';
 import captures from './routes/captures';
 import notes from './routes/notes';
 import reviews from './routes/reviews';
@@ -142,6 +142,27 @@ app.get('/api/health', async () => ({
   webDir: resolveWebDir(),
 }));
 
+/* ===== 同源托管用户上传资产（录音 / 图片 / 附件）=====
+ * 落盘目录是 <dataDir>/uploads（打包后为 ~/Library/Application Support/com.knowflow.desktop/uploads），
+ * 与前端构建产物完全不同的两棵目录树，因此必须**再注册一次** @fastify/static。
+ *
+ * 两个要点：
+ * 1. decorateReply: false —— @fastify/static 默认往 reply 上挂 sendFile()，同一实例注册两次会报
+ *    "The decorator 'sendFile' has already been added"。这里让下面托管 webDir 的那次去装饰，
+ *    本次只做纯静态目录映射。
+ * 2. 必须先于 webDir 注册 —— webDir 是根路径通配（/*），先注册会把 /uploads/* 也吃掉。
+ *
+ * 前端拿到的 URL 形如 /uploads/audio/20260808-ab12cd.webm，dev 下由 vite proxy 转发，
+ * 生产下与页面同源（都在 http://127.0.0.1:<port>），因此可直接塞进 <audio src> / Markdown 图片。 */
+const uploadsDir = getUploadsDir();
+app.register(staticPlugin, {
+  root: uploadsDir,
+  prefix: '/uploads/',
+  decorateReply: false,
+  // 录音/图片是内容寻址式命名（时间戳+随机 hex），文件名不变则内容不变，可长缓存
+  maxAge: '7d',
+});
+
 // ===== 同源托管前端构建产物（生产由 Tauri 传入 --web-dir）=====
 const webDir = resolveWebDir();
 if (webDir && fs.existsSync(webDir)) {
@@ -167,6 +188,11 @@ if (webDir && fs.existsSync(webDir)) {
     const pathname = req.url.split('?')[0];
     if (pathname.startsWith('/api/')) {
       return reply.code(404).send({ code: 404, message: 'not found' });
+    }
+    /* 上传资产必须如实 404：录音 .webm / 附件 .pdf 不在 ASSET_EXT 白名单里，
+     * 若回落成 index.html，<audio> 会静默播不出声、下载下来是一坨 HTML。 */
+    if (pathname.startsWith('/uploads/')) {
+      return reply.code(404).type('text/plain').send(`upload not found: ${pathname}`);
     }
     if (ASSET_EXT.test(pathname)) {
       return reply.code(404).type('text/plain').send(`asset not found: ${pathname}`);

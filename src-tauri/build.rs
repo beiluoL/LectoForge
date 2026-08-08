@@ -14,6 +14,7 @@ fn main() {
                 "check_for_update",
                 "open_external_url",
                 "quit_app",
+                "take_pending_deep_link",
             ]),
         ),
     )

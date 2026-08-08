@@ -2,32 +2,51 @@
  * 收集箱（Inbox）路由 —— 「极速输入，先积累再沉淀」的知识闭环第一步。
  *
  * 挂载前缀：/api（见 index.ts），对外端点：
- *   GET    /api/inbox/list            拉取全部未处理条目（时间倒序）
- *   POST   /api/inbox                 新建一条（速记 / 链接 / 图片）
+ *   GET    /api/inbox/list            拉取全部未处理条目（时间倒序，支持 ?filter=today|week|untagged）
+ *   POST   /api/inbox                 新建一条（速记 / 链接 / 图片 / 语音 / 附件）
  *   GET|POST /api/inbox/clip          网页剪藏：抓取 title / description / og:image / 摘要
  *   PUT    /api/inbox/:id             更新内容 / 打标签 / 改状态
  *   PUT    /api/inbox/:id/process     流转：沉淀为「康奈尔笔记」或「文档库文档」
  *   DELETE /api/inbox/:id             软删除（移入回收站，status=trashed）
+ *   ---- 进阶能力（2026-08-08） ----
+ *   POST   /api/inbox/batch/process   批量归档 / 批量删除 / 批量沉淀为康奈尔笔记
+ *   POST   /api/inbox/upload/audio    语音灵感：上传录音（multipart）→ <dataDir>/uploads/audio/
+ *   POST   /api/inbox/upload/asset    通用附件：上传图片 / PDF（multipart）→ <dataDir>/uploads/assets/
+ *   POST   /api/inbox/duplicate-check 智能去重：与近 7 天未处理条目做编辑距离相似度比对
  *
  * 存储：复用既有 wb_capture 表（字段已与 Web 端对齐），本模块只在其上扩展
  * cover_image / processed_at 两列（迁移见 db/index.ts）。对外状态收敛为小写三态：
  *   unprocessed / archived / trashed  ←→  DB: INBOX / (PROCESSED|ARCHIVED) / TRASHED
  * 映射集中在本文件 toStatusVo / toStatusDb，勿在别处硬编码大小写。
+ *
+ * 上传落盘：统一走 lib/paths.ts 的 getUploadsDir()（打包后为
+ * ~/Library/Application Support/com.knowflow.desktop/uploads），**绝不能**拼 src-api/ 相对路径——
+ * .app 包内只读，写入会直接 EROFS。对外 URL 一律相对根路径 /uploads/xxx，
+ * 由 index.ts 用 @fastify/static 同源托管（dev 走 vite proxy）。
  */
 import { FastifyInstance } from 'fastify';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import iconv from 'iconv-lite';
+import multipart from '@fastify/multipart';
+import { distance as levenshtein } from 'fastest-levenshtein';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
 
 import { db } from '../db';
 import { wbCapture, wbNote, wbPalace, wbPalaceLoci, wbStory } from '../db/schema';
 import { CURRENT_USER, nowIso } from '../db';
-import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, gte, inArray, sql } from 'drizzle-orm';
 import { assertSafeName, createNote, ensureMdExt, getRootDir, writeNote, VaultError } from '../lib/vault';
+import { getUploadsDir } from '../lib/paths';
 
 // ===================== 类型与映射 =====================
 
-type InboxType = 'text' | 'link' | 'image';
+/** 收集项类型。audio / file 为「富媒体扩展」新增，历史数据仍是 text|link|image */
+type InboxType = 'text' | 'link' | 'image' | 'audio' | 'file';
+const INBOX_TYPES: InboxType[] = ['text', 'link', 'image', 'audio', 'file'];
 type InboxStatusVo = 'unprocessed' | 'archived' | 'trashed';
 
 /** DB 大写状态 → 对外小写三态 */
@@ -61,8 +80,7 @@ function toStatusDb(voStatus: string | undefined): string | null {
 /** 归一化条目类型：优先用显式 type，否则按 sourceUrl / 旧 sourceType 推断 */
 function toType(sourceType: string | null, sourceUrl: string | null): InboxType {
   const t = (sourceType || '').toLowerCase();
-  if (t === 'text' || t === 'link' || t === 'image') return t;
-  if (t === 'image') return 'image';
+  if ((INBOX_TYPES as readonly string[]).includes(t)) return t as InboxType;
   if (t === 'web' || sourceUrl) return 'link';
   return 'text';
 }
@@ -220,6 +238,186 @@ function toSafeFileName(title: string): string {
   return cleaned || '未命名收集';
 }
 
+// ===================== 附件上传（语音 / 图片 / PDF） =====================
+
+/** 上传子目录：语音走 audio/，其余通用附件走 assets/ */
+type UploadKind = 'audio' | 'assets';
+
+/** 单文件体积上限 25MB —— 语音灵感与截图都远小于此，超出多半是误传大文件 */
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+/** 允许的扩展名白名单（按用途分组，避免把可执行文件写进数据目录） */
+const ALLOWED_EXT: Record<UploadKind, string[]> = {
+  audio: ['.webm', '.wav', '.mp3', '.m4a', '.ogg', '.oga', '.mp4', '.aac'],
+  assets: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.pdf', '.txt', '.md'],
+};
+
+/** MIME → 扩展名兜底（MediaRecorder 产出的 Blob 常常没有文件名） */
+const MIME_EXT: Record<string, string> = {
+  'audio/webm': '.webm',
+  'audio/ogg': '.ogg',
+  'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/wave': '.wav',
+  'audio/mpeg': '.mp3',
+  'audio/mp4': '.m4a',
+  'audio/aac': '.aac',
+  'video/webm': '.webm', // Chrome 的 MediaRecorder 有时把纯音频标成 video/webm
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/svg+xml': '.svg',
+  'application/pdf': '.pdf',
+};
+
+/**
+ * 由「原始文件名 + MIME」推断一个安全扩展名。
+ * 只信任白名单内的扩展名，其余一律按 MIME 映射，都拿不到就退回 kind 的默认值。
+ */
+function safeExt(kind: UploadKind, filename: string | undefined, mimetype: string | undefined): string {
+  const raw = path.extname(filename || '').toLowerCase();
+  if (raw && ALLOWED_EXT[kind].includes(raw)) return raw;
+  const byMime = MIME_EXT[(mimetype || '').toLowerCase().split(';')[0].trim()];
+  if (byMime && ALLOWED_EXT[kind].includes(byMime)) return byMime;
+  return kind === 'audio' ? '.webm' : '.png';
+}
+
+/** 生成不会撞名、也不含用户可控路径片段的文件名：<yyyyMMdd>-<8位随机>.<ext> */
+function makeStoredName(ext: string): string {
+  const d = new Date();
+  const day = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return `${day}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+}
+
+/** 上传结果 VO（前端据 url 拼 Markdown / 存 sourceUrl） */
+interface UploadResult {
+  url: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  kind: UploadKind;
+}
+
+/**
+ * 把 multipart 请求里的第一个文件落盘到 <dataDir>/uploads/<kind>/。
+ * 用流式 pipeline 写入，避免大文件整个读进内存；超限时删掉半截文件再报错。
+ */
+async function saveUploadedFile(req: any, kind: UploadKind): Promise<UploadResult> {
+  const part = await req.file({ limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
+  if (!part) throw Object.assign(new Error('没有收到文件（字段名任意，但必须是 multipart 文件字段）'), { statusCode: 400 });
+
+  const ext = safeExt(kind, part.filename, part.mimetype);
+  const dir = path.join(getUploadsDir(), kind);
+  fs.mkdirSync(dir, { recursive: true });
+  const fileName = makeStoredName(ext);
+  const absPath = path.join(dir, fileName);
+
+  try {
+    await pipeline(part.file, fs.createWriteStream(absPath));
+  } catch (e) {
+    fs.rmSync(absPath, { force: true });
+    throw e;
+  }
+  // @fastify/multipart 在超限时不会抛错，而是把 truncated 置为 true，需要显式检查
+  if ((part.file as any).truncated) {
+    fs.rmSync(absPath, { force: true });
+    throw Object.assign(new Error(`文件超过 ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB 上限`), { statusCode: 413 });
+  }
+
+  const size = fs.statSync(absPath).size;
+  return {
+    url: `/uploads/${kind}/${fileName}`,
+    fileName,
+    originalName: part.filename || fileName,
+    mimeType: part.mimetype || 'application/octet-stream',
+    size,
+    kind,
+  };
+}
+
+// ===================== 智能去重 =====================
+
+/** 相似度判重阈值：> 0.8 视为重复（与前端提示文案一致） */
+const DUP_THRESHOLD = 0.8;
+/** 去重回溯窗口：只跟最近 7 天的未处理条目比，超出这个窗口的「旧灵感」不打扰用户 */
+const DUP_LOOKBACK_DAYS = 7;
+/** 短于该长度的内容不参与相似度判重（「好」「TODO」这类极短文本必然互相高相似，纯噪音） */
+const DUP_MIN_LEN = 8;
+
+/** 判重前的文本归一化：去 Markdown 空白/标点噪音，统一小写，避免格式差异干扰编辑距离 */
+function normalizeForDup(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, ' ') // URL 单独比对，不混进正文相似度
+    .replace(/[\s\u3000]+/g, '')
+    .replace(/[。，、；：！？,.;:!?"'“”‘’()（）\[\]【】]/g, '');
+}
+
+/** 归一化 URL：去掉协议差异、末尾斜杠与常见追踪参数，让同一篇文章的不同分享链接能对上 */
+function normalizeUrl(raw: string): string {
+  const s = (raw || '').trim();
+  if (!s) return '';
+  try {
+    const u = new URL(s);
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'from', 'spm'].forEach((k) =>
+      u.searchParams.delete(k),
+    );
+    const qs = u.searchParams.toString();
+    return `${u.hostname.replace(/^www\./, '')}${u.pathname.replace(/\/+$/, '')}${qs ? `?${qs}` : ''}`.toLowerCase();
+  } catch {
+    return s.toLowerCase().replace(/\/+$/, '');
+  }
+}
+
+/** 归一化编辑距离相似度：1 - distance / max(len)，取值 [0,1] */
+function similarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const max = Math.max(a.length, b.length);
+  if (!max) return 0;
+  // 长度差距过大时直接判为不相似，省掉一次 O(n*m) 计算（编辑距离下界即长度差）
+  if (Math.abs(a.length - b.length) / max > 1 - DUP_THRESHOLD) return 0;
+  return 1 - levenshtein(a, b) / max;
+}
+
+// ===================== 列表过滤 =====================
+
+type InboxFilter = 'all' | 'today' | 'week' | 'untagged';
+
+/** 本地「今天 00:00」对应的 ISO 串（createdAt 存的是 ISO/UTC，可直接字典序比较） */
+function localDayStartIso(offsetDays = 0): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - offsetDays);
+  return d.toISOString();
+}
+
+/**
+ * 把一条收集项落成康奈尔笔记（wb_note）：内容进 noteColumn，线索/总结留空待用户填，
+ * captureId 回链原收集项。单条沉淀与批量沉淀共用，避免两处字段写法漂移。
+ */
+function insertCornellNote(item: any, now: string) {
+  return db
+    .insert(wbNote)
+    .values({
+      userId: CURRENT_USER,
+      captureId: item.id,
+      categoryId: item.categoryId ?? null,
+      title: item.title,
+      cueColumn: '',
+      noteColumn: item.content || '',
+      summaryColumn: item.sourceUrl ? `来源：${item.sourceUrl}` : '',
+      tags: item.tags ?? null,
+      mastery: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning()
+    .get();
+}
+
 /** 组装沉淀到文档库的 Markdown 正文 */
 function buildDocMarkdown(item: any): string {
   const lines = [`# ${item.title}`, ''];
@@ -234,14 +432,36 @@ function buildDocMarkdown(item: any): string {
 // ===================== 路由 =====================
 
 export default async function inboxRoutes(app: FastifyInstance) {
-  /** 全部「未处理」条目；默认星标→时间倒序，?sort=asc 时按创建时间升序（收件箱积压视图用） */
+  /* multipart 只在本插件作用域内注册（Fastify 插件天然封装），
+   * 不污染其它路由的 body 解析；上限与 saveUploadedFile 中保持一致。 */
+  await app.register(multipart, {
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 8 },
+  });
+
+  /**
+   * 全部「未处理」条目；默认星标→时间倒序，?sort=asc 时按创建时间升序（收件箱积压视图用）。
+   * ?filter=today|week|untagged 做智能过滤：
+   *   today    —— 今天（本地 0 点起）创建的
+   *   week     —— 近 7 天创建的
+   *   untagged —— 还没打过标签的（tags 为空 / null / 空数组字面量）
+   * 过滤在 SQL 层完成，前端只需切 tab，不必自己筛数组。
+   */
   app.get('/inbox/list', async (req) => {
     const q = (req.query ?? {}) as any;
     const ascSort = String(q.sort || '').toLowerCase() === 'asc';
+    const filter = String(q.filter || 'all').toLowerCase() as InboxFilter;
+
+    const conds: any[] = [eq(wbCapture.userId, CURRENT_USER), eq(wbCapture.status, 'INBOX')];
+    if (filter === 'today') conds.push(gte(wbCapture.createdAt, localDayStartIso(0)));
+    else if (filter === 'week') conds.push(gte(wbCapture.createdAt, localDayStartIso(6)));
+    else if (filter === 'untagged') {
+      conds.push(sql`(${wbCapture.tags} IS NULL OR TRIM(${wbCapture.tags}) IN ('', '[]'))`);
+    }
+
     const rows = db
       .select()
       .from(wbCapture)
-      .where(and(eq(wbCapture.userId, CURRENT_USER), eq(wbCapture.status, 'INBOX')))
+      .where(and(...conds))
       .orderBy(ascSort ? asc(wbCapture.createdAt) : desc(wbCapture.starred), desc(wbCapture.createdAt))
       .all();
     return rows.map(toVo);
@@ -266,7 +486,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
     const sourceUrl: string = (b.sourceUrl || '').trim();
     const content: string = (b.content ?? '').toString();
     // 类型：显式 type 优先，否则 sourceUrl 有值即 link
-    const type: InboxType = ['text', 'link', 'image'].includes(b.type)
+    const type: InboxType = INBOX_TYPES.includes(b.type)
       ? b.type
       : sourceUrl
         ? 'link'
@@ -353,7 +573,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
         title: b.title !== undefined ? String(b.title).trim() || ex.title : ex.title,
         content: b.content !== undefined ? String(b.content) : ex.content,
         sourceUrl: b.sourceUrl !== undefined ? String(b.sourceUrl).trim() || null : ex.sourceUrl,
-        sourceType: ['text', 'link', 'image'].includes(b.type) ? b.type : ex.sourceType,
+        sourceType: INBOX_TYPES.includes(b.type) ? b.type : ex.sourceType,
         coverImage: b.coverImage !== undefined ? String(b.coverImage).trim() || null : ex.coverImage,
         tags: b.tags !== undefined ? serializeTags(b.tags) : ex.tags,
         starred: b.starred !== undefined ? (b.starred ? 1 : 0) : ex.starred,
@@ -393,23 +613,7 @@ export default async function inboxRoutes(app: FastifyInstance) {
 
     if (target === 'cornell') {
       // 沉淀为康奈尔笔记：内容进 noteColumn，线索/总结留空待用户填。
-      const note = db
-        .insert(wbNote)
-        .values({
-          userId: CURRENT_USER,
-          captureId: item.id,
-          categoryId: item.categoryId ?? null,
-          title: item.title,
-          cueColumn: '',
-          noteColumn: item.content || '',
-          summaryColumn: item.sourceUrl ? `来源：${item.sourceUrl}` : '',
-          tags: item.tags ?? null,
-          mastery: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning()
-        .get();
+      const note = insertCornellNote(item, now);
       result = { target: 'cornell', noteId: note.id, title: item.title };
     } else if (target === 'note') {
       // 沉淀为文档库文档：往磁盘 vault 写一个 .md 文件。
@@ -504,6 +708,175 @@ export default async function inboxRoutes(app: FastifyInstance) {
       .run();
 
     return { ...result, item: toVo(db.select().from(wbCapture).where(eq(wbCapture.id, id)).get() as any) };
+  });
+
+  /**
+   * 批量处理（进阶一）：一次性归档 / 删除 / 沉淀为康奈尔笔记。
+   *
+   * body: { ids: number[], target: 'archive' | 'delete' | 'cornell' }
+   * 用 Drizzle 的 inArray 做一条 UPDATE 打包收口（而不是循环发 N 条），
+   * 沉淀场景则先逐条建笔记（需要各自的标题/正文），再用同一条 inArray 批量改状态。
+   *
+   * 所有 id 都会先按 userId 过滤一遍，越权 id 静默忽略并在 skipped 里回报，
+   * 不因为个别脏 id 让整批失败（前端批量操作最怕「全有或全无」）。
+   */
+  app.post('/inbox/batch/process', async (req, reply) => {
+    const b = (req.body ?? {}) as any;
+    const target = String(b.target || b.targetType || '').toLowerCase();
+    if (!['archive', 'delete', 'cornell'].includes(target)) {
+      return reply.code(400).send({ message: 'target 仅支持 archive | delete | cornell' });
+    }
+
+    const ids = Array.from(
+      new Set(
+        (Array.isArray(b.ids) ? b.ids : [])
+          .map((x: any) => Number(x))
+          .filter((n: number) => Number.isInteger(n) && n > 0),
+      ),
+    ) as number[];
+    if (!ids.length) return reply.code(400).send({ message: 'ids 不能为空' });
+
+    // 只取当前用户名下真实存在的条目；其余算 skipped
+    const rows = db
+      .select()
+      .from(wbCapture)
+      .where(and(eq(wbCapture.userId, CURRENT_USER), inArray(wbCapture.id, ids)))
+      .all() as any[];
+    const validIds = rows.map((r) => r.id);
+    const skipped = ids.filter((id) => !validIds.includes(id));
+    if (!validIds.length) {
+      return { target, processed: 0, ids: [], skipped, noteIds: [] };
+    }
+
+    const now = nowIso();
+    const noteIds: number[] = [];
+
+    if (target === 'delete') {
+      db.update(wbCapture)
+        .set({ status: 'TRASHED', updatedAt: now })
+        .where(inArray(wbCapture.id, validIds))
+        .run();
+    } else {
+      if (target === 'cornell') {
+        for (const item of rows) noteIds.push(insertCornellNote(item, now).id);
+      }
+      db.update(wbCapture)
+        .set({ status: 'ARCHIVED', processedAt: now, updatedAt: now })
+        .where(inArray(wbCapture.id, validIds))
+        .run();
+    }
+
+    return { target, processed: validIds.length, ids: validIds, skipped, noteIds };
+  });
+
+  /**
+   * 语音灵感上传（进阶二）：接收 MediaRecorder 产出的 webm/wav Blob，
+   * 落到 <dataDir>/uploads/audio/，返回同源可播放的相对 URL。
+   * 这里只负责存文件，不落库——前端拿到 url 后再调 POST /api/inbox 建条目（type=audio）。
+   */
+  app.post('/inbox/upload/audio', async (req, reply) => {
+    try {
+      return await saveUploadedFile(req, 'audio');
+    } catch (e: any) {
+      return reply.code(e?.statusCode || 400).send({ message: e?.message || '录音上传失败' });
+    }
+  });
+
+  /**
+   * 通用附件上传（进阶四）：图片 / PDF 等，落到 <dataDir>/uploads/assets/。
+   * 前端拿到 url 后自行在正文里拼 `![说明](url)`（图片）或 `[文件名](url)`（其它）。
+   */
+  app.post('/inbox/upload/asset', async (req, reply) => {
+    try {
+      return await saveUploadedFile(req, 'assets');
+    } catch (e: any) {
+      return reply.code(e?.statusCode || 400).send({ message: e?.message || '附件上传失败' });
+    }
+  });
+
+  /**
+   * 智能去重检测（进阶三）：body { content?, sourceUrl? }。
+   *
+   * 判重口径（命中任一即算重复）：
+   *   1) sourceUrl 归一化后完全一致（去协议 / www / 末尾斜杠 / utm 追踪参数）；
+   *   2) 正文归一化后与近 7 天未处理条目的相似度 > 0.8（fastest-levenshtein 编辑距离）。
+   *
+   * 永远返回 200：判重是「提醒」而非「拦截」，任何异常都应降级为「不重复」，
+   * 绝不能因为判重失败挡住用户记录灵感。
+   */
+  app.post('/inbox/duplicate-check', async (req) => {
+    const b = (req.body ?? {}) as any;
+    const content = String(b.content ?? '').trim();
+    const sourceUrl = String(b.sourceUrl ?? '').trim();
+    const excludeId = Number(b.excludeId ?? 0) || 0;
+    const miss = { isDuplicate: false as const, similarity: 0, reason: 'none' as const };
+    if (!content && !sourceUrl) return miss;
+
+    try {
+      const since = localDayStartIso(DUP_LOOKBACK_DAYS - 1);
+      const rows = db
+        .select({
+          id: wbCapture.id,
+          title: wbCapture.title,
+          content: wbCapture.content,
+          sourceUrl: wbCapture.sourceUrl,
+          createdAt: wbCapture.createdAt,
+        })
+        .from(wbCapture)
+        .where(
+          and(
+            eq(wbCapture.userId, CURRENT_USER),
+            eq(wbCapture.status, 'INBOX'),
+            gte(wbCapture.createdAt, since),
+          ),
+        )
+        .orderBy(desc(wbCapture.createdAt))
+        .limit(200) // 近 7 天的收集量级远小于此，加个天花板防极端情况下 O(n·m) 爆炸
+        .all() as any[];
+
+      // 1) URL 完全一致优先（比正文相似度更硬的证据）
+      const urlKey = normalizeUrl(sourceUrl);
+      if (urlKey) {
+        const hit = rows.find((r) => r.id !== excludeId && normalizeUrl(r.sourceUrl || '') === urlKey);
+        if (hit) {
+          return {
+            isDuplicate: true,
+            existingId: hit.id,
+            existingTitle: hit.title,
+            existingCreatedAt: hit.createdAt,
+            similarity: 1,
+            reason: 'url' as const,
+          };
+        }
+      }
+
+      // 2) 正文相似度
+      const base = normalizeForDup(content);
+      if (base.length >= DUP_MIN_LEN) {
+        let best: { row: any; score: number } | null = null;
+        for (const r of rows) {
+          if (r.id === excludeId) continue;
+          const other = normalizeForDup(r.content || r.title || '');
+          if (other.length < DUP_MIN_LEN) continue;
+          const score = similarity(base, other);
+          if (!best || score > best.score) best = { row: r, score };
+        }
+        if (best && best.score > DUP_THRESHOLD) {
+          return {
+            isDuplicate: true,
+            existingId: best.row.id,
+            existingTitle: best.row.title,
+            existingCreatedAt: best.row.createdAt,
+            similarity: Number(best.score.toFixed(3)),
+            reason: 'content' as const,
+          };
+        }
+      }
+      return miss;
+    } catch {
+      // 判重失败一律当作「不重复」，绝不阻断输入
+      return miss;
+    }
   });
 
   /** 软删除：移入回收站（status=trashed），保留数据可恢复；非物理删除 */

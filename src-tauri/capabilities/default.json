@@ -8,6 +8,7 @@
   },
   "permissions": [
     "core:default",
+    "core:event:allow-listen",
     "shell:allow-execute",
     "shell:allow-spawn",
     "notification:default",
@@ -19,6 +20,7 @@
     "allow-select-directory",
     "allow-check-for-update",
     "allow-open-external-url",
-    "allow-quit-app"
+    "allow-quit-app",
+    "allow-take-pending-deep-link"
   ]
 }

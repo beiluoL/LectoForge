@@ -66,6 +66,9 @@ import { initBackendHealth } from '@/utils/connection';
 // dev 模式走 Vite dev server 不受影响；build 模式必须用静态导入才稳（pomodoroStore 已验证此路）。
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
+// 顶层静态导入 invoke：build 模式页面由 8787 侧车静态托管，动态 import 的 chunk 会静默失败
+// （与上面 listen 同理）。深链冷启动兜底需要从 Rust 取一次待消费剪藏，必须走静态导入。
+import { invoke } from '@tauri-apps/api/core';
 
 const route = useRoute();
 const router = useRouter();
@@ -149,6 +152,46 @@ onMounted(() => {
       await listen('navigate', (e: { payload: unknown }) => {
         if (typeof e.payload === 'string') router.push(e.payload);
       });
+    } catch {
+      /* 非桌面宿主，忽略 */
+    }
+  })();
+
+  // 浏览器剪藏深链：外部以 knowflow://capture?url=&title=&text= 拉起应用时，
+  // Rust 侧解析后 emit("deep-link", payload)。此处唤起全局速记弹窗并预填剪藏内容。
+  void (async () => {
+    try {
+      await listen(
+        'deep-link',
+        (e: { payload: { title?: string; content?: string; sourceUrl?: string } }) => {
+          const p = e.payload;
+          inboxStore.openQuickCapture({
+            title: p.title,
+            content: p.content,
+            sourceUrl: p.sourceUrl,
+          });
+        },
+      );
+    } catch {
+      /* 非桌面宿主，忽略 */
+    }
+  })();
+  // 冷启动兜底：应用被 URL Scheme 拉起时，RunEvent::Opened 可能在前端 listen 注册前触发，
+  // 直接 emit 会丢事件。注册监听后再取一次缓冲（take_pending_deep_link）双保险。
+  void (async () => {
+    try {
+      const pending = await invoke<{
+        title?: string;
+        content?: string;
+        sourceUrl?: string;
+      } | null>('take_pending_deep_link');
+      if (pending) {
+        inboxStore.openQuickCapture({
+          title: pending.title,
+          content: pending.content,
+          sourceUrl: pending.sourceUrl,
+        });
+      }
     } catch {
       /* 非桌面宿主，忽略 */
     }

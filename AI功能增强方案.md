@@ -193,4 +193,4 @@
 - 21 个新增端点全部走 `/api/ai` 前缀，**不改动**任何 `/api/workbench/*` 端点（共 43 个），契约与 Web 端逐字段对齐，迁移/回环兼容。
 - 复用「Node 侧车 + 同源托管 + 回环地址」部署模型，Tauri 打包无需额外改动（资源清单见《技术架构与功能手册.md》§10.3）。
 - 服务端代码位于 `src-api/src/{routes/ai.ts, lib/llm.ts, lib/prompts.ts}`；前端位于 `src-ui/src/{views/AiSettings.vue, views/AiInsights.vue, store/memoryPalace.ts, components/ui/Icon.vue}`。
-- 端点总量以《技术架构与功能手册.md》§4.1 为准（应用合计 111 个，其中 AI 21 个；v1.1.0 新增 6 个非 AI 端点为间隔复习 2 / 搜索 1 / 看板 1 / 配置 2，收集箱 `/api/inbox` 10 个、其「5 大体验升级」再增 metadata 2 个，「间隔复习体验升级」再增 `/api/reviews` 的 snooze / heatmap / forgetting-curve 3 个；2026-08-07 番茄钟 `/api/pomodoro` 再增 5 个非 AI 端点）。
+- 端点总量以《技术架构与功能手册.md》§4.1 为准（应用合计 115 个，其中 AI 21 个；v1.1.0 新增 6 个非 AI 端点为间隔复习 2 / 搜索 1 / 看板 1 / 配置 2，收集箱 `/api/inbox` 14 个、其「5 大体验升级」再增 metadata 2 个、「收集箱进阶」再增批量处理/语音上传/附件上传/去重检测 4 个，「间隔复习体验升级」再增 `/api/reviews` 的 snooze / heatmap / forgetting-curve 3 个；2026-08-07 番茄钟 `/api/pomodoro` 再增 5 个非 AI 端点）。

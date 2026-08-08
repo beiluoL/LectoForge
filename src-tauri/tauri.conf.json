@@ -20,6 +20,9 @@
     "active": true,
     "targets": "app",
     "icon": ["icons/icon.png"],
+    "macOS": {
+      "infoPlist": "Info.plist"
+    },
     "resources": {
       "../src-ui/dist": "web",
       "../src-api/dist": "api",

@@ -5,8 +5,8 @@
 // 后端负责与 DB 大写状态（INBOX / ARCHIVED / TRASHED）互转，前端不感知大小写。
 import { apiGet, apiPost, apiPut, apiDelete } from './request';
 
-/** 收集项类型：速记 / 链接剪藏 / 图片 */
-export type InboxType = 'text' | 'link' | 'image';
+/** 收集项类型：速记 / 链接剪藏 / 图片 / 语音灵感 / 通用附件 */
+export type InboxType = 'text' | 'link' | 'image' | 'audio' | 'file';
 
 /** 收集项状态：未处理 / 已归档（含已沉淀）/ 回收站 */
 export type InboxStatus = 'unprocessed' | 'archived' | 'trashed';
@@ -100,9 +100,77 @@ export interface UpdateInboxPayload {
   status?: InboxStatus;
 }
 
-/** 拉取全部未处理条目；sort='asc' 时按创建时间升序（收件箱积压视图用） */
-export function fetchInboxList(sort?: 'asc' | 'desc') {
-  return apiGet<InboxItem[]>('/inbox/list', sort ? { sort } : undefined);
+/* =============================================================================
+ * 进阶能力（批量 / 上传 / 去重）的类型契约
+ * ========================================================================== */
+
+/** 智能过滤维度：全部 / 今天 / 本周 / 未打标签 */
+export type InboxFilter = 'all' | 'today' | 'week' | 'untagged';
+
+/** 批量操作目标：归档 / 删除（进回收站）/ 一键沉淀为康奈尔笔记 */
+export type BatchTarget = 'archive' | 'delete' | 'cornell';
+
+/** 批量操作结果 */
+export interface BatchProcessResult {
+  target: BatchTarget;
+  /** 实际生效的条目数 */
+  processed: number;
+  /** 实际生效的 id 列表 */
+  ids: number[];
+  /** 被跳过的 id（不存在 / 已是目标状态 / 内容为空无法沉淀） */
+  skipped: number[];
+  /** target=cornell 时返回新建的笔记 id 列表，顺序与 ids 对应 */
+  noteIds: number[];
+}
+
+/** 上传归属：audio=语音灵感，assets=图片/通用附件 */
+export type UploadKind = 'audio' | 'assets';
+
+/** 上传结果：url 是同源相对地址，可直接塞进 <audio src> 或 Markdown */
+export interface UploadResult {
+  /** 形如 /uploads/audio/20260808-9f3a1c.webm */
+  url: string;
+  /** 落盘后的文件名（时间戳 + 随机 hex，避免同名覆盖） */
+  fileName: string;
+  /** 用户上传时的原始文件名，用于展示 */
+  originalName: string;
+  mimeType: string;
+  /** 字节数 */
+  size: number;
+  kind: UploadKind;
+}
+
+/** 去重检测入参：内容与来源网址至少给一个 */
+export interface DuplicateCheckPayload {
+  content?: string;
+  sourceUrl?: string;
+  /** 编辑既有条目时排除自身，避免"和自己重复" */
+  excludeId?: number;
+}
+
+/** 去重检测结果：后端恒返回 200，isDuplicate=false 即视为无冲突 */
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  /** 命中的既有条目 id，未命中为 null */
+  existingId: number | null;
+  existingTitle: string;
+  existingCreatedAt: string | null;
+  /** 0~1 相似度；URL 完全一致时为 1 */
+  similarity: number;
+  /** 命中原因：'url'=来源网址一致，'content'=正文相似，''=未命中 */
+  reason: 'url' | 'content' | '';
+}
+
+/**
+ * 拉取未处理条目。
+ * @param sort  'asc' 时按创建时间升序（收件箱积压视图用）
+ * @param filter 智能过滤维度，'all' 或省略表示不过滤
+ */
+export function fetchInboxList(sort?: 'asc' | 'desc', filter?: InboxFilter) {
+  const params: Record<string, string> = {};
+  if (sort) params.sort = sort;
+  if (filter && filter !== 'all') params.filter = filter;
+  return apiGet<InboxItem[]>('/inbox/list', Object.keys(params).length ? params : undefined);
 }
 
 /** 按状态拉取（归档箱 / 回收站视图用） */
@@ -154,4 +222,50 @@ export function processInbox(id: number, target: ProcessTarget, options?: Proces
 /** 删除：软删除，移入回收站 */
 export function deleteInbox(id: number) {
   return apiDelete<void>(`/inbox/${id}`);
+}
+
+/* =============================================================================
+ * 进阶能力实现
+ * ========================================================================== */
+
+/**
+ * 批量处理：一次性归档 / 删除 / 沉淀为康奈尔笔记。
+ * 后端用 inArray 做单条 SQL 批量 UPDATE（cornell 需逐条建笔记），
+ * 不存在的 id 会进 skipped 而不是整体报错。
+ */
+export function batchProcessInbox(ids: number[], target: BatchTarget) {
+  return apiPost<BatchProcessResult>('/inbox/batch/process', { ids, target });
+}
+
+/**
+ * 上传文件到 <dataDir>/uploads/<kind>/。
+ *
+ * 注意这里**不设 Content-Type**：交给浏览器根据 FormData 自动补 multipart/form-data
+ * 并附上 boundary，手动写死会导致后端解析不到分片（经典坑）。
+ * 超时也放宽到 60s —— 一段两分钟的录音在慢盘上可能超过默认 15s。
+ */
+function uploadTo(kind: UploadKind, file: Blob, fileName: string) {
+  const form = new FormData();
+  form.append('file', file, fileName);
+  const endpoint = kind === 'audio' ? '/inbox/upload/audio' : '/inbox/upload/asset';
+  return apiPost<UploadResult>(endpoint, form, { timeout: 60000 });
+}
+
+/** 上传录音（MediaRecorder 产出的 webm/wav Blob） */
+export function uploadInboxAudio(blob: Blob, fileName = 'voice-memo.webm') {
+  return uploadTo('audio', blob, fileName);
+}
+
+/** 上传图片 / 通用附件（文件选择器或粘贴板图片） */
+export function uploadInboxAsset(file: File | Blob, fileName?: string) {
+  const name = fileName || (file instanceof File ? file.name : 'pasted-image.png');
+  return uploadTo('assets', file, name);
+}
+
+/**
+ * 智能去重检测：在近 7 天的未处理条目里找「来源网址完全一致」或「正文相似度 >80%」的旧条目。
+ * 后端恒 200（检测失败也返回 isDuplicate=false），调用方无需 try 兜底 UI。
+ */
+export function checkDuplicate(payload: DuplicateCheckPayload) {
+  return apiPost<DuplicateCheckResult>('/inbox/duplicate-check', payload);
 }

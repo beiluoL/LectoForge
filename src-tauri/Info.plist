@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 浏览器剪藏深链：knowflow://capture?url=&title=&text= 拉起应用并预填速记弹窗 -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.knowflow.desktop</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>knowflow</string>
+      </array>
+      <key>CFBundleURLRole</key>
+      <string>Editor</string>
+    </dict>
+  </array>
+</dict>
+</plist>
