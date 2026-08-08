@@ -19,13 +19,13 @@ use tauri::{
 use tauri::AppHandle;
 
 /// 番茄钟诊断落盘：build 模式下 Rust 进程的 stdout/stderr 用户看不到，
-/// 写到 /tmp/knowflow_pomodoro.log 便于真机 `cat` 排查菜单栏刷新链路。
+/// 写到 /tmp/lectoforge_pomodoro.log 便于真机 `cat` 排查菜单栏刷新链路。
 pub(crate) fn append_pomodoro_log(line: &str) {
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open("/tmp/knowflow_pomodoro.log")
+        .open("/tmp/lectoforge_pomodoro.log")
     {
         let _ = writeln!(f, "{line}");
     }

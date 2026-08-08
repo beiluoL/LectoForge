@@ -6,7 +6,7 @@
 // - AI 服务参数（baseUrl / apiKey / model）仍统一交给 lib/llm.ts 的 saveConfig 持久化到 ai-config.json（权限 600），
 //   这样引导页填的 AI 配置能真正驱动全局 AI 能力，而不是变成一份与实际调用脱节的死数据。
 //
-// 说明：桌面端真实数据目录由 Tauri 宿主用 BaseDirectory::AppData 解析后注入（KNOWFLOW_DATA_DIR），
+// 说明：桌面端真实数据目录由 Tauri 宿主用 BaseDirectory::AppData 解析后注入（LECTOFORGE_DATA_DIR），
 // SQLite 在启动那一刻即在该目录打开。因此引导页选择的 dataDir 作为「偏好」记录，
 // 迁移既有数据 / 让新目录立即生效属于后续增强，本轮先如实存储并回显。
 import { FastifyInstance } from 'fastify';

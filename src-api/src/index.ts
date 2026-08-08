@@ -132,7 +132,7 @@ const BOOT_ID = `${process.pid}-${Date.now()}`;
 const STARTED_AT = Date.now();
 app.get('/api/health', async () => ({
   status: 'ok',
-  service: 'knowflow-desktop-api',
+  service: 'lectoforge-desktop-api',
   bootId: BOOT_ID,
   pid: process.pid,
   /* uptime 供前端识别「后端是刚被宿主重启起来的新实例」：
@@ -143,7 +143,7 @@ app.get('/api/health', async () => ({
 }));
 
 /* ===== 同源托管用户上传资产（录音 / 图片 / 附件）=====
- * 落盘目录是 <dataDir>/uploads（打包后为 ~/Library/Application Support/com.knowflow.desktop/uploads），
+ * 落盘目录是 <dataDir>/uploads（打包后为 ~/Library/Application Support/com.lectoforge.desktop/uploads），
  * 与前端构建产物完全不同的两棵目录树，因此必须**再注册一次** @fastify/static。
  *
  * 两个要点：
@@ -200,7 +200,7 @@ if (webDir && fs.existsSync(webDir)) {
     return reply.sendFile('index.html');
   });
 } else {
-  app.get('/', async () => ({ app: 'KnowFlow 学习工作台桌面后端', status: 'ok', note: '前端未构建或 --web-dir 未指定' }));
+  app.get('/', async () => ({ app: 'LectoForge 学习工作台桌面后端', status: 'ok', note: '前端未构建或 --web-dir 未指定' }));
 }
 
 /* 孤儿自检（仅当由 Tauri 宿主拉起时启用）。
@@ -210,7 +210,7 @@ if (webDir && fs.existsSync(webDir)) {
 if (isLaunchedByHost()) {
   const orphanTimer = setInterval(() => {
     if (process.ppid === 1) {
-      console.log('[knowflow-desktop] 宿主已退出，侧车自动关闭');
+      console.log('[lectoforge-desktop] 宿主已退出，侧车自动关闭');
       process.exit(0);
     }
   }, 5000);
@@ -232,9 +232,9 @@ async function start() {
   for (let i = 0; i < attempts; i++) {
     try {
       await app.listen({ port, host: '127.0.0.1' });
-      console.log(`[knowflow-desktop] API on http://127.0.0.1:${port}`);
-      console.log(`[knowflow-desktop] data dir: ${resolveDataDir()}`);
-      console.log(`[knowflow-desktop] web dir: ${webDir ?? '(none)'}`);
+      console.log(`[lectoforge-desktop] API on http://127.0.0.1:${port}`);
+      console.log(`[lectoforge-desktop] data dir: ${resolveDataDir()}`);
+      console.log(`[lectoforge-desktop] web dir: ${webDir ?? '(none)'}`);
       return;
     } catch (e: any) {
       if (e.code !== 'EADDRINUSE') throw e;

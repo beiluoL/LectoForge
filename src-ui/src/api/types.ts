@@ -1,4 +1,4 @@
-// 后端接口数据类型（与 com.knowflow.vo / dto 对齐）
+// 后端接口数据类型（与 com.lectoforge.vo / dto 对齐）
 
 export interface ApiResult<T = unknown> {
   code: number
@@ -1049,7 +1049,7 @@ export interface CodeTestCase {
   expected: string
 }
 
-/** 代码题目 VO（与 com.knowflow.entity.CodeQuestion 对齐） */
+/** 代码题目 VO（与 com.lectoforge.entity.CodeQuestion 对齐） */
 export interface CodeQuestionVO {
   id: number
   title: string

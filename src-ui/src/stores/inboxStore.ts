@@ -29,7 +29,7 @@ import {
   type UploadResult,
 } from '@/api/inbox';
 
-/** 速记弹窗预填内容（浏览器剪藏深链 knowflow://capture 唤起时携带） */
+/** 速记弹窗预填内容（浏览器剪藏深链 lectoforge://capture 唤起时携带） */
 export interface QuickPrefill {
   title?: string;
   content?: string;
@@ -61,7 +61,7 @@ export const useInboxStore = defineStore(
     /** 全局速记弹窗开关（Cmd/Ctrl+Shift+I 唤起） */
     const quickOpen = ref(false);
     /**
-     * 弹窗预填内容。由浏览器剪藏深链（knowflow://capture?url=...&title=...）写入，
+     * 弹窗预填内容。由浏览器剪藏深链（lectoforge://capture?url=...&title=...）写入，
      * QuickCapture 挂载时读取并 consume 掉，避免下次手动唤起还残留上次的剪藏内容。
      */
     const quickPrefill = ref<QuickPrefill | null>(null);

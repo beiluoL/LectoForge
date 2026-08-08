@@ -1,4 +1,4 @@
-# KnowFlow 学习工作台（桌面端）AI 能力 · 技术方案（已落地版）
+# LectoForge 学习工作台（桌面端）AI 能力 · 技术方案（已落地版）
 
 > 版本：v2.0 ｜ 更新日期：2026-08-07 ｜ 适用范围：基于当前 `desktopApp` 实际代码逐文件核对后产出
 > 技术栈：Tauri 2 + Node 侧车（Fastify / TS，端口 8787）+ Vue3 / Vite / Pinia / lucide-vue-next
@@ -11,7 +11,7 @@
 | 维度 | 现状 |
 |------|------|
 | 架构 | Rust 壳(Tauri) + Node 侧车(Fastify/TS) + Vue3 前端，三端打包进 `.app`；同源托管 `/api/*`，零 CORS |
-| 数据 | SQLite(WAL) + Drizzle ORM，单用户 `CURRENT_USER=1`，数据目录经 `--data-dir`/`KNOWFLOW_DATA_DIR` 可配 |
+| 数据 | SQLite(WAL) + Drizzle ORM，单用户 `CURRENT_USER=1`，数据目录经 `--data-dir`/`LECTOFORGE_DATA_DIR` 可配 |
 | **AI 现状** | **已完整落地**：24 个 `/api/ai` 端点全部实现，覆盖配置中心 / 内容加工 / 评估洞察 / 向量检索 / 思维导图生成（v1.2 新增 `note/extend`、`note/flashcards` 题型增强、`note/generate-mindmap`） |
 | LLM 调用 | 纯 Node 22 原生 `fetch` 调 OpenAI 兼容 `/v1/chat/completions`，**不引入任何 LLM SDK**；配置 `ai-config.json` 落盘 `chmod 600` |
 | 向量检索 | `wb_embedding` 表存 JSON 向量 + 应用层 JS 余弦；`/embeddings/sync` 按 `content_hash` 增量重建，`/associate` 查关联 |
@@ -128,7 +128,7 @@
 - **前端**：`/settings/ai`（AiSettings.vue）填写 provider/Key/模型/温度/超时；向量化服务（SiliconFlow BAAI/bge-m3、OpenAI text-embedding-3-small、自定义）独立配置。未配置时各 AI 按钮置灰 + 提示。
 - **首次引导也可配**：`/onboarding` 引导页填的 AI 参数经 `POST /api/config/init` → `lib/llm.ts` 的 `saveConfig` 落入同一份 `ai-config.json`，与 `/settings/ai` 完全等价（详见《技术架构与功能手册.md》§7.15）。`/api/config` 初始化时一并返回 AI 公共视图（Key 仅掩码），供引导页预填。
 - **预设**：`PROVIDER_PRESETS`（deepseek / openai / custom）、`EMBEDDING_PRESETS`；默认 DeepSeek `https://api.deepseek.com/v1` + `deepseek-chat`。
-- **环境变量** `KNOWFLOW_AI_KEY` / `KNOWFLOW_AI_MODEL` / `KNOWFLOW_AI_BASE_URL` 优先级最高。
+- **环境变量** `LECTOFORGE_AI_KEY` / `LECTOFORGE_AI_MODEL` / `LECTOFORGE_AI_BASE_URL` 优先级最高。
 
 ### 3.3 LLM 调用库（`src-api/src/lib/llm.ts`，438 行）
 - 纯 Node 22 原生 `fetch` 调 OpenAI 兼容 `/v1/chat/completions`，**不引入任何 LLM SDK**。

@@ -7,7 +7,7 @@
       <header class="ob-head">
         <div class="ob-brand">
           <span class="ob-brand-logo"><Icon name="brain" :size="22" /></span>
-          <span class="ob-brand-name">KnowFlow 学习工作台</span>
+          <span class="ob-brand-name">LectoForge 学习工作台</span>
         </div>
         <ol class="ob-steps">
           <li
@@ -48,7 +48,7 @@
         </div>
         <p class="ob-hint">
           <Icon name="info" :size="13" />
-          留空则使用系统默认目录：<code>~/Library/Application Support/com.knowflow.desktop</code>
+          留空则使用系统默认目录：<code>~/Library/Application Support/com.lectoforge.desktop</code>
         </p>
       </section>
 
@@ -285,7 +285,7 @@ async function finish() {
   try {
     syncFormToStore()
     await appStore.completeOnboarding()
-    notify('欢迎使用 KnowFlow，开始你的学习闭环吧！', 'success')
+    notify('欢迎使用 LectoForge，开始你的学习闭环吧！', 'success')
     router.push('/workbench')
   } catch (e) {
     notify(getApiError(e, '配置保存失败，请重试'), 'error')

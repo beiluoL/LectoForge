@@ -1,4 +1,4 @@
-import zlib, struct
+import os, zlib, struct
 
 W = H = 512
 BG = (0x3B, 0x6F, 0xE0)   # 品牌蓝 #3B6FE0
@@ -49,7 +49,8 @@ png = b"\x89PNG\r\n\x1a\n"
 png += chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 6, 0, 0, 0))
 png += chunk(b"IDAT", zlib.compress(bytes(raw), 9))
 png += chunk(b"IEND", b"")
-out = "/Users/beiluo/Documents/alProject/qoderProject/knowflow/desktopApp/icon-source.png"
+# 相对脚本自身定位到项目根，避免硬编码绝对路径（改目录名/换机器都不会失效）
+out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon-source.png")
 with open(out, "wb") as f:
     f.write(png)
 print("wrote", out, len(png), "bytes")

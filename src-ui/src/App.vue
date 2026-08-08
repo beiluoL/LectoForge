@@ -157,7 +157,7 @@ onMounted(() => {
     }
   })();
 
-  // 浏览器剪藏深链：外部以 knowflow://capture?url=&title=&text= 拉起应用时，
+  // 浏览器剪藏深链：外部以 lectoforge://capture?url=&title=&text= 拉起应用时，
   // Rust 侧解析后 emit("deep-link", payload)。此处唤起全局速记弹窗并预填剪藏内容。
   void (async () => {
     try {

@@ -64,7 +64,7 @@ export async function probeHealth(): Promise<boolean> {
     const payload = (res.data?.data ?? res.data) as
       | { service?: string; bootId?: string }
       | undefined
-    if (res.status !== 200 || payload?.service !== 'knowflow-desktop-api') return false
+    if (res.status !== 200 || payload?.service !== 'lectoforge-desktop-api') return false
 
     const bootId = payload.bootId ? String(payload.bootId) : ''
     if (bootId) {

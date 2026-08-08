@@ -3,32 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KnowFlow 学习工作台</title>
+    <title>LectoForge 学习工作台</title>
     <style>
       html, body { margin: 0; height: 100%; }
       body { background: #F7F8FA; }
-      #kf-boot {
+      #lf-boot {
         position: absolute; inset: 0;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 14px;
         font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
         color: #6B7280;
       }
-      #kf-boot .kf-spin {
+      #lf-boot .lf-spin {
         width: 26px; height: 26px; border-radius: 50%;
         border: 2px solid rgba(59, 111, 224, 0.18);
         border-top-color: #3B6FE0;
-        animation: kf-rotate 0.7s linear infinite;
+        animation: lf-rotate 0.7s linear infinite;
       }
-      @keyframes kf-rotate { to { transform: rotate(360deg); } }
-      #kf-boot .kf-tip { font-size: 13px; }
-      #kf-fatal {
+      @keyframes lf-rotate { to { transform: rotate(360deg); } }
+      #lf-boot .lf-tip { font-size: 13px; }
+      #lf-fatal {
         display: none; position: absolute; inset: 0; z-index: 10;
         padding: 32px; overflow: auto; background: #fff;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px; line-height: 1.7; color: #B42318; white-space: pre-wrap;
       }
-      #kf-fatal h2 {
+      #lf-fatal h2 {
         margin: 0 0 12px; font-size: 14px; font-weight: 500; color: #111827;
         font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
       }
@@ -36,13 +36,13 @@
   </head>
   <body>
     <div id="app">
-      <div id="kf-boot">
-        <div class="kf-spin"></div>
-        <div class="kf-tip">正在启动 KnowFlow…</div>
+      <div id="lf-boot">
+        <div class="lf-spin"></div>
+        <div class="lf-tip">正在启动 LectoForge…</div>
       </div>
     </div>
 
-    <div id="kf-fatal"></div>
+    <div id="lf-fatal"></div>
 
     <script>
       /* 启动失败诊断兜底。
@@ -50,7 +50,7 @@
        * 是不会抛出可见错误的，页面只会一直停在加载态。这里做超时兜底，把线索显示出来，
        * 避免只能对着一个转圈干瞪眼。 */
       (function () {
-        var fatal = document.getElementById('kf-fatal');
+        var fatal = document.getElementById('lf-fatal');
         var lines = [];
         var shown = false;
 
@@ -76,9 +76,9 @@
             console.warn('[boot] 资源加载失败:', (t.src || t.href || t.currentSrc || '(unknown)'))
             return
           }
-          // 若 Vue 已经接管页面（启动遮罩 #kf-boot 已被移除），说明界面已正常启动，
+          // 若 Vue 已经接管页面（启动遮罩 #lf-boot 已被移除），说明界面已正常启动，
           // 运行期错误交给应用自身的错误边界 / 控制台，不再覆盖为「启动失败」。
-          if (!document.getElementById('kf-boot')) {
+          if (!document.getElementById('lf-boot')) {
             console.error('[runtime error]', e.message, e.filename, e.lineno)
             return
           }
@@ -92,7 +92,7 @@
 
         window.addEventListener('unhandledrejection', function (e) {
           // 应用启动完成后再无「启动失败」的概念；未接管的 Promise 拒绝只记控制台。
-          if (!document.getElementById('kf-boot')) {
+          if (!document.getElementById('lf-boot')) {
             console.error('[unhandled rejection]', e.reason)
             return
           }
@@ -101,7 +101,7 @@
         });
 
         setTimeout(function () {
-          if (!document.getElementById('kf-boot')) return;
+          if (!document.getElementById('lf-boot')) return;
           push('等待 10 秒后 Vue 仍未接管页面。');
           push('通常意味着 /assets 下的脚本没能正确返回（被回落成 HTML 会导致模块脚本被静默拒绝）。');
           push('请确认没有上一次未退出的后端进程占用端口，然后重启应用。');

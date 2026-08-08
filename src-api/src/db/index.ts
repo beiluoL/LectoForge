@@ -3,11 +3,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import { getDbPath } from '../lib/paths';
 
-/* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 KNOWFLOW_DATA_DIR
- * （macOS: ~/Library/Application Support/com.knowflow.desktop/workbench.db），
+/* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 LECTOFORGE_DATA_DIR
+ * （macOS: ~/Library/Application Support/com.lectoforge.desktop/workbench.db），
  * 开发期落在 <src-api>/data/workbench.db；目录创建与可写校验由 paths 负责。 */
 const dbPath = getDbPath();
-console.log(`[knowflow-desktop] SQLite: ${dbPath}`);
+console.log(`[lectoforge-desktop] SQLite: ${dbPath}`);
 
 export const sqlite = new Database(dbPath);
 // 单用户桌面应用：开 WAL 提升并发与崩溃安全
@@ -323,7 +323,7 @@ if (catCount === 0) {
     for (const [title, content, type, url, tags, ts] of rows) {
       seed.run(title, content, type, url, tags, ts, ts);
     }
-    console.log(`[knowflow-desktop] 收集箱示例数据已注入 (${rows.length} 条)`);
+    console.log(`[lectoforge-desktop] 收集箱示例数据已注入 (${rows.length} 条)`);
   }
 }
 

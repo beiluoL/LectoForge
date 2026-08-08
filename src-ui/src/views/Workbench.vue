@@ -13,7 +13,7 @@
           <div class="wb-hero-text">
             <span class="wb-eyebrow">
               <span class="wb-eyebrow-dot"></span>
-              KnowFlow · Learning Loop
+              LectoForge · Learning Loop
             </span>
             <h1 class="wb-title">
               <Icon name="brain" :size="30" class="wb-title-icon" />

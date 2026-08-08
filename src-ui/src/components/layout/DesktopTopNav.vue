@@ -3,7 +3,7 @@
     class="kb-topnav fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 sm:px-6 border-b"
     :style="{ background: 'var(--kb-card)', borderColor: 'var(--kb-border)' }"
   >
-    <!-- Left: Logo（原「知识库」文字入口已彻底移除，仅保留产品名 KnowFlow + 图标，点击回工作台驾驶舱） -->
+    <!-- Left: Logo（原「知识库」文字入口已彻底移除，仅保留产品名 LectoForge + 图标，点击回工作台驾驶舱） -->
     <router-link
       to="/workbench"
       class="flex items-center shrink-0 gap-2"
@@ -13,7 +13,7 @@
       <span
         class="hidden sm:inline font-semibold tracking-tight"
         :style="{ fontSize: 'var(--kb-logo-text-fs)', color: 'var(--kb-foreground)' }"
-      >KnowFlow</span>
+      >LectoForge</span>
     </router-link>
 
     <!-- ============ 桌面端（lg+）：完整 8 入口 ============ -->

@@ -218,7 +218,7 @@
  * - 语音灵感：MediaRecorder 录音 → 上传 → 以 type:'audio' 直接落一条收集项（不占输入框）；
  * - 多格式附件：文件选择 + 粘贴板图片 → 上传 → 以 Markdown 形式并入正文；
  * - 智能去重：失焦 / 粘贴后检测近 7 天的相似条目，命中则显示黄色提醒条（不阻断提交）；
- * - 深链预填：浏览器剪藏 knowflow://capture 唤起时，从 store 消费预填内容。
+ * - 深链预填：浏览器剪藏 lectoforge://capture 唤起时，从 store 消费预填内容。
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
@@ -636,7 +636,7 @@ watch(
   { immediate: true },
 );
 
-/* 深链预填（knowflow://capture?url=...&title=...）：
+/* 深链预填（lectoforge://capture?url=...&title=...）：
  * 唤起弹窗时 store 里已写好预填内容，这里一次性消费掉并组装成输入框文本。
  * 用 consumePrefill 而不是直接读，避免用户手动再开弹窗时又冒出上次剪藏的内容。 */
 onMounted(() => {

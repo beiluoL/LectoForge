@@ -31,7 +31,7 @@
           <input
             v-model="form.dataDir"
             class="kb-input set-dir-input"
-            placeholder="~/Library/Application Support/com.knowflow.desktop"
+            placeholder="~/Library/Application Support/com.lectoforge.desktop"
             spellcheck="false"
           />
           <button class="kb-btn" :disabled="picking" @click="pickDirectory">
@@ -97,7 +97,7 @@
           <Icon name="info" :size="18" style="color: var(--kb-muted-foreground);" /> 关于
         </h2>
         <dl class="set-about">
-          <div><dt>应用</dt><dd>KnowFlow 学习工作台</dd></div>
+          <div><dt>应用</dt><dd>LectoForge 学习工作台</dd></div>
           <div><dt>版本</dt><dd>v1.0.0</dd></div>
           <div><dt>运行模式</dt><dd><span class="set-badge"><Icon name="hard-drive" :size="12" /> 本地离线</span></dd></div>
         </dl>

@@ -141,7 +141,7 @@ async function go(dir?: string) {
 async function createHere() {
   const name = await promptDialog(`在「${current.value}」中新建文件夹`, {
     placeholder: '文件夹名称',
-    defaultValue: 'KnowFlow 文档库',
+    defaultValue: 'LectoForge 文档库',
   })
   if (name === null) return
   const trimmed = name.trim()

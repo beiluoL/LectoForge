@@ -39,7 +39,7 @@ pub(crate) static POPUP_SHOWN_AT: std::sync::OnceLock<
 /// 显示后宽限期（毫秒）：此窗口内的失焦事件视为系统抖动，不触发隐藏。
 const POPUP_SHOW_GRACE_MS: u128 = 350;
 
-/// 浏览器剪藏深链（knowflow://capture?url=&title=&text=）的待消费缓冲。
+/// 浏览器剪藏深链（lectoforge://capture?url=&title=&text=）的待消费缓冲。
 ///
 /// macOS 通过自定义 URL Scheme 拉起应用时，`RunEvent::Opened` 可能在前端
 /// `listen("deep-link")` 注册之前就触发（冷启动场景），直接 `emit` 会丢事件。
@@ -54,7 +54,14 @@ const DEFAULT_BACKEND_PORT: u16 = 8787;
 
 /// 注入给 Node 侧车的数据目录环境变量名（与 src-api/src/lib/paths.ts 的 DATA_DIR_ENV 一致）
 #[cfg(not(debug_assertions))]
-const DATA_DIR_ENV: &str = "KNOWFLOW_DATA_DIR";
+const DATA_DIR_ENV: &str = "LECTOFORGE_DATA_DIR";
+/// 产品更名前（KnowFlow）的旧 bundle identifier。
+///
+/// AppData 目录名 = bundle identifier，改名后系统解析到的是一个全新的空目录，
+/// 老用户的 workbench.db / mindmaps / uploads 会被「留在原地读不到」，表现为数据凭空消失。
+/// 这里保留旧名用于一次性迁移，迁移完成后仍**不删除**旧目录（留作回滚安全网）。
+#[cfg(not(debug_assertions))]
+const LEGACY_APP_IDENTIFIER: &str = "com.knowflow.desktop";
 /// 侧车异常退出后的基础重启间隔
 #[cfg(not(debug_assertions))]
 const RESTART_BASE_DELAY: Duration = Duration::from_secs(2);
@@ -82,7 +89,7 @@ struct AppState {
 // 1. 用 std::process::Command 直接拉起，不再走 tauri-plugin-shell 的 sidecar API——
 //    只有拿到裸 Child 才能自己掌控 wait / kill / 重启的完整生命周期。
 // 2. 数据目录由宿主用 BaseDirectory::AppData 解析并 create_dir_all 后，
-//    以环境变量 KNOWFLOW_DATA_DIR 注入子进程；.app 包内只读，绝不能让后端写包内路径。
+//    以环境变量 LECTOFORGE_DATA_DIR 注入子进程；.app 包内只读，绝不能让后端写包内路径。
 // 3. 监控放在独立线程里阻塞 wait()，Tauri 主线程一秒都不能被挡住。
 // 4. 重启必须复用同一个端口：窗口页面的 origin 就是 http://127.0.0.1:<port>，
 //    换端口 = 前端永远连不回来。因此重启前先等端口被释放。
@@ -144,7 +151,7 @@ impl SidecarManager {
             .arg("--data-dir")
             .arg(&self.spec.data_dir)
             .env(DATA_DIR_ENV, &self.spec.data_dir)
-            .env("KNOWFLOW_PORT", self.spec.port.to_string())
+            .env("LECTOFORGE_PORT", self.spec.port.to_string())
             .env("NODE_ENV", "production")
             // 工作目录设成可写的数据目录：万一有库按相对路径落盘，也不会写进只读的 .app
             .current_dir(&self.spec.data_dir)
@@ -177,7 +184,7 @@ impl SidecarManager {
                  * 此时抢着起新进程会撞 EADDRINUSE，后端要么退出要么漂到别的端口。 */
                 if !wait_port_released(this.spec.port, Duration::from_secs(10)) {
                     eprintln!(
-                        "[knowflow] 端口 {} 迟迟未释放，仍尝试启动侧车",
+                        "[lectoforge] 端口 {} 迟迟未释放，仍尝试启动侧车",
                         this.spec.port
                     );
                 }
@@ -186,7 +193,7 @@ impl SidecarManager {
                 let mut child = match this.spawn_process() {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("[knowflow] 侧车启动失败: {e}");
+                        eprintln!("[lectoforge] 侧车启动失败: {e}");
                         sleep(delay);
                         delay = next_delay(delay);
                         continue;
@@ -197,7 +204,7 @@ impl SidecarManager {
                 *this.pid.lock().unwrap() = Some(pid);
                 let generation = this.restarts.load(Ordering::SeqCst);
                 println!(
-                    "[knowflow] 侧车已启动 pid={pid} port={} 第 {generation} 次",
+                    "[lectoforge] 侧车已启动 pid={pid} port={} 第 {generation} 次",
                     this.spec.port
                 );
 
@@ -220,7 +227,7 @@ impl SidecarManager {
                 *this.pid.lock().unwrap() = None;
 
                 if this.stopping.load(Ordering::SeqCst) {
-                    println!("[knowflow] 应用退出中，侧车监控结束");
+                    println!("[lectoforge] 应用退出中，侧车监控结束");
                     break;
                 }
 
@@ -228,7 +235,7 @@ impl SidecarManager {
                     // code() 在被信号杀死时返回 None（如 OOM 的 SIGKILL），一律按异常处理
                     Ok(st) => (st.code(), !st.success()),
                     Err(e) => {
-                        eprintln!("[knowflow] 等待侧车退出时出错: {e}");
+                        eprintln!("[lectoforge] 等待侧车退出时出错: {e}");
                         (None, true)
                     }
                 };
@@ -236,14 +243,14 @@ impl SidecarManager {
                 if !abnormal {
                     /* 退出码 0：后端自己决定停下（例如孤儿自检发现宿主没了）。
                      * 这种情况重启没有意义，交给下次启动应用处理。 */
-                    println!("[knowflow] 侧车正常退出（code=0），不再重启");
+                    println!("[lectoforge] 侧车正常退出（code=0），不再重启");
                     let _ = this.app.emit("sidecar://stopped", json!({ "code": 0 }));
                     break;
                 }
 
                 let uptime = started.elapsed();
                 eprintln!(
-                    "[knowflow] 侧车异常退出 code={:?}，存活 {:?}，{:?} 后重启",
+                    "[lectoforge] 侧车异常退出 code={:?}，存活 {:?}，{:?} 后重启",
                     code, uptime, delay
                 );
                 let _ = this.app.emit(
@@ -272,7 +279,7 @@ impl SidecarManager {
             Some(p) => p,
             None => return,
         };
-        println!("[knowflow] 正在回收侧车 pid={pid}");
+        println!("[lectoforge] 正在回收侧车 pid={pid}");
         signal_process(pid, false);
 
         let deadline = Instant::now() + Duration::from_secs(2);
@@ -282,7 +289,7 @@ impl SidecarManager {
             }
             sleep(Duration::from_millis(100));
         }
-        eprintln!("[knowflow] 侧车未响应 SIGTERM，强制结束 pid={pid}");
+        eprintln!("[lectoforge] 侧车未响应 SIGTERM，强制结束 pid={pid}");
         signal_process(pid, true);
     }
 }
@@ -373,9 +380,9 @@ fn pipe_logs<R: std::io::Read + Send + 'static>(reader: R, tag: &'static str, lo
                     let text = String::from_utf8_lossy(&raw);
                     let text = text.trim_end_matches(['\r', '\n']);
                     if tag == "err" {
-                        eprintln!("[knowflow-api] {text}");
+                        eprintln!("[lectoforge-api] {text}");
                     } else {
-                        println!("[knowflow-api] {text}");
+                        println!("[lectoforge-api] {text}");
                     }
                     append_log(&log_file, tag, text);
                 }
@@ -396,12 +403,65 @@ fn append_log(path: &Path, tag: &str, line: &str) {
     }
 }
 
+/// 递归复制目录内容（仅用于数据迁移，遇到单个文件失败只跳过、不中断整体迁移）。
+#[cfg(not(debug_assertions))]
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<u64> {
+    let mut copied = 0u64;
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copied += copy_dir_recursive(&from, &to).unwrap_or(0);
+        } else {
+            // 目标已存在则保留目标（新数据优先），避免二次运行把用户新写的内容覆盖回去
+            if !to.exists() {
+                match std::fs::copy(&from, &to) {
+                    Ok(_) => copied += 1,
+                    Err(e) => eprintln!("[lectoforge] 迁移跳过 {}: {e}", from.display()),
+                }
+            }
+        }
+    }
+    Ok(copied)
+}
+
+/// KnowFlow → LectoForge 更名后的一次性数据迁移。
+///
+/// bundle identifier 变了 ⇒ `BaseDirectory::AppData` 指向一个全新的空目录。
+/// 若新目录尚无主库、而旧目录里有，就把旧目录整体复制过来（**不删除**旧目录，
+/// 万一迁移出问题还能手工回退）。已迁移过则因主库存在而直接跳过，幂等。
+#[cfg(not(debug_assertions))]
+fn migrate_legacy_data_dir(new_dir: &Path) {
+    const DB_FILE: &str = "workbench.db";
+    // 新目录已有主库 = 要么已迁移过，要么是新装用户自己用出来的数据，一律不动
+    if new_dir.join(DB_FILE).exists() {
+        return;
+    }
+    let Some(legacy_dir) = new_dir.parent().map(|p| p.join(LEGACY_APP_IDENTIFIER)) else {
+        return;
+    };
+    if legacy_dir == new_dir || !legacy_dir.join(DB_FILE).exists() {
+        return;
+    }
+    println!(
+        "[lectoforge] 检测到更名前的数据目录，开始迁移: {} → {}",
+        legacy_dir.display(),
+        new_dir.display()
+    );
+    match copy_dir_recursive(&legacy_dir, new_dir) {
+        Ok(n) => println!("[lectoforge] 历史数据迁移完成，共 {n} 个文件（旧目录已保留，确认无误后可自行删除）"),
+        Err(e) => eprintln!("[lectoforge] 历史数据迁移失败: {e}（旧数据仍在 {}）", legacy_dir.display()),
+    }
+}
+
 /// 定位 Node 侧车可执行文件。
 /// macOS 打包后 externalBin 会被放进 Contents/MacOS/ 且去掉目标三元组后缀，
 /// 但为防不同 Tauri 版本行为差异，这里按候选顺序逐个探测。
 #[cfg(not(debug_assertions))]
 fn resolve_node_bin(resource_dir: &Path) -> Option<PathBuf> {
-    if let Ok(custom) = std::env::var("KNOWFLOW_NODE_BIN") {
+    if let Ok(custom) = std::env::var("LECTOFORGE_NODE_BIN") {
         let p = PathBuf::from(custom);
         if p.exists() {
             return Some(p);
@@ -449,7 +509,7 @@ pub fn run() {
                     .set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
-            // 深链剪藏的待消费缓冲（knowflow://capture 拉起时写入，前端监听或命令兜底取用）
+            // 深链剪藏的待消费缓冲（lectoforge://capture 拉起时写入，前端监听或命令兜底取用）
             app.manage(DeepLinkState {
                 pending: Mutex::new(None),
             });
@@ -465,13 +525,15 @@ pub fn run() {
                 /* ===== 任务 A：可写数据目录解析与注入 =====
                  * BaseDirectory::AppData 在 macOS 下解析为
                  *   ~/Library/Application Support/<bundle identifier>
-                 * 即 ~/Library/Application Support/com.knowflow.desktop。
+                 * 即 ~/Library/Application Support/com.lectoforge.desktop。
                  * resolve("") 会带一个尾随分隔符，用 components() 归一化掉，日志才干净。 */
                 let data_dir: std::path::PathBuf = resolver
                     .resolve("", BaseDirectory::AppData)?
                     .components()
                     .collect();
                 std::fs::create_dir_all(&data_dir)?;
+                // KnowFlow → LectoForge 更名：把旧 identifier 目录下的历史数据搬过来
+                migrate_legacy_data_dir(&data_dir);
                 let log_dir = data_dir.join("logs");
                 std::fs::create_dir_all(&log_dir)?;
                 let log_file = log_dir.join("sidecar.log");
@@ -479,7 +541,7 @@ pub fn run() {
                 if std::fs::metadata(&log_file).map(|m| m.len()).unwrap_or(0) > LOG_MAX_BYTES {
                     let _ = std::fs::remove_file(&log_file);
                 }
-                println!("[knowflow] 数据目录: {}", data_dir.display());
+                println!("[lectoforge] 数据目录: {}", data_dir.display());
 
                 /* 端口必须由宿主先协商好再传给侧车。
                  * 后端在 EADDRINUSE 时会自行 +1 漂移，若这里仍写死 8787，
@@ -510,7 +572,7 @@ pub fn run() {
 
                 // 阻塞等待后端就绪后再建窗口，确保窗口加载时后端已在监听，避免出现空白/错误页
                 if !wait_for_backend(port) {
-                    eprintln!("[knowflow] 后端健康检查未通过，端口 {port} 上没有响应预期的服务");
+                    eprintln!("[lectoforge] 后端健康检查未通过，端口 {port} 上没有响应预期的服务");
                 }
 
                 api_port = port;
@@ -520,7 +582,7 @@ pub fn run() {
                     "main",
                     WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
                 )
-                .title("KnowFlow 学习工作台")
+                .title("LectoForge 学习工作台")
                 .inner_size(1200.0, 800.0)
                 .build()?;
 
@@ -530,7 +592,7 @@ pub fn run() {
                     "pomodoro_popup",
                     WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
                 )
-                .title("KnowFlow 番茄钟")
+                .title("LectoForge 番茄钟")
                 .inner_size(380.0, 460.0)
                 .decorations(false)
                 .transparent(true)
@@ -548,7 +610,7 @@ pub fn run() {
                     "main",
                     WebviewUrl::External("http://localhost:5173".parse().unwrap()),
                 )
-                .title("KnowFlow 学习工作台 (dev)")
+                .title("LectoForge 学习工作台 (dev)")
                 .inner_size(1200.0, 800.0)
                 .build()?;
 
@@ -558,7 +620,7 @@ pub fn run() {
                     "pomodoro_popup",
                     WebviewUrl::External("http://localhost:5173".parse().unwrap()),
                 )
-                .title("KnowFlow 番茄钟 (dev)")
+                .title("LectoForge 番茄钟 (dev)")
                 .inner_size(380.0, 460.0)
                 .decorations(false)
                 .transparent(true)
@@ -574,7 +636,7 @@ pub fn run() {
             app.manage(AppState { reminder_enabled: reminder_enabled.clone() });
 
             // 3) 原生菜单（macOS 首个子菜单即 App 菜单）
-            let about = PredefinedMenuItem::about(app, Some("关于 KnowFlow 学习工作台"), None)?;
+            let about = PredefinedMenuItem::about(app, Some("关于 LectoForge 学习工作台"), None)?;
             let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
             let check_update = MenuItemBuilder::with_id("check_update", "检查更新…").build(app)?;
             let go_review = MenuItemBuilder::with_id("go_review", "去学习复习").build(app)?;
@@ -584,7 +646,7 @@ pub fn run() {
             let timer_status = MenuItemBuilder::with_id("timer_menu", "🍅 番茄钟 待机").build(app)?;
             let reload = MenuItemBuilder::with_id("reload", "重新加载页面").build(app)?;
 
-            let app_menu = SubmenuBuilder::new(app, "KnowFlow")
+            let app_menu = SubmenuBuilder::new(app, "LectoForge")
                 .item(&about)
                 .separator()
                 .item(&check_update)
@@ -760,13 +822,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
-            // 浏览器扩展 / 外部以 knowflow://capture?url=&title=&text= 拉起应用时，
+            // 浏览器扩展 / 外部以 lectoforge://capture?url=&title=&text= 拉起应用时，
             // 解析深链并通知前端唤起全局速记弹窗、预填剪藏内容。
             // 无需引入深链插件依赖：CFBundleURLTypes 已在 src-tauri/Info.plist 注册，
-            // 由系统把 knowflow:// 路由到本应用，Tauri 2 以 RunEvent::Opened 暴露 URL。
+            // 由系统把 lectoforge:// 路由到本应用，Tauri 2 以 RunEvent::Opened 暴露 URL。
             if let tauri::RunEvent::Opened { urls } = &event {
                 for u in urls {
-                    if u.scheme() == "knowflow" {
+                    if u.scheme() == "lectoforge" {
                         // 把查询参数收成 owned 的 (key,value) 列表，便于按 key 取用
                         let pairs: Vec<(String, String)> = u.query_pairs().into_owned().collect();
                         let get = |k: &str| {
@@ -852,7 +914,7 @@ fn wait_for_backend(port: u16) -> bool {
                     .pointer("/data/service")
                     .or_else(|| v.get("service"))
                     .and_then(|x| x.as_str());
-                if svc == Some("knowflow-desktop-api") {
+                if svc == Some("lectoforge-desktop-api") {
                     return true;
                 }
             }
@@ -910,7 +972,7 @@ fn show_review_notification(app: &tauri::AppHandle, count: u32, sample: &[String
     let _ = app
         .notification()
         .builder()
-        .title("KnowFlow 复习提醒")
+        .title("LectoForge 复习提醒")
         .body(body)
         .show();
 }
@@ -1040,7 +1102,7 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-/// 取出并清空一条待消费的深链剪藏（knowflow://capture 拉起时由 `RunEvent::Opened` 写入）。
+/// 取出并清空一条待消费的深链剪藏（lectoforge://capture 拉起时由 `RunEvent::Opened` 写入）。
 ///
 /// 用途：冷启动场景下，应用被 URL Scheme 拉起时前端 `listen("deep-link")` 可能尚未注册，
 /// 直接 `emit` 会丢事件。前端 `onMounted` 注册监听后调用此命令取一次缓冲作为兜底，

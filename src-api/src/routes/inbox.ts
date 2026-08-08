@@ -20,7 +20,7 @@
  * 映射集中在本文件 toStatusVo / toStatusDb，勿在别处硬编码大小写。
  *
  * 上传落盘：统一走 lib/paths.ts 的 getUploadsDir()（打包后为
- * ~/Library/Application Support/com.knowflow.desktop/uploads），**绝不能**拼 src-api/ 相对路径——
+ * ~/Library/Application Support/com.lectoforge.desktop/uploads），**绝不能**拼 src-api/ 相对路径——
  * .app 包内只读，写入会直接 EROFS。对外 URL 一律相对根路径 /uploads/xxx，
  * 由 index.ts 用 @fastify/static 同源托管（dev 走 vite proxy）。
  */

@@ -1941,7 +1941,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "knowflow-desktop"
+name = "lectoforge-desktop"
 version = "1.0.0"
 dependencies = [
  "serde",

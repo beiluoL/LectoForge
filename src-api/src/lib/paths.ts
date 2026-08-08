@@ -8,22 +8,22 @@ import os from 'node:os';
  * 打包成 macOS .app 之后，`.app` 包内是**只读**的（且带签名，写入会破坏签名），
  * 任何落盘（SQLite、AI 配置、上传图片、日志）都不能再拼 `src-api/data/`。
  * 真实可写目录由 Tauri 宿主用 `BaseDirectory::AppData` 取到后，
- * 通过环境变量 KNOWFLOW_DATA_DIR 注入本进程：
- *   macOS → ~/Library/Application Support/com.knowflow.desktop/
+ * 通过环境变量 LECTOFORGE_DATA_DIR 注入本进程：
+ *   macOS → ~/Library/Application Support/com.lectoforge.desktop/
  *
  * 解析优先级（逐级探测「能否真正写入」，第一个通过的胜出）：
- *   1. 环境变量 KNOWFLOW_DATA_DIR      —— 生产：Tauri 宿主注入（权威来源）
+ *   1. 环境变量 LECTOFORGE_DATA_DIR      —— 生产：Tauri 宿主注入（权威来源）
  *   2. 命令行 --data-dir <path>        —— 兼容旧版宿主 / 手工调试
  *   3. <src-api>/data                  —— 开发：tsx watch / npm run dev:api
  *   4. 系统应用数据目录                —— 兜底：脱离宿主直跑 .app 内 dist 时
- *   5. os.tmpdir()/knowflow-data       —— 最后兜底，保证进程一定能起来
+ *   5. os.tmpdir()/lectoforge-data       —— 最后兜底，保证进程一定能起来
  * ========================================================================== */
 
 /** 与 src-tauri/tauri.conf.json 的 identifier 保持一致 */
-const APP_IDENTIFIER = 'com.knowflow.desktop';
+const APP_IDENTIFIER = 'com.lectoforge.desktop';
 
 /** 宿主注入的数据目录环境变量名（Rust 侧 SidecarManager 写入同名变量） */
-export const DATA_DIR_ENV = 'KNOWFLOW_DATA_DIR';
+export const DATA_DIR_ENV = 'LECTOFORGE_DATA_DIR';
 
 /** 数据目录下的固定文件名（历史数据靠它们定位，改名 = 用户数据丢失，勿动） */
 const FILE_DB = 'workbench.db';
@@ -107,15 +107,15 @@ export function resolveDataDir(): string {
   if (fromArg) candidates.push({ dir: path.resolve(fromArg), from: '--data-dir' });
   candidates.push({ dir: projectDataDir(), from: '开发目录 <src-api>/data' });
   candidates.push({ dir: systemAppDataDir(), from: '系统应用数据目录' });
-  candidates.push({ dir: path.join(os.tmpdir(), 'knowflow-data'), from: '临时目录兜底' });
+  candidates.push({ dir: path.join(os.tmpdir(), 'lectoforge-data'), from: '临时目录兜底' });
 
   for (const c of candidates) {
     if (ensureWritableDir(c.dir)) {
       cachedDataDir = c.dir;
-      console.log(`[knowflow-desktop] 数据目录: ${c.dir}  (来源: ${c.from})`);
+      console.log(`[lectoforge-desktop] 数据目录: ${c.dir}  (来源: ${c.from})`);
       return cachedDataDir;
     }
-    console.warn(`[knowflow-desktop] 数据目录不可写，跳过: ${c.dir}  (来源: ${c.from})`);
+    console.warn(`[lectoforge-desktop] 数据目录不可写，跳过: ${c.dir}  (来源: ${c.from})`);
   }
 
   // 理论上不可达：tmpdir 都写不了的话进程本来也活不下去
@@ -140,10 +140,10 @@ export function dataSubDir(...segments: string[]): string {
 
 /**
  * SQLite 主库：<dataDir>/workbench.db
- * 支持 KNOWFLOW_DB 显式覆盖（指向任意绝对路径，便于跑测试库）。
+ * 支持 LECTOFORGE_DB 显式覆盖（指向任意绝对路径，便于跑测试库）。
  */
 export function getDbPath(): string {
-  const override = process.env.KNOWFLOW_DB;
+  const override = process.env.LECTOFORGE_DB;
   if (override && override.trim()) {
     const file = path.resolve(override.trim());
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -160,7 +160,7 @@ export function getAiConfigPath(): string {
 /**
  * 应用级配置：<dataDir>/config.json
  * 记录首次引导是否完成（hasOnboarded）与用户在引导页选择的数据目录偏好（dataDir）。
- * 生产环境下该文件落在 ~/Library/Application Support/com.knowflow.desktop/config.json。
+ * 生产环境下该文件落在 ~/Library/Application Support/com.lectoforge.desktop/config.json。
  */
 export function getAppConfigPath(): string {
   return dataFile(FILE_APP_CONFIG);

@@ -118,7 +118,7 @@ function clampNumber(v: unknown, fallback: number, min: number, max: number): nu
 
 /**
  * 读取配置。文件不存在时用默认值初始化并落盘；
- * 环境变量 KNOWFLOW_AI_KEY / KNOWFLOW_AI_MODEL / KNOWFLOW_AI_BASE_URL 优先级最高（便于 CI 与临时覆盖）。
+ * 环境变量 LECTOFORGE_AI_KEY / LECTOFORGE_AI_MODEL / LECTOFORGE_AI_BASE_URL 优先级最高（便于 CI 与临时覆盖）。
  */
 export function readConfig(): LlmConfig {
   const file = configPath();
@@ -145,9 +145,9 @@ export function readConfig(): LlmConfig {
     writeConfigFile(cfg);
   }
 
-  if (process.env.KNOWFLOW_AI_KEY) cfg.apiKey = process.env.KNOWFLOW_AI_KEY;
-  if (process.env.KNOWFLOW_AI_MODEL) cfg.model = process.env.KNOWFLOW_AI_MODEL;
-  if (process.env.KNOWFLOW_AI_BASE_URL) cfg.baseUrl = process.env.KNOWFLOW_AI_BASE_URL;
+  if (process.env.LECTOFORGE_AI_KEY) cfg.apiKey = process.env.LECTOFORGE_AI_KEY;
+  if (process.env.LECTOFORGE_AI_MODEL) cfg.model = process.env.LECTOFORGE_AI_MODEL;
+  if (process.env.LECTOFORGE_AI_BASE_URL) cfg.baseUrl = process.env.LECTOFORGE_AI_BASE_URL;
   return cfg;
 }
 

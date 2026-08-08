@@ -1,4 +1,4 @@
-# KnowFlow 学习工作台 · macOS 桌面应用
+# LectoForge 学习工作台 · macOS 桌面应用
 
 把 Web 项目中的「学习工作台」模块（收集箱 → 康奈尔笔记 → 间隔重复/记忆宫殿 → 费曼故事 四模块闭环）独立为 **macOS 专用**桌面应用，并扩展 **文档库（Obsidian 式本地 Markdown 工作台）** 与 **思维导图** 两大模块。
 
@@ -68,7 +68,7 @@ npm run tauri build
 
 ## 与现有 Web 项目的数据交互
 
-- 桌面端数据**本地优先**存于 `~/Library/Application Support/com.knowflow.desktop/` 下 SQLite。
+- 桌面端数据**本地优先**存于 `~/Library/Application Support/com.lectoforge.desktop/` 下 SQLite。
 - 从 Web 迁移：在 Web 端导出 `workbench-export` JSON（新增只读端点即可），桌面端「导入」映射本地表。
 - 分类：本地 `categories` 表（已预置 未分类/工作/学习/生活），也可从 Web 导入。
 
@@ -114,7 +114,8 @@ npm run tauri build
 
 - **侧车自愈重启（Rust 宿主）**：`SidecarManager` 在独立线程监控 Node 侧车，异常退出后**无限退避重启**（2s 起翻倍、封顶 30s），应用退出时 `SIGTERM→SIGKILL` 回收，杜绝僵尸后端堆积。
 - **前端断线重连**：网络抖动 / 侧车重启期间，连接状态机自动探测、用公共 `replayRequest` 重放进行中的请求，并弹出毛玻璃「重新连接」遮罩，恢复后无感续接。
-- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析出可写目录 `~/Library/Application Support/com.knowflow.desktop/`，以 `KNOWFLOW_DATA_DIR` 环境变量 + `--data-dir` 注入侧车，数据库/配置/日志全部落在可写区，绝不写进只读的 `.app` 包。
+- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析出可写目录 `~/Library/Application Support/com.lectoforge.desktop/`，以 `LECTOFORGE_DATA_DIR` 环境变量 + `--data-dir` 注入侧车，数据库/配置/日志全部落在可写区，绝不写进只读的 `.app` 包。
+- **历史数据自动迁移**：产品由 KnowFlow 更名为 LectoForge 后 bundle identifier 随之改变，AppData 会指向全新空目录。宿主启动时若发现新目录尚无 `workbench.db`、而旧目录 `com.knowflow.desktop/` 中存在，则一次性递归复制历史数据（笔记库、思维导图、上传件、AI 配置）；**旧目录保留不删**，作为回滚安全网。已迁移过则自动跳过，幂等。
 - **间隔复习系统 `/review`**（新）：基于 SM-2 的卡片复习，SRS 列下沉到 `wb_note` / `wb_palace_loci` 源表，首屏「待复习」直达此页。
 - **命令面板 `⌘K`**：跨收集箱 / 笔记 / 故事三表的全局模糊搜索，回车直达对应条目。
 - **首页动态化**：总览页双数据源（`/api/workbench/overview` 供 6 指标看板、`/api/dashboard/stats` 供「学习闭环四步」气泡 + 今日聚焦四卡）。
@@ -140,7 +141,7 @@ npm run tauri build
 
 ### 1. 原生菜单 + 状态栏托盘
 macOS 标准菜单栏：
-- **KnowFlow**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 番茄钟（常驻倒计时，左键展开弹窗）/ 退出
+- **LectoForge**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 番茄钟（常驻倒计时，左键展开弹窗）/ 退出
 - **视图**：重新加载页面（等效 `location.reload()`）
 
 「去学习复习」与点击复习提醒通知向渲染进程发 `navigate` 事件（`App.vue` 统一监听并 `router.push`）；「番茄钟」菜单项左键与状态栏托盘同款——切换 `pomodoro_popup` 弹窗。
@@ -177,7 +178,7 @@ npx tauri signer generate
 ### 4. 侧车自愈重启与数据目录注入（v1.1.0）
 
 - **自愈重启**：`SidecarManager` 在独立线程阻塞 `child.wait()`，侧车异常退出后按 2s→30s 退避无限重启；存活满 30s 自动重置退避；退出码 0（含孤儿自检）不重启。应用退出时 `shutdown()` 发 `SIGTERM`、2s 未退则 `SIGKILL`。
-- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析 `~/Library/Application Support/com.knowflow.desktop/`，以 `KNOWFLOW_DATA_DIR` 环境变量 + `--data-dir` 注入侧车；同时 `cwd` 设为数据目录，防止任何库按相对路径落盘到只读 `.app`。
+- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析 `~/Library/Application Support/com.lectoforge.desktop/`，以 `LECTOFORGE_DATA_DIR` 环境变量 + `--data-dir` 注入侧车；同时 `cwd` 设为数据目录，防止任何库按相对路径落盘到只读 `.app`。
 - 连接遮罩上的「重启服务」按钮调用 `restart_sidecar` 命令，对当前 pid 发 `SIGTERM`，由监控线程接管自愈。
 
 ## 已知说明
@@ -192,8 +193,8 @@ npx tauri signer generate
 在**本机或同机**直接双击通常即可打开；若被 Gatekeeper 拦截，执行：
 
 ```bash
-xattr -cr "src-tauri/target/release/bundle/macos/KnowFlow 学习工作台.app"
-open "src-tauri/target/release/bundle/macos/KnowFlow 学习工作台.app"
+xattr -cr "src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app"
+open "src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app"
 ```
 
 若要分发给他人，必须先做 Apple Developer ID 签名 + `notarytool` 公证（见上方「启用自动更新」附近的签名说明）。
@@ -201,7 +202,7 @@ open "src-tauri/target/release/bundle/macos/KnowFlow 学习工作台.app"
 ## 构建验证记录（2026-08-06，arm64 macOS）
 
 `tauri build` 已在本机（Rust 1.97.1 + Xcode）跑通，产出
-`src-tauri/target/release/bundle/macos/KnowFlow 学习工作台.app`（arm64，约 220MB）。
+`src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app`（arm64，约 220MB）。
 
 验证点到为止（GUI 窗口需真实显示环境，以下为后端+资源链路实测）：
 
@@ -223,7 +224,7 @@ open "src-tauri/target/release/bundle/macos/KnowFlow 学习工作台.app"
 
 ### 故障复盘：双击 .app 无任何界面（2026-08-06）
 
-**现象**：双击 `KnowFlow 学习工作台.app` 后 Dock 图标弹一下即消失，完全没有窗口。
+**现象**：双击 `LectoForge 学习工作台.app` 后 Dock 图标弹一下即消失，完全没有窗口。
 
 **根因**：`src-tauri/tauri.conf.json` 的 `plugins.shell` 配置里写了非法字段 `execute`
 （以及 `sidecar`）。当前 `tauri-plugin-shell` 2.3.5 的 Config 结构体**仅有一个 `open` 字段**
@@ -241,13 +242,13 @@ PluginInitialization("shell", "Error deserializing 'plugins.shell' within your T
 **排查方法（Mac 上若再遇「启动即退出」）**：在终端直接运行主程序即可看到 panic 堆栈：
 
 ```bash
-"/Applications/KnowFlow 学习工作台.app/Contents/MacOS/knowflow-desktop"
+"/Applications/LectoForge 学习工作台.app/Contents/MacOS/lectoforge-desktop"
 # 或本地路径：
-"src-tauri/target/release/bundle/macos/KnowFlow 学习工作台.app/Contents/MacOS/knowflow-desktop"
+"src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app/Contents/MacOS/lectoforge-desktop"
 ```
 
 **仍无界面时的二次排查**：若已越过插件初始化但仍空白，多半是后端侧车未就绪/崩溃。
-检查：① 日志 `~/Library/Logs/KnowFlow`（如有写入）；② 终端 `lsof -i:8787` 看端口是否监听；
+检查：① 日志 `~/Library/Logs/LectoForge`（如有写入）；② 终端 `lsof -i:8787` 看端口是否监听；
 ③ 直接跑侧车验证：`Contents/MacOS/server Contents/Resources/api/index.js --port 8787
 --web-dir Contents/Resources/web --data-dir /tmp/test`。
 

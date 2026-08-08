@@ -1,12 +1,12 @@
 [package]
-name = "knowflow-desktop"
+name = "lectoforge-desktop"
 version = "1.0.0"
-description = "KnowFlow 学习工作台桌面应用"
-authors = ["KnowFlow"]
+description = "LectoForge 学习工作台桌面应用"
+authors = ["LectoForge"]
 edition = "2021"
 
 [lib]
-name = "knowflow_desktop"
+name = "lectoforge_desktop"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

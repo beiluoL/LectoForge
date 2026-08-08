@@ -69,9 +69,9 @@ function workspaceConfigPath(): string {
   return getWorkspaceConfigPath();
 }
 
-/** 默认笔记库位置：~/Documents/KnowFlow 文档库（不自动创建，仅作为建议值展示） */
+/** 默认笔记库位置：~/Documents/LectoForge 文档库（不自动创建，仅作为建议值展示） */
 export function defaultVaultDir(): string {
-  return path.join(os.homedir(), 'Documents', 'KnowFlow 文档库');
+  return path.join(os.homedir(), 'Documents', 'LectoForge 文档库');
 }
 
 /** 从磁盘恢复上次选择的工作区（懒加载，失败静默降级为未初始化） */
