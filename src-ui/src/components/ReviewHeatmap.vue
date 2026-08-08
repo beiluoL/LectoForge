@@ -55,7 +55,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
-import { useReviewStore } from '@/store/reviewStore';
+import { useReviewStore } from '@/store/review-store';
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 /** 网格固定 7 列 × 7 行 */

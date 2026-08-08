@@ -280,7 +280,7 @@ import { useDebounceFn } from '@vueuse/core'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, confirmDialog, getApiError } from '@/utils/toast'
 import './workbench-shared.css'
-import { useNoteStore, getNoteSrsState, daysUntilDue, parseTags } from '@/store/noteStore'
+import { useNoteStore, getNoteSrsState, daysUntilDue, parseTags } from '@/store/note-store'
 import type { WbNote } from '@/api/types'
 
 const router = useRouter()

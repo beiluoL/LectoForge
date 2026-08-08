@@ -253,8 +253,8 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import Icon from '@/components/ui/Icon.vue'
 import ReviewHeatmap from '@/components/ReviewHeatmap.vue'
-import { useReviewStore } from '@/store/reviewStore'
-import { useDashboardStore } from '@/store/dashboardStore'
+import { useReviewStore } from '@/store/review-store'
+import { useDashboardStore } from '@/store/dashboard-store'
 import './workbench-shared.css'
 
 const router = useRouter()

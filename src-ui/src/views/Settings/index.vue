@@ -129,7 +129,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { invoke } from '@tauri-apps/api/core'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError } from '@/utils/toast'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore } from '@/store/app-store'
 import { testAiConnection } from '@/api/ai'
 import { getAppConfig } from '@/api/config'
 

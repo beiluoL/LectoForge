@@ -203,7 +203,7 @@
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
-import { usePomodoroStore } from '@/store/pomodoroStore';
+import { usePomodoroStore } from '@/store/pomodoro-store';
 import type { NoiseTrack, PomodoroPhase, SoundType } from '@/api/pomodoro';
 
 const store = usePomodoroStore();

@@ -17,7 +17,7 @@
  * 组件用法
  * ```ts
  * import { storeToRefs } from 'pinia'
- * import { useAppStore } from '@/store/appStore'
+ * import { useAppStore } from '@/store/app-store'
  * const store = useAppStore()
  * const { hasOnboarded, settings } = storeToRefs(store)
  * const { completeOnboarding, updateSettings } = store

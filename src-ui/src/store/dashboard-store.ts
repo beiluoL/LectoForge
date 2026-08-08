@@ -7,7 +7,7 @@
  * 组件用法：
  * ```ts
  * import { storeToRefs } from 'pinia'
- * import { useDashboardStore } from '@/store/dashboardStore'
+ * import { useDashboardStore } from '@/store/dashboard-store'
  * const store = useDashboardStore()
  * const { stats, loading, loaded } = storeToRefs(store)
  * store.fetchStats()

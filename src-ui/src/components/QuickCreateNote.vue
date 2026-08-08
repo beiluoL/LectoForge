@@ -77,7 +77,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import { notify, getApiError } from '@/utils/toast';
-import { useNoteStore } from '@/store/noteStore';
+import { useNoteStore } from '@/store/note-store';
 
 const router = useRouter();
 const store = useNoteStore();

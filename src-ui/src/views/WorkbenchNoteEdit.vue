@@ -605,7 +605,7 @@ import {
   CUE_RATIO_MAX,
   SUMMARY_RATIO_MIN,
   SUMMARY_RATIO_MAX,
-} from '@/store/noteStore'
+} from '@/store/note-store'
 
 const route = useRoute()
 const router = useRouter()

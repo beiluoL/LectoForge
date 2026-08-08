@@ -56,10 +56,10 @@ import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
 import QuickCaptureModal from '@/components/QuickCaptureModal.vue';
 import QuickCreateNote from '@/components/QuickCreateNote.vue';
-import { useSearchStore } from '@/stores/searchStore';
-import { useInboxStore } from '@/stores/inboxStore';
-import { useNoteStore } from '@/store/noteStore';
-import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoroStore';
+import { useSearchStore } from '@/store/search-store';
+import { useInboxStore } from '@/store/inbox-store';
+import { useNoteStore } from '@/store/note-store';
+import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoro-store';
 import { initBackendHealth } from '@/utils/connection';
 // 顶层静态导入 Tauri API：避免 build 模式下从静态 dist（由 8787 侧车托管）动态加载
 // @tauri-apps/api/* 的 chunk 时静默失败（被 catch 吞），导致菜单栏弹窗自识别、事件监听失效。

@@ -224,7 +224,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
-import { useInboxStore } from '@/stores/inboxStore';
+import { useInboxStore } from '@/store/inbox-store';
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
 import { notify, getApiError } from '@/utils/toast';
 import { fromNow } from '@/utils/time';

@@ -57,7 +57,7 @@ import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import QuickCapture from '@/views/Inbox/components/QuickCapture.vue';
-import { useInboxStore } from '@/stores/inboxStore';
+import { useInboxStore } from '@/store/inbox-store';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'update:open', v: boolean): void }>();

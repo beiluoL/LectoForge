@@ -160,8 +160,8 @@ import { storeToRefs } from 'pinia';
 import { onKeyStroke } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import FlashCard from './FlashCard.vue';
-import { useReviewStore } from '@/store/reviewStore';
-import { usePomodoroStore } from '@/store/pomodoroStore';
+import { useReviewStore } from '@/store/review-store';
+import { usePomodoroStore } from '@/store/pomodoro-store';
 import type { ReviewCard, ReviewRating } from '@/api/review';
 
 const router = useRouter();

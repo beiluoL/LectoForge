@@ -9,7 +9,7 @@
  * 组件中正确使用（避免丢失响应式）
  * ```ts
  * import { storeToRefs } from 'pinia'
- * import { useMemoryPalaceStore } from '@/store/memoryPalace'
+ * import { useMemoryPalaceStore } from '@/store/memory-palace-store'
  *
  * const store = useMemoryPalaceStore()
  * // 解构 state 用 storeToRefs（保留响应式），actions 直接拿

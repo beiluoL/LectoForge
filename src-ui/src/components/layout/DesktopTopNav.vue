@@ -240,9 +240,9 @@ import { useRoute, useRouter } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import { notify } from '@/utils/toast';
 import { getAiStatus } from '@/api/ai';
-import { useSearchStore } from '@/stores/searchStore';
-import { useDashboardStore } from '@/store/dashboardStore';
-import { useReviewStore } from '@/store/reviewStore';
+import { useSearchStore } from '@/store/search-store';
+import { useDashboardStore } from '@/store/dashboard-store';
+import { useReviewStore } from '@/store/review-store';
 import { storeToRefs } from 'pinia';
 // 顶层静态导入 Tauri API：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk 静默失败。
 import { getCurrentWindow } from '@tauri-apps/api/window';

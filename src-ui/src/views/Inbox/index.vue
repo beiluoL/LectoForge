@@ -101,7 +101,7 @@ import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import QuickCapture from './components/QuickCapture.vue';
 import InboxList from './components/InboxList.vue';
-import { useInboxStore } from '@/stores/inboxStore';
+import { useInboxStore } from '@/store/inbox-store';
 import './../workbench-shared.css';
 
 const themeColor = '#3B6FE0';

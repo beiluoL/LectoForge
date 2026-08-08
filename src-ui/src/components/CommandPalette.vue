@@ -82,7 +82,7 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDebounceFn } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
-import { useSearchStore } from '@/stores/searchStore';
+import { useSearchStore } from '@/store/search-store';
 import type { SearchResult, SearchType } from '@/api/search';
 
 const router = useRouter();

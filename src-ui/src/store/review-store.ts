@@ -14,7 +14,7 @@
  * 组件用法：
  * ```ts
  * import { storeToRefs } from 'pinia'
- * import { useReviewStore } from '@/store/reviewStore'
+ * import { useReviewStore } from '@/store/review-store'
  * const store = useReviewStore()
  * const { queue, current, isLoading, cardSide, stats, totalCount } = storeToRefs(store)
  * store.loadQueue(); store.flipCard(); store.submitRating('good'); store.restartSession()

@@ -199,7 +199,7 @@ import { storeToRefs } from 'pinia'
 import Icon from '@/components/ui/Icon.vue'
 import { getWorkbenchOverview } from '@/api/workbench'
 import type { WorkbenchOverview } from '@/api/types'
-import { useDashboardStore } from '@/store/dashboardStore'
+import { useDashboardStore } from '@/store/dashboard-store'
 
 const router = useRouter()
 const overview = ref<WorkbenchOverview | null>(null)

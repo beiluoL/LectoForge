@@ -2,7 +2,7 @@
 // 差异仅在于桌面端为本机单用户场景，去掉 requiresAuth 登录守卫。
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { useAppStore } from '@/store/appStore';
+import { useAppStore } from '@/store/app-store';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/workbench' },

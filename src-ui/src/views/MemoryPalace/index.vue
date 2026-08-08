@@ -177,7 +177,7 @@ import type {
   WbPalaceLociPayload,
   CategoryVO,
 } from '@/api/types'
-import { useMemoryPalaceStore, MOCK_PALACE_ID } from '@/store/memoryPalace'
+import { useMemoryPalaceStore, MOCK_PALACE_ID } from '@/store/memory-palace-store'
 
 import PalaceHome from './components/PalaceHome.vue'
 import SpaceCanvas from './components/SpaceCanvas.vue'

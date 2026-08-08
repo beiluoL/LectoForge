@@ -137,7 +137,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-vue-next';
-import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoroStore';
+import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoro-store';
 import type { NoiseTrack } from '@/api/pomodoro';
 
 const store = usePomodoroStore();

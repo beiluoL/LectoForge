@@ -149,7 +149,7 @@ import { storeToRefs } from 'pinia'
 import { useDebounceFn } from '@vueuse/core'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError } from '@/utils/toast'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore } from '@/store/app-store'
 import { testAiConnection } from '@/api/ai'
 import { getAppConfig } from '@/api/config';
 // 顶层静态导入：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk 静默失败
