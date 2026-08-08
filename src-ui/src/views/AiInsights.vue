@@ -177,7 +177,7 @@
             <li v-for="(it, i) in assocResult.items" :key="'a' + i">
               <router-link :to="it.route" class="assoc-link">
                 <span class="assoc-title">{{ it.title }}</span>
-                <span class="assoc-type">{{ typeLabel(it.entityType) }}</span>
+                <span class="assoc-type">{{ entityTypeLabel(it.entityType) }}</span>
                 <span class="assoc-score">{{ Math.round(it.score * 100) }}%</span>
               </router-link>
               <p v-if="it.snippet" class="assoc-snippet">{{ it.snippet }}</p>
@@ -207,6 +207,7 @@ import {
   type SyncEmbeddingsResult,
   type AssociateResult,
 } from '@/api/ai'
+import { entityTypeLabel } from '@/constants/entity'
 import './ai-shared.css'
 
 const router = useRouter()
@@ -228,13 +229,6 @@ function handleError(e: unknown, loading: Ref<boolean>) {
   const msg = getApiError(e, 'AI 调用失败')
   if (msg.includes('AI 设置') || msg.includes('未配置') || msg.includes('已关闭')) aiHintVisible.value = true
   notify(msg, 'error')
-}
-
-function typeLabel(t: string): string {
-  if (t === 'capture') return '收集箱'
-  if (t === 'note') return '笔记'
-  if (t === 'story') return '故事'
-  return t
 }
 
 async function runReport() {

@@ -125,8 +125,8 @@
         </label>
 
         <!-- 类型图标 -->
-        <div class="il-icon" :title="typeLabel(item.type)">
-          <Icon :name="typeIcon(item.type)" :size="16" />
+        <div class="il-icon" :title="inboxTypeLabel(item.type)">
+          <Icon :name="inboxTypeIcon(item.type)" :size="16" />
         </div>
 
         <div class="il-main">
@@ -314,8 +314,9 @@ import Icon from '@/components/ui/Icon.vue';
 import { useInboxStore } from '@/store/inbox-store';
 import { notify, getApiError, confirmDialog } from '@/utils/toast';
 import { fromNow, formatDateTime } from '@/utils/time';
+import { inboxTypeIcon, inboxTypeLabel } from '@/constants/inbox';
 import { apiGet } from '@/api/request';
-import type { BatchTarget, InboxFilter, InboxItem, InboxType, ProcessTarget } from '@/api/inbox';
+import type { BatchTarget, InboxFilter, InboxItem, ProcessTarget } from '@/api/inbox';
 
 interface LocusVO {
   id: number;
@@ -414,22 +415,6 @@ const pickedLociId = ref<number | null>(null);
 const currentLoci = computed<LocusVO[]>(
   () => palaces.value.find((p) => p.id === pickedPalaceId.value)?.loci ?? [],
 );
-
-function typeIcon(t: InboxType): string {
-  if (t === 'link') return 'link';
-  if (t === 'image') return 'image';
-  if (t === 'audio') return 'mic';
-  if (t === 'file') return 'paperclip';
-  return 'pen-line';
-}
-
-function typeLabel(t: InboxType): string {
-  if (t === 'link') return '网页剪藏';
-  if (t === 'image') return '图片';
-  if (t === 'audio') return '语音灵感';
-  if (t === 'file') return '附件';
-  return '速记';
-}
 
 /**
  * 从条目里取出第一个上传资产地址。

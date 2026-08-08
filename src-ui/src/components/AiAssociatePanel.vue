@@ -36,7 +36,7 @@
         <li v-for="(it, i) in result.items" :key="'a' + i">
           <router-link :to="it.route" class="assoc-link">
             <span class="assoc-title">{{ it.title }}</span>
-            <span class="assoc-type">{{ typeLabel(it.entityType) }}</span>
+            <span class="assoc-type">{{ entityTypeLabel(it.entityType) }}</span>
             <span class="assoc-score">{{ Math.round(it.score * 100) }}%</span>
           </router-link>
           <p v-if="it.snippet" class="assoc-snippet">{{ it.snippet }}</p>
@@ -52,10 +52,11 @@ import { ref } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError } from '@/utils/toast'
 import { associateContent, syncEmbeddings, type AssociateResult, type SyncEmbeddingsResult } from '@/api/ai'
+import { entityTypeLabel, type EntityType } from '@/constants/entity'
 import '@/views/ai-shared.css'
 
 const props = defineProps<{
-  entityType: 'capture' | 'note' | 'story'
+  entityType: EntityType
   entityId: number | null
   variant?: 'card' | 'flush'
 }>()
@@ -65,13 +66,6 @@ const syncing = ref(false)
 const hintVisible = ref(false)
 const result = ref<AssociateResult | null>(null)
 const syncedMsg = ref<SyncEmbeddingsResult | null>(null)
-
-function typeLabel(t: string): string {
-  if (t === 'capture') return '收集箱'
-  if (t === 'note') return '笔记'
-  if (t === 'story') return '故事'
-  return t
-}
 
 async function runAssociate() {
   if (!props.entityId) {

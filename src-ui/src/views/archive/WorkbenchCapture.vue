@@ -41,14 +41,14 @@
     <section class="wb-filter">
       <div class="wb-tabs">
         <button
-          v-for="tab in tabs"
+          v-for="tab in CAPTURE_TABS"
           :key="tab.value"
           class="wb-tab"
           :class="{ 'is-active': activeStatus === tab.value }"
           @click="activeStatus = tab.value; load()"
         >
           {{ tab.label }}
-          <span v-if="tab.value === 'INBOX'" class="wb-tab-badge">{{ inboxCount }}</span>
+          <span v-if="tab.value === CAPTURE_STATUS.INBOX" class="wb-tab-badge">{{ inboxCount }}</span>
         </button>
       </div>
       <div class="wb-filter-tools">
@@ -95,7 +95,7 @@
         >
           <div class="wb-card-head">
             <span class="wb-card-status" :style="statusStyle(item.status)">
-              <span class="wb-status-dot"></span>{{ statusLabel(item.status) }}
+              <span class="wb-status-dot"></span>{{ captureStatusLabel(item.status) }}
             </span>
             <button class="wb-icon-btn" :class="{ 'is-on': item.starred }" title="标星" @click="toggleStar(item)">
               <Icon name="star" :size="16" />
@@ -148,7 +148,7 @@
               <Icon :name="aiDrafting === item.id ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiDrafting === item.id }" />
               起草笔记
             </button>
-            <button class="wb-mini-btn" title="归档" @click="setStatus(item, 'ARCHIVED')">
+            <button class="wb-mini-btn" title="归档" @click="setStatus(item, CAPTURE_STATUS.ARCHIVED)">
               <Icon name="archive" :size="14" /> 归档
             </button>
             <button class="wb-mini-btn" title="编辑" @click="openEdit(item)">
@@ -276,6 +276,13 @@ import {
   createNote,
 } from '@/api/workbench'
 import { summarizeCapture, suggestTags, draftNoteFromCapture } from '@/api/ai'
+import {
+  CAPTURE_STATUS,
+  CAPTURE_TABS,
+  captureStatusColor,
+  captureStatusLabel,
+  type CaptureStatus,
+} from '@/constants/capture'
 import type { WbCapture, WbCapturePayload, CategoryVO } from '@/api/types'
 
 const router = useRouter()
@@ -283,14 +290,15 @@ const themeColor = '#3B6FE0'
 
 const list = ref<WbCapture[]>([])
 const loading = ref(true)
-const activeStatus = ref<string>('')
+/** 当前页签；空串 = 「全部」，不往接口带 status 参数 */
+const activeStatus = ref<CaptureStatus | ''>('')
 const activeCategory = ref<number | undefined>(undefined)
 const keyword = ref('')
 const categories = ref<CategoryVO[]>([])
 const flatCategories = ref<CategoryVO[]>([])
 const categoryMap = ref<Map<number, string>>(new Map())
 
-const inboxCount = computed(() => list.value.filter((i) => i.status === 'INBOX').length)
+const inboxCount = computed(() => list.value.filter((i) => i.status === CAPTURE_STATUS.INBOX).length)
 
 const loopSteps = [
   { key: 'input', num: '01', name: '输入', path: '/workbench/capture' },
@@ -310,12 +318,6 @@ function flatten(nodes: CategoryVO[], depth = 0): CategoryVO[] {
 function categoryName(id?: number) {
   return id ? categoryMap.value.get(id) || '' : ''
 }
-const tabs = [
-  { label: '全部', value: '' },
-  { label: '待整理', value: 'INBOX' },
-  { label: '已整理', value: 'PROCESSED' },
-  { label: '已归档', value: 'ARCHIVED' },
-]
 
 const showDrawer = ref(false)
 const editingId = ref<number | null>(null)
@@ -395,7 +397,7 @@ async function remove(item: WbCapture) {
     notify(getApiError(e, '删除失败'), 'error')
   }
 }
-async function setStatus(item: WbCapture, status: string) {
+async function setStatus(item: WbCapture, status: CaptureStatus) {
   try {
     await setCaptureStatus(item.id, status)
     notify('已归档', 'success')
@@ -522,16 +524,9 @@ async function runAiDraftNote(item: WbCapture) {
   }
 }
 
-function statusLabel(s?: string) {
-  return { INBOX: '待整理', PROCESSED: '已整理', ARCHIVED: '已归档' }[s || ''] || s || ''
-}
+/** 状态徽标样式：色值取自 constants/capture，这里只负责拼成 CSS 变量 + 淡色底 */
 function statusStyle(s?: string) {
-  const map: Record<string, string> = {
-    INBOX: 'var(--kb-warning)',
-    PROCESSED: 'var(--kb-primary)',
-    ARCHIVED: 'var(--kb-muted-foreground)',
-  }
-  const c = map[s || ''] || 'var(--kb-muted-foreground)'
+  const c = captureStatusColor(s)
   return { '--sc': c, color: c, background: `color-mix(in srgb, ${c} 12%, transparent)` }
 }
 function sourceLabel(s?: string) {

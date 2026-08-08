@@ -83,18 +83,20 @@ import { storeToRefs } from 'pinia';
 import { useDebounceFn } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import { useSearchStore } from '@/store/search-store';
+import { ENTITY_TYPE_META } from '@/constants/entity';
 import type { SearchResult, SearchType } from '@/api/search';
 
 const router = useRouter();
 const store = useSearchStore();
 const { isOpen, query, results, loading } = storeToRefs(store);
 
-/** 类型 → 图标 + 中文标签（图标走项目统一的 lucide 包装器 Icon.vue） */
-const TYPE_META: Record<SearchType, { icon: string; label: string }> = {
-  capture: { icon: 'inbox', label: '收集箱' },
-  note: { icon: 'file-text', label: '笔记' },
-  story: { icon: 'pen-line', label: '故事' },
-};
+/**
+ * 类型 → 图标 + 中文标签（图标走项目统一的 lucide 包装器 Icon.vue）。
+ * 表本身收敛在 `@/constants/entity`，与 AI 关联面板、AI 洞察页共用同一份中文标签。
+ * 这里保留 `Record<SearchType, …>` 标注当哨兵：搜索类型联合体将来新增成员而常量表
+ * 没跟上时，编译期就会报错，而不是运行时渲染出 undefined。
+ */
+const TYPE_META: Record<SearchType, { icon: string; label: string }> = ENTITY_TYPE_META;
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const listRef = ref<HTMLElement | null>(null);
