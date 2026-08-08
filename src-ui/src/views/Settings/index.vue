@@ -168,7 +168,6 @@ async function pickDirectory() {
   if (picking.value) return
   picking.value = true
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
     const dir = await invoke<string>('select_directory')
     if (dir) form.dataDir = dir
   } catch (e) {

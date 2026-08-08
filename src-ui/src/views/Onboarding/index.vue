@@ -151,7 +151,9 @@ import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError } from '@/utils/toast'
 import { useAppStore } from '@/store/appStore'
 import { testAiConnection } from '@/api/ai'
-import { getAppConfig } from '@/api/config'
+import { getAppConfig } from '@/api/config';
+// 顶层静态导入：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk 静默失败
+import { invoke } from '@tauri-apps/api/core';
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -222,7 +224,6 @@ async function pickDirectory() {
   if (picking.value) return
   picking.value = true
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
     const dir = await invoke<string>('select_directory')
     if (dir) form.dataDir = dir
   } catch (e) {

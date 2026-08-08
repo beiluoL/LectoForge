@@ -468,7 +468,13 @@ pub fn run() {
                 /* 端口必须由宿主先协商好再传给侧车。
                  * 后端在 EADDRINUSE 时会自行 +1 漂移，若这里仍写死 8787，
                  * 一旦上一次的实例没退干净，窗口就会连到那个陈旧服务上（它托管的是
-                 * 已被替换掉的旧构建产物），页面会卡在加载态。 */
+                 * 已被替换掉的旧构建产物），页面会卡在加载态。
+                 *
+                 * 关键：capability 的 remote 可信来源写死 http://127.0.0.1:8787，
+                 * 因此窗口必须始终连到 8787，否则 Tauri 的 IPC/ACL 会因 origin 不匹配而
+                 * 拒绝自定义命令（菜单栏倒计时推不出去等）。启动前先释放被上一次没退干净的
+                 * 侧车占住的 8787，确保 pick_free_port 永远返回 8787。 */
+                free_port(DEFAULT_BACKEND_PORT);
                 let port = pick_free_port(DEFAULT_BACKEND_PORT);
 
                 let node_bin = resolve_node_bin(&resource_dir)
@@ -748,12 +754,35 @@ pub fn run() {
         });
 }
 
+/// 释放被上一次没退干净的侧车占住的端口（仅 macOS/Linux 用 lsof 查监听进程并 SIGKILL）。
+/// 目的：保证窗口始终连到 8787（与 capability 的 remote 可信来源一致），
+/// 避免端口漂移导致 Tauri IPC/ACL 因 origin 不匹配而拒绝自定义命令。
+/// 8787 是本应用专用端口，杀掉它的只可能是我们自己的残留侧车，风险可控。
+#[cfg(not(debug_assertions))]
+fn free_port(port: u16) {
+    #[cfg(unix)]
+    {
+        let out = Command::new("/usr/sbin/lsof")
+            .args(["-ti", &format!("tcp:{port}")])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output();
+        if let Ok(o) = out {
+            let pids = String::from_utf8_lossy(&o.stdout);
+            for pid in pids.split_whitespace() {
+                if let Ok(p) = pid.parse::<u32>() {
+                    signal_process(p, true);
+                }
+            }
+        }
+    }
+}
+
 /// 从 preferred 开始找一个当前可绑定的回环端口。
 /// 绑定成功即刻释放，把这个端口交给侧车去正式监听；中间的竞态窗口只有毫秒级，
 /// 换来的是宿主与后端对端口达成一致，不会再出现「窗口连到别人的服务」。
 #[cfg(not(debug_assertions))]
-fn pick_free_port(preferred: u16) -> u16 {
-    for offset in 0..20u16 {
+fn pick_free_port(preferred: u16) -> u16 {    for offset in 0..20u16 {
         let port = preferred.saturating_add(offset);
         if TcpListener::bind(("127.0.0.1", port)).is_ok() {
             return port;

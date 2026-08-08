@@ -3,9 +3,16 @@
   "identifier": "pomodoro_popup",
   "description": "菜单栏番茄钟弹窗（pomodoro_popup 窗口）权限：仅授予计时与菜单栏联动所需的最小权限",
   "windows": ["pomodoro_popup"],
+  "remote": {
+    "urls": ["http://127.0.0.1:8787", "http://localhost:8787"]
+  },
   "permissions": [
     "core:default",
     "core:event:allow-emit",
-    "notification:default"
+    "notification:default",
+    "allow-update-tray-title",
+    "allow-trigger-notification",
+    "allow-open-external-url",
+    "allow-quit-app"
   ]
 }

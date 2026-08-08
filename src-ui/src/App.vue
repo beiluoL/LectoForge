@@ -61,6 +61,11 @@ import { useInboxStore } from '@/stores/inboxStore';
 import { useNoteStore } from '@/store/noteStore';
 import { usePomodoroStore, type PomodoroPhase } from '@/store/pomodoroStore';
 import { initBackendHealth } from '@/utils/connection';
+// 顶层静态导入 Tauri API：避免 build 模式下从静态 dist（由 8787 侧车托管）动态加载
+// @tauri-apps/api/* 的 chunk 时静默失败（被 catch 吞），导致菜单栏弹窗自识别、事件监听失效。
+// dev 模式走 Vite dev server 不受影响；build 模式必须用静态导入才稳（pomodoroStore 已验证此路）。
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 
 const route = useRoute();
 const router = useRouter();
@@ -129,7 +134,6 @@ onMounted(() => {
   // 菜单栏弹窗（pomodoro_popup）自识别：隐藏顶栏 + 透明全幅布局，并直跳番茄钟弹窗路由。
   void (async () => {
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
       if (getCurrentWindow().label === 'pomodoro_popup') {
         isPopup.value = true;
         router.replace('/pomodoro-popup');
@@ -142,7 +146,6 @@ onMounted(() => {
   // 此处统一接管路由跳转；浏览器预览态下 @tauri-apps/api 不存在，静默跳过。
   void (async () => {
     try {
-      const { listen } = await import('@tauri-apps/api/event');
       await listen('navigate', (e: { payload: unknown }) => {
         if (typeof e.payload === 'string') router.push(e.payload);
       });
@@ -158,7 +161,6 @@ onMounted(() => {
   void pomo.init();
   void (async () => {
     try {
-      const { listen } = await import('@tauri-apps/api/event');
       await listen(
         'pomodoro:control',
         (e: { payload: { action: string; phase?: PomodoroPhase } }) => {

@@ -113,6 +113,11 @@ import Icon from '@/components/ui/Icon.vue';
 import { notify } from '@/utils/toast';
 import { getAiStatus } from '@/api/ai';
 import { useSearchStore } from '@/stores/searchStore';
+// 顶层静态导入 Tauri API：与 App.vue / pomodoroStore 一致，避免 build 模式动态 import chunk
+// 在 8787 侧车托管的静态 dist 下静默失败（被 catch 吞），导致呼出菜单栏弹窗、检查更新失效。
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { invoke } from '@tauri-apps/api/core';
 
 const route = useRoute();
 const menuOpen = ref(false);
@@ -161,8 +166,6 @@ async function onNavClick(it: NavItem, e: MouseEvent) {
   e.preventDefault();
   menuOpen.value = false;
   try {
-    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
     // @tauri-apps/api 2.x：getByLabel 是 async（之前同步返回的版本已弃用）
     const popup = await WebviewWindow.getByLabel('pomodoro_popup');
     if (popup) {
@@ -189,7 +192,6 @@ async function checkUpdate() {
   if (updating.value) return;
   updating.value = true;
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
     const msg = await invoke<string>('check_for_update');
     notify(msg || '已是最新版本', 'success');
   } catch {
