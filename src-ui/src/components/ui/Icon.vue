@@ -1408,6 +1408,7 @@
 //   2. iconfont Unicode code：name 以 iconfont: 开头（如 iconfont:e601）
 //   3. SVG 代码：name 以 <svg 开头
 import { computed } from 'vue'
+import type { Component } from 'vue'
 import * as LucideIcons from 'lucide-vue-next'
 
 interface Props {
@@ -1560,7 +1561,9 @@ const lucideComponent = computed(() => {
   if (n.startsWith('data:') || n.startsWith('http://') || n.startsWith('https://')) return null
   if (n.startsWith('iconfont:') || n.startsWith('icon-')) return null
   if (n.trimStart().startsWith('<svg')) return null
-  const lib = LucideIcons as Record<string, any>
+  // lucide 的命名空间导出里除了图标组件还混有 createLucideIcon 等工具函数，
+  // 但下面只按图标名取值，故按「可能取不到的组件表」看待即可
+  const lib = LucideIcons as unknown as Record<string, Component | undefined>
   // 1) 原名直查（PascalCase）
   if (lib[n]) return lib[n]
   // 2) kebab-case / snake_case 转 PascalCase 再查

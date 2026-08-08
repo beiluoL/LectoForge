@@ -67,6 +67,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
+import type { IMarkmapOptions } from 'markmap-view'
 
 import Icon from '@/components/ui/Icon.vue'
 import { notify } from '@/utils/toast'
@@ -86,7 +87,7 @@ let renderTimer: number | null = null
 /** 连线配色：按深度循环取用，与项目各模块的品牌语义色同源 */
 const LINK_PALETTE = ['#3B6FE0', '#FF6B35', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899']
 
-function buildOptions(initialExpandLevel = -1) {
+function buildOptions(initialExpandLevel = -1): Partial<IMarkmapOptions> {
   return {
     autoFit: false,
     duration: 240,
@@ -96,7 +97,8 @@ function buildOptions(initialExpandLevel = -1) {
     spacingVertical: 10,
     paddingX: 14,
     nodeMinHeight: 18,
-    color: (node: any) => LINK_PALETTE[(node?.state?.depth ?? 0) % LINK_PALETTE.length],
+    // node 由 Partial<IMarkmapOptions> 上下文推断为 markmap 的 INode，无需引入 markmap-common
+    color: (node) => LINK_PALETTE[(node?.state?.depth ?? 0) % LINK_PALETTE.length],
     // markmap 会把这段 CSS 注入到 SVG 内的 <style>，${id} 是它给本实例生成的作用域选择器
     style: (id: string) => `
       ${id} { font-family: var(--font-sans); }

@@ -197,7 +197,7 @@ const onTest = useDebounceFn(async () => {
       apiKey: form.apiKey.trim() || undefined,
       model: form.model.trim(),
       provider: form.apiUrl.includes('deepseek') ? 'deepseek' : form.apiUrl.includes('openai') ? 'openai' : 'custom',
-    } as any)
+    })
     testResult.value = { ok: true, text: `连通正常 · ${r.model} · ${r.latencyMs}ms` }
   } catch (e) {
     testResult.value = { ok: false, text: getApiError(e, '连接失败') }

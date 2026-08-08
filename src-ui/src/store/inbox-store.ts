@@ -153,8 +153,9 @@ export const useInboxStore = defineStore(
       error.value = '';
       try {
         items.value = await fetchInboxList(useSort, useFilter);
-      } catch (e: any) {
-        error.value = e?.message || '收集箱加载失败';
+      } catch (e) {
+        // api/request.ts 的四个失败出口抛的都是 Error（含 AxiosError 子类），故窄化后语义不变
+        error.value = (e instanceof Error ? e.message : '') || '收集箱加载失败';
         items.value = [];
       } finally {
         /* 过滤后列表内容变了，已勾选的 id 可能已不在视野内。

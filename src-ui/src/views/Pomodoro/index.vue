@@ -204,7 +204,7 @@ import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import { usePomodoroStore } from '@/store/pomodoro-store';
-import type { NoiseTrack, PomodoroPhase, SoundType } from '@/api/pomodoro';
+import type { NoiseTrack, PomodoroPhase, PomodoroSettings, SoundType } from '@/api/pomodoro';
 
 const store = usePomodoroStore();
 const {
@@ -250,9 +250,11 @@ function skipPhase() {
   store.switchPhase(next);
 }
 
-function onSetting(key: 'workMinutes' | 'shortBreakMinutes' | 'longBreakMinutes' | 'cyclesPerSet', e: Event) {
+function onSetting(key: keyof PomodoroSettings, e: Event) {
   const v = Math.floor(Number((e.target as HTMLInputElement).value) || 0);
-  store.updateSettings({ [key]: v } as any);
+  // 计算属性名遇上联合类型的 key 时，TS 只能推出索引签名，故显式收窄到 Partial<PomodoroSettings>；
+  // PomodoroSettings 四个字段皆为 number，v 也是 number，断言是安全的
+  store.updateSettings({ [key]: v } as Partial<PomodoroSettings>);
 }
 
 const noiseTracks: NoiseTrack[] = ['rain', 'stream', 'coffee'];

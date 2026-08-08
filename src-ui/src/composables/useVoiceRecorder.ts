@@ -92,10 +92,13 @@ export function useVoiceRecorder() {
     }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (e: any) {
+    } catch (e) {
+      // getUserMedia 按规范抛 DOMException，但 DOMException 与 Error 的继承关系在各引擎并不一致，
+      // 故不用 instanceof，只按属性形状取 name——与改造前的 `e?.name` 完全等价
+      const name = typeof e === 'object' && e !== null && 'name' in e ? String(e.name) : '';
       // NotAllowedError = 用户拒绝或系统未授权；桌面端首启常见，给可执行的指引
       error.value =
-        e?.name === 'NotAllowedError'
+        name === 'NotAllowedError'
           ? '麦克风被拒绝：请在「系统设置 → 隐私与安全性 → 麦克风」中允许本应用'
           : '无法访问麦克风，请检查设备是否可用';
       return false;

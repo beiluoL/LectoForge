@@ -79,6 +79,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import type { TooltipItem } from 'chart.js';
 import Icon from '@/components/ui/Icon.vue';
 import { getPomodoroStats } from '@/api/pomodoro';
 import { formatDuration } from '@/lib/date';
@@ -145,7 +146,7 @@ const chartOptions = computed(() => ({
     legend: { display: false },
     tooltip: {
       callbacks: {
-        label: (ctx: any) => `${ctx.dataset.label}：${ctx.parsed.y} 分钟`,
+        label: (ctx: TooltipItem<'bar'>) => `${ctx.dataset.label}：${ctx.parsed.y} 分钟`,
       },
     },
   },

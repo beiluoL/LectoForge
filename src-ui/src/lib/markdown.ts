@@ -29,6 +29,7 @@
  */
 import hljs from 'highlight.js/lib/common'
 import MarkdownIt from 'markdown-it'
+import type { StateInline } from 'markdown-it'
 
 import 'highlight.js/styles/github-dark.css'
 
@@ -164,7 +165,7 @@ function parseObsidianInner(inner: string): { target: string; heading: string; p
  * 核心 inline 规则：在 state.pos 处识别 [[ 或 ![[，解析后产出对应 token。
  * 注册在 image / link 之前，从而抢在默认规则前消费双链与嵌入语法。
  */
-function obsidianRule(state: any, silent: boolean): boolean {
+function obsidianRule(state: StateInline, silent: boolean): boolean {
   const src: string = state.src
   const pos: number = state.pos
   const code = src.charCodeAt(pos)
@@ -190,7 +191,8 @@ function obsidianRule(state: any, silent: boolean): boolean {
   const { target, heading, pipe } = parseObsidianInner(inner)
   if (!target) return false
 
-  const noteId: string = (state.env && state.env.noteId) || ''
+  // env 是 markdown-it 的可扩展袋子（类型声明为 {}），noteId 由调用方注入
+  const noteId: string = (state.env as { noteId?: string }).noteId ?? ''
   const isImage = IMG_EXT.test(target)
 
   // —— 图片嵌入：![[xxx.png]] / ![[xxx.png|WxH]] ——

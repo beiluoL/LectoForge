@@ -23,7 +23,9 @@ let ctx: AudioContext | null = null;
 /** 懒创建 AudioContext；浏览器自动播放策略要求首次调用发生在用户手势内 */
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
-  const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+  // Safari / 旧 WKWebView 只暴露带厂商前缀的构造器，标准 lib.dom 里没有它，故就地扩展 window 类型
+  const w = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+  const Ctor = w.AudioContext || w.webkitAudioContext;
   if (!Ctor) return null;
   if (!ctx) ctx = new Ctor();
   // Chrome/WKWebView 会把上下文挂起，恢复一下再用

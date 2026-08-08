@@ -179,9 +179,14 @@ export const useMemoryPalaceStore = defineStore('memoryPalace', {
 
   // pinia-plugin-persistedstate v4 配置：仅持久化 lociList + currentTourIndex + masterLevels
   // palaces / activePalaceId 走后端，不在本地缓存以避免数据漂移
+  //
+  // ⚠️ 修正一个被 `as any` 掩盖的真实缺陷：v4 已把 v3 的 `paths` 更名为 `pick`/`omit`，
+  // 原先写 `paths` 等于没做任何字段过滤，整个 store（含 palaces）都会被写进 localStorage，
+  // 与上面注释声明的意图相反。类型错误本应在此暴露，却被 `as any` 压住了。
+  // 本项目其余四个 store（app / inbox / note / …）用的都是 `pick`，此处统一。
   persist: {
     key: 'kf:memory-palace',
     storage: localStorage,
-    paths: ['lociList', 'currentTourIndex', 'masterLevels'],
-  } as any,
+    pick: ['lociList', 'currentTourIndex', 'masterLevels'],
+  },
 })
