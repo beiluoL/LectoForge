@@ -121,7 +121,15 @@
  * VueFlow 会在节点对象上挂 computedPosition / handleBounds / dimensions 等运行时字段，
  * 直接持久化会把这些内部状态一起写进文件。这里保持本地 ref，落库前用 toPlain 只挑业务字段。
  */
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+  type ComponentPublicInstance,
+} from 'vue'
 
 import {
   ConnectionMode,
@@ -131,7 +139,6 @@ import {
   VueFlow,
   useVueFlow,
   type Connection,
-  type Edge,
   type Node,
 } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -158,10 +165,11 @@ const SHAPES: { type: ShapeType; label: string }[] = [
 
 const { addEdges, screenToFlowCoordinate, fitView, getSelectedNodes } = useVueFlow()
 
-// 注意：vue-flow 的 Node/Edge 是互相递归的泛型，直接以 Node[]/Edge[] 声明再对它做
-// .map/.find/展开 会让 TS 报“类型实例化过深”。本地只把它当成业务数据载体，故用 any[]
-// 承接；v-model 仍可被 VueFlow 的 Node[]/Edge[] prop 接受（any 可赋值给具体类型），
-// 而自定义节点 slot 的 node 由组件自身按 Node 类型注入，不影响模板内类型。
+// 实测确认：在 nodes / edges 上做 .map 或展开再赋给 Node[] / Edge[] 会触发 TS2589
+// （vue-flow 的 Node / Edge 在赋值与类型实例化链路上展开过深，非输入类型本身递归）。
+// 故这里用 any[] 承接，v-model 仍能被 VueFlow 的 Node[] / Edge[] prop 接受
+// （any 可赋值给具体类型）。其余局部 any（map 回调参数、PlainNode/PlainEdge 字段等）
+// 已在本次重构中收窄为具体类型。
 const nodes = ref<any[]>([])
 const edges = ref<any[]>([])
 const edgeType = ref<'smoothstep' | 'bezier' | 'straight'>('smoothstep')
@@ -184,14 +192,12 @@ function newId(prefix: string) {
 
 // ===================== store ↔ 画布 =====================
 
-/** 只挑业务字段落库，剔除 vue-flow 挂上来的运行时状态。
- * 注意：vue-flow 的 Node/Edge 类型是互相递归的泛型，直接对 nodes.value/edges.value
- * 调 .map 会让 TS 推断“类型实例化过深”。这里先收窄成最小局部形状再映射。 */
+/** 只挑业务字段落库，剔除 vue-flow 挂上来的运行时状态。 */
 interface PlainNode {
   id: string
   type?: string | null
   position: { x: number; y: number }
-  data?: any
+  data?: { label?: unknown }
 }
 interface PlainEdge {
   id: string
@@ -200,17 +206,17 @@ interface PlainEdge {
   sourceHandle?: string | null
   targetHandle?: string | null
   type?: string | null
-  label?: any
+  label?: unknown
 }
 function toPlain() {
-  const srcNodes = nodes.value as unknown as PlainNode[]
-  const srcEdges = edges.value as unknown as PlainEdge[]
+  const srcNodes = nodes.value as PlainNode[]
+  const srcEdges = edges.value as PlainEdge[]
   return {
     nodes: srcNodes.map((n) => ({
       id: n.id,
       type: n.type,
       position: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
-      data: { label: (n.data as any)?.label ?? '' },
+      data: { label: String(n.data?.label ?? '') },
     })),
     edges: srcEdges.map((e) => ({
       id: e.id,
@@ -228,22 +234,22 @@ function toPlain() {
 /** 从 store 载入到画布（切换文档 / 从大纲生成时） */
 function loadFromStore() {
   const data = mapState.flowchartData || { nodes: [], edges: [] }
-  nodes.value = (data.nodes || []).map((n: any) => ({
+  nodes.value = (data.nodes || []).map((n) => ({
     id: String(n.id),
     type: (SHAPES.some((s) => s.type === n.type) ? n.type : 'rect') as string,
     position: { x: Number(n.position?.x) || 0, y: Number(n.position?.y) || 0 },
     data: { label: String(n.data?.label ?? '') },
-  })) as unknown as Node[]
-  edges.value = (data.edges || []).map((e: any) => ({
+  }))
+  edges.value = (data.edges || []).map((e) => ({
     id: String(e.id || newId('e')),
     source: String(e.source),
     target: String(e.target),
     sourceHandle: e.sourceHandle ?? undefined,
     targetHandle: e.targetHandle ?? undefined,
     type: e.type || edgeType.value,
-    label: e.label,
+    label: e.label == null ? undefined : String(e.label),
     markerEnd: MarkerType.ArrowClosed,
-  })) as unknown as Edge[]
+  }))
   void nextTick(() => {
     if (nodes.value.length) fitView({ padding: 0.2 })
   })
@@ -269,10 +275,9 @@ function createNode(type: ShapeType, position: { x: number; y: number }): Node {
   return { id: newId('n'), type, position, data: { label } }
 }
 
-/** 追加节点。先以 any[] 视角读现有节点再展开，避免 TS 对递归的 Node[] 做“类型实例化过深”的展开推断。 */
+/** 追加节点 */
 function addNode(node: Node) {
-  const cur = nodes.value as unknown as any[]
-  nodes.value = [...cur, node] as unknown as Node[]
+  nodes.value = [...nodes.value, node]
 }
 
 function addNodeAtCenter(type: ShapeType) {
@@ -326,10 +331,10 @@ function onConnect(params: Connection) {
 // ===================== 双击编辑文本 =====================
 
 /** 进入编辑态后把当前文案塞进可编辑区并全选，直接敲字即覆盖 */
-function setEditorEl(el: any) {
-  if (!el) return
+function setEditorEl(el: Element | ComponentPublicInstance | null) {
+  if (!el || !(el instanceof HTMLElement)) return
   const node = nodes.value.find((n) => n.id === editingId.value)
-  el.innerText = (node?.data as any)?.label ?? ''
+  el.innerText = String(node?.data?.label ?? '')
   void nextTick(() => {
     el.focus()
     const range = document.createRange()
