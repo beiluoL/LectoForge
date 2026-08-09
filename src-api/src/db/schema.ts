@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ===== 本地分类（替代线上 doc_category）=====
 export const categories = sqliteTable('categories', {
@@ -313,3 +313,47 @@ export const wbQuadrantTask = sqliteTable('wb_quadrant_task', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+/* ===== 模块九：日历视图（月 / 周 / 日 三视图共用的时间轴事件）=====
+ * 与既有的 wb_daily_task（日程计划）刻意分表，别合并：
+ * - wb_daily_task 回答「今天这几件事做没做」，是**带完成状态的清单**，按 target_date 归属某一天；
+ * - wb_calendar_event 回答「几点到几点被占用了」，是**带时间区间的日程**，可跨天、可全天、
+ *   没有完成态。二者的查询形态（一天一列表 vs 一段时间范围内的重叠事件）与
+ *   渲染形态（勾选框 vs 时间轴色块）都不一样，硬塞进一张表会让两边都别扭。
+ *
+ * 🔴 时间存储口径（全表铁律）：start_time / end_time 一律是
+ *    `new Date(x).toISOString()` 产出的 **UTC ISO 串**（形如 2026-08-09T06:00:00.000Z）。
+ *    统一格式带来一个关键性质——**字符串字典序 === 时间先后序**，
+ *    因此范围查询可以直接用 SQLite 的字符串比较走索引，无需 datetime() 函数包裹
+ *    （一旦包裹，idx_wb_calendar_event_range 就失效，退化成全表扫描）。
+ *    写入前的归一化唯一收口在 services/calendarService.ts 的 normalizeIso()。
+ *
+ * end_time 允许为 NULL，表示「单点事件」（如 09:00 的提醒），
+ * 查询重叠时用 coalesce(end_time, start_time) 兜底，见 listEventsInRange()。
+ */
+export const wbCalendarEvent = sqliteTable(
+  'wb_calendar_event',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    title: text('title').notNull(),
+    description: text('description'),
+    /** 开始时刻，UTC ISO 串，必填 */
+    startTime: text('start_time').notNull(),
+    /** 结束时刻，UTC ISO 串；NULL = 单点事件 */
+    endTime: text('end_time'),
+    /** 0 定时事件 / 1 全天事件（SQLite 无 boolean，沿用全项目 INTEGER 0/1 口径） */
+    isAllDay: integer('is_all_day').notNull().default(0),
+    /** 事件色，十六进制串（如 #3B6FE0）。库里只存这一个值，
+     *  柔和背景由前端用 color-mix 派生，避免再存一列冗余的浅色。 */
+    color: text('color').notNull().default('#3B6FE0'),
+    location: text('location'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => ({
+    /* 日历唯一的查询形态就是「某用户 + 某时间窗内的事件」，
+     * (user_id, start_time) 复合索引让翻月/翻周走索引区间扫描而非全表。 */
+    rangeIdx: index('idx_wb_calendar_event_range').on(t.userId, t.startTime),
+  }),
+);

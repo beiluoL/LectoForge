@@ -126,6 +126,15 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 日历视图（类 TickTick 月/周/日）：月网格 + 时间轴 + 新建/编辑/详情闭环。
+    // 刻意挂在顶层 /calendar（不进 /workbench），与 /schedule、/quadrant、/habits 同理，
+    // 避免顶栏 isActive 的 startsWith 把「工作台」误点亮；高亮走「规划」分组的 match(['/calendar'])。
+    path: '/calendar',
+    name: 'Calendar',
+    component: () => import('@/views/Calendar/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     path: '/workbench/palace',
     name: 'WorkbenchPalace',
     component: () => import('@/views/MemoryPalace/index.vue'),

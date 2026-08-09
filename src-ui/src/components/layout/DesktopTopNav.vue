@@ -388,11 +388,12 @@ const navItems: NavItem[] = [
     key: 'plan',
     label: '规划',
     icon: 'calendar-days',
-    match: ['/schedule', '/quadrant', '/habits'],
+    match: ['/schedule', '/quadrant', '/habits', '/calendar'],
     dividerBefore: true,
     collapse: true,
     children: [
       { path: '/schedule', label: '日程计划', icon: 'calendar-clock' },
+      { path: '/calendar', label: '日历', icon: 'calendar' },
       { path: '/quadrant', label: '四象限', icon: 'layout-grid' },
       { path: '/habits', label: '习惯打卡', icon: 'check-circle-2' },
     ],

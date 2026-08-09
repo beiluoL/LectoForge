@@ -111,6 +111,40 @@ export function formatScheduleTime(input?: string | null): string {
   return `${d.format('YYYY年M月D日')} ${hm}`;
 }
 
+/**
+ * 本地日历日键 `YYYY-MM-DD`。
+ *
+ * 日历模块用它把事件归到某一格：库里存的是 UTC ISO（`...T06:00:00.000Z`），
+ * 直接 `slice(0, 10)` 在东八区会把 08:00 之前的事件算到前一天去。
+ * 必须先落到本地时区再取年月日，这正是本函数存在的理由——
+ * 项目里任何「时刻 → 某一天」的归属判断都应走这里，别再手写 slice。
+ */
+export function toDateKey(input: string | number | Date | null | undefined): string {
+  if (!input) return '';
+  const d = dayjs(input);
+  return d.isValid() ? d.format('YYYY-MM-DD') : '';
+}
+
+/** 定长时刻 `HH:mm`（日历事件卡片、时间轴刻度在用） */
+export function formatHM(input: string | number | Date | null | undefined): string {
+  if (!input) return '';
+  const d = dayjs(input);
+  return d.isValid() ? d.format('HH:mm') : '';
+}
+
+/** 年月标题 `2026年8月`（日历顶部导航在用，月份不补零，与中文习惯一致） */
+export function formatYearMonth(input: string | number | Date): string {
+  const d = dayjs(input);
+  return d.isValid() ? d.format('YYYY年M月') : '';
+}
+
+/** 年月日标题 `2026年8月9日 周日`（日历「日视图」标题在用） */
+export function formatYearMonthDay(input: string | number | Date): string {
+  const d = dayjs(input);
+  if (!d.isValid()) return '';
+  return `${d.format('YYYY年M月D日')} ${'周日周一周二周三周四周五周六'.slice(d.day() * 2, d.day() * 2 + 2)}`;
+}
+
 /** 计划时间是否已过（用于「逾期」红字），无值一律 false */
 export function isOverdue(input?: string | null): boolean {
   if (!input) return false;

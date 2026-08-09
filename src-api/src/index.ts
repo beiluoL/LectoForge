@@ -26,6 +26,7 @@ import pomodoro from './routes/pomodoro';
 import schedule from './routes/schedule';
 import habits from './routes/habits';
 import quadrant from './routes/quadrant';
+import calendar from './routes/calendar';
 
 const app = Fastify({ logger: false });
 
@@ -152,6 +153,13 @@ app.register(habits, { prefix: '/api' });
  * 独立前缀 /api：端点 /quadrant/tasks 系列。与 /schedule（按时间排任务）
  * 是互补关系——日程回答「什么时候做」，四象限回答「先做哪个」。 */
 app.register(quadrant, { prefix: '/api' });
+
+/* ===== 日历视图（月 / 周 / 日 三视图共用的时间轴事件）=====
+ * 独立前缀 /api：端点 /calendar/events 系列。与 /schedule、/quadrant 三者互补——
+ * 日程回答「今天这几件事做没做」，四象限回答「先做哪个」，
+ * 日历回答「几点到几点被占用了」。
+ * 唯一的读接口强制携带 start_date / end_date，不提供全量拉取形态。 */
+app.register(calendar, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });

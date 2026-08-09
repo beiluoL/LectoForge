@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from './schema';
-import { categories, wbCapture, wbPalace, wbPalaceLoci, wbHabit, wbHabitLog, wbQuadrantTask } from './schema';
+import { categories, wbCapture, wbPalace, wbPalaceLoci, wbHabit, wbHabitLog, wbQuadrantTask, wbCalendarEvent } from './schema';
 import { getDbPath } from '../lib/paths';
 
 /* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 LECTOFORGE_DATA_DIR
@@ -247,6 +247,24 @@ CREATE TABLE IF NOT EXISTS wb_quadrant_task (
  * 顺带覆盖未来「只刷新某一个象限」的增量拉取。 */
 CREATE INDEX IF NOT EXISTS idx_wb_quadrant_task_user_q ON wb_quadrant_task (user_id, quadrant);
 CREATE INDEX IF NOT EXISTS idx_wb_quadrant_task_done ON wb_quadrant_task (completed);
+CREATE TABLE IF NOT EXISTS wb_calendar_event (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL,
+  description TEXT,
+  start_time TEXT NOT NULL,
+  end_time TEXT,
+  is_all_day INTEGER NOT NULL DEFAULT 0,
+  color TEXT NOT NULL DEFAULT '#3B6FE0',
+  location TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+/* 日历只有一种查询：某用户在某个时间窗内的事件。
+ * (user_id, start_time) 让「翻到上个月」这类操作走索引区间扫描；
+ * 前提是 start_time 永远是同格式的 UTC ISO 串（见 schema.ts 的时间存储口径），
+ * 否则字符串比较的顺序就不等于时间顺序，索引会给出错误结果。 */
+CREATE INDEX IF NOT EXISTS idx_wb_calendar_event_range ON wb_calendar_event (user_id, start_time);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====
@@ -663,6 +681,77 @@ seedIfEmpty(wbQuadrantTask, '四象限示例任务', () => {
         tags: r.tags,
         source: 'seed',
         sortOrder: i,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  return rows.length;
+});
+
+/* ---- 日历：往「今天」附近撒四条示例，覆盖三种形态（定时 / 跨天 / 全天），
+ * 让新用户首次打开 /calendar 时月视图里就有色块可点，而不是 42 个空格子。
+ *
+ * 时间刻意用**相对今天**计算而非写死日期：种子数据是在用户首次启动时注入的，
+ * 写死 2026-08 会导致半年后新装的用户打开日历啥也看不到，还得手动翻月份找。 ---- */
+seedIfEmpty(wbCalendarEvent, '日历示例事件', () => {
+  const now = nowIso();
+  /** 相对今天 offsetDay 天的本地 hh:mm → UTC ISO（与 calendarService 的存储口径一致） */
+  const at = (offsetDay: number, hh: number, mm = 0): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDay);
+    d.setHours(hh, mm, 0, 0);
+    return d.toISOString();
+  };
+  const rows = [
+    {
+      title: '📅 项目周会',
+      description: '示例事件：定时事件会在月视图里显示「起始时间 + 标题」。',
+      startTime: at(0, 14),
+      endTime: at(0, 15),
+      isAllDay: 0,
+      color: '#3B6FE0',
+      location: '线上会议室',
+    },
+    {
+      title: '📖 专业书阅读',
+      description: '示例事件：可在事件详情抽屉里编辑或删除。',
+      startTime: at(1, 20),
+      endTime: at(1, 21, 30),
+      isAllDay: 0,
+      color: '#10B981',
+      location: null,
+    },
+    {
+      title: '🏖️ 短假出行',
+      description: '示例事件：跨天事件会在它覆盖的每一天都出现。',
+      startTime: at(3, 0),
+      endTime: at(5, 23, 59),
+      isAllDay: 1,
+      color: '#F59E0B',
+      location: null,
+    },
+    {
+      title: '🎯 季度目标复盘',
+      description: null,
+      startTime: at(-2, 0),
+      endTime: null,
+      isAllDay: 1,
+      color: '#8B5CF6',
+      location: null,
+    },
+  ];
+  db.insert(wbCalendarEvent)
+    .values(
+      rows.map((r) => ({
+        userId: CURRENT_USER,
+        title: r.title,
+        description: r.description,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        isAllDay: r.isAllDay,
+        color: r.color,
+        location: r.location,
         createdAt: now,
         updatedAt: now,
       })),
