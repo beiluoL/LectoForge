@@ -25,6 +25,7 @@ import inbox from './routes/inbox';
 import pomodoro from './routes/pomodoro';
 import schedule from './routes/schedule';
 import habits from './routes/habits';
+import quadrant from './routes/quadrant';
 
 const app = Fastify({ logger: false });
 
@@ -146,6 +147,11 @@ app.register(schedule, { prefix: '/api' });
 /* ===== 习惯打卡（每日微习惯 + 连续打卡热力图）=====
  * 独立前缀 /api：端点 /habits 系列，与既有 workbench 契约互不干扰。 */
 app.register(habits, { prefix: '/api' });
+
+/* ===== 四象限 / 艾森豪威尔矩阵（紧急 × 重要 的 2×2 任务网格）=====
+ * 独立前缀 /api：端点 /quadrant/tasks 系列。与 /schedule（按时间排任务）
+ * 是互补关系——日程回答「什么时候做」，四象限回答「先做哪个」。 */
+app.register(quadrant, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });

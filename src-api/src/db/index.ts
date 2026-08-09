@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from './schema';
-import { categories, wbCapture, wbPalace, wbPalaceLoci, wbHabit, wbHabitLog } from './schema';
+import { categories, wbCapture, wbPalace, wbPalaceLoci, wbHabit, wbHabitLog, wbQuadrantTask } from './schema';
 import { getDbPath } from '../lib/paths';
 
 /* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 LECTOFORGE_DATA_DIR
@@ -228,6 +228,25 @@ CREATE TABLE IF NOT EXISTS wb_habit_log (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wb_habit_log_uniq ON wb_habit_log (habit_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_wb_habit_log_date ON wb_habit_log (log_date);
+CREATE TABLE IF NOT EXISTS wb_quadrant_task (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL,
+  description TEXT,
+  quadrant TEXT NOT NULL DEFAULT 'urgent-important',
+  completed INTEGER NOT NULL DEFAULT 0,
+  scheduled_at TEXT,
+  tags TEXT,
+  source TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+/* 四象限列表页只有一种查询形态：「某用户的全部任务，按象限分桶」。
+ * 复合索引 (user_id, quadrant) 让这条查询走索引扫描而非全表，
+ * 顺带覆盖未来「只刷新某一个象限」的增量拉取。 */
+CREATE INDEX IF NOT EXISTS idx_wb_quadrant_task_user_q ON wb_quadrant_task (user_id, quadrant);
+CREATE INDEX IF NOT EXISTS idx_wb_quadrant_task_done ON wb_quadrant_task (completed);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====
@@ -561,6 +580,89 @@ seedIfEmpty(wbHabit, '示例习惯', () => {
         iconName: r.iconName,
         color: r.color,
         frequency: r.frequency,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  return rows.length;
+});
+
+/* ---- 四象限：每格各放 1~2 条示例，让新用户首次打开 /quadrant 就能看懂
+ * 「紧急 × 重要」这两个轴到底怎么分，而不是面对四个空盒子发呆。
+ * 刻意留一条已完成项（completed: 1），顺带演示「已完成」折叠区的存在。 ---- */
+seedIfEmpty(wbQuadrantTask, '四象限示例任务', () => {
+  const now = nowIso();
+  const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const rows: Array<{
+    title: string;
+    description: string | null;
+    quadrant: string;
+    completed: number;
+    scheduledAt: string | null;
+    tags: string;
+  }> = [
+    {
+      title: '🔥 修复线上登录失败的告警',
+      description: '示例任务：这类「不做会立刻出事」的活儿放第一象限，今天就得清掉。',
+      quadrant: 'urgent-important',
+      completed: 0,
+      scheduledAt: inHours(3),
+      tags: '示例,工作',
+    },
+    {
+      title: '📮 回复客户的合同确认邮件',
+      description: null,
+      quadrant: 'urgent-important',
+      completed: 1,
+      scheduledAt: null,
+      tags: '示例',
+    },
+    {
+      title: '📚 每天读 30 分钟专业书',
+      description: '示例任务：第二象限是「长期最值钱、却最容易被挤掉」的事，要主动排进日程。',
+      quadrant: 'not-urgent-important',
+      completed: 0,
+      scheduledAt: inHours(26),
+      tags: '示例,成长',
+    },
+    {
+      title: '🏋️ 每周三次力量训练',
+      description: null,
+      quadrant: 'not-urgent-important',
+      completed: 0,
+      scheduledAt: null,
+      tags: '示例,健康',
+    },
+    {
+      title: '📞 临时插进来的会议邀约',
+      description: '示例任务：第三象限看着急，其实对你的目标没什么贡献——能授权就授权。',
+      quadrant: 'urgent-not-important',
+      completed: 0,
+      scheduledAt: inHours(5),
+      tags: '示例',
+    },
+    {
+      title: '📺 刷短视频 / 无目的闲逛',
+      description: '示例任务：第四象限是纯消耗，看到它出现在列表里，本身就是一种提醒。',
+      quadrant: 'not-urgent-not-important',
+      completed: 0,
+      scheduledAt: null,
+      tags: '示例',
+    },
+  ];
+  db.insert(wbQuadrantTask)
+    .values(
+      rows.map((r, i) => ({
+        userId: CURRENT_USER,
+        title: r.title,
+        description: r.description,
+        quadrant: r.quadrant,
+        completed: r.completed,
+        scheduledAt: r.scheduledAt,
+        tags: r.tags,
+        source: 'seed',
+        sortOrder: i,
         createdAt: now,
         updatedAt: now,
       })),

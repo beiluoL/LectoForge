@@ -88,6 +88,36 @@ export function formatMonthDayTime(iso?: string): string {
   return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+/**
+ * 计划时间文案：`今天 14:30` / `明天 09:00` / `8月12日 09:00`（跨年补年份）。
+ *
+ * 四象限、日程这类「往前看」的场景在用：和 fromNow 正好相反——后者描述过去
+ * （3小时前），这里描述未来。同一个 ISO 串在两处显示成不同文案是刻意的，
+ * 任务卡片上写「3小时前」会让人误以为已经过期。
+ *
+ * 已经过去的时间点不特殊标记，由调用方自行判断是否加「已逾期」样式。
+ */
+export function formatScheduleTime(input?: string | null): string {
+  if (!input) return '';
+  const d = dayjs(input);
+  if (!d.isValid()) return '';
+
+  const now = dayjs();
+  const hm = d.format('HH:mm');
+  if (d.isSame(now, 'day')) return `今天 ${hm}`;
+  if (d.isSame(now.add(1, 'day'), 'day')) return `明天 ${hm}`;
+  if (d.isSame(now.subtract(1, 'day'), 'day')) return `昨天 ${hm}`;
+  if (d.year() === now.year()) return `${d.format('M月D日')} ${hm}`;
+  return `${d.format('YYYY年M月D日')} ${hm}`;
+}
+
+/** 计划时间是否已过（用于「逾期」红字），无值一律 false */
+export function isOverdue(input?: string | null): boolean {
+  if (!input) return false;
+  const d = dayjs(input);
+  return d.isValid() && d.isBefore(dayjs());
+}
+
 /* ==================== 三、时长 ==================== */
 
 /**

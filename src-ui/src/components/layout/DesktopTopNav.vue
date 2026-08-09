@@ -340,6 +340,8 @@ const navItems: NavItem[] = [
   { path: '/schedule', label: '日程计划', icon: 'calendar-days', match: ['/schedule'], dividerBefore: true },
   // 10. 习惯打卡（独立路由 /habits；match 覆盖自身避免被 /workbench 误吞）
   { path: '/habits', label: '习惯打卡', icon: 'check-circle-2', match: ['/habits'], dividerBefore: true },
+  // 11. 四象限（独立路由 /quadrant；解决「先做哪个」，与日程计划的「什么时候做」互补）
+  { path: '/quadrant', label: '四象限', icon: 'layout-grid', match: ['/quadrant'] },
 ];
 
 // 窄窗常驻入口（1-5）与「更多」折叠入口（6-8）

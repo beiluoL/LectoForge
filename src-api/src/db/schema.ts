@@ -279,3 +279,37 @@ export const wbHabitLog = sqliteTable(
     uniqHabitDate: uniqueIndex('idx_wb_habit_log_uniq').on(t.habitId, t.logDate),
   }),
 );
+
+/* ===== 模块八：四象限（艾森豪威尔矩阵 / Eisenhower Matrix）=====
+ * 把「紧迫性 × 重要性」两个维度数据化，用一张扁平表承载 2×2 网格。
+ *
+ * 为什么 quadrant 用字符串枚举而不是两个布尔列（urgent / important）：
+ * - 前端渲染、后端分组、拖拽换象限全都以「一个象限」为原子单位，
+ *   单列枚举可以一次 WHERE / GROUP BY 搞定，两个布尔列则要处处写组合条件；
+ * - 未来若要加「未分类 / 待定」第五态，加一个枚举值即可，布尔组合则表达不了。
+ *
+ * 枚举值刻意使用连字符（urgent-important），与 API 响应里的分组键
+ * （urgent_important，下划线）**不是同一套写法**：库里存的是业务枚举，
+ * 响应键是 JSON 字段名。两者的映射唯一收口在 services/quadrantService.ts
+ * 的 QUADRANT_KEYS，任何地方都不得再手写这层转换。
+ */
+export const wbQuadrantTask = sqliteTable('wb_quadrant_task', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  title: text('title').notNull(),
+  description: text('description'),
+  /** 'urgent-important' | 'not-urgent-important' | 'urgent-not-important' | 'not-urgent-not-important' */
+  quadrant: text('quadrant').notNull().default('urgent-important'),
+  /** 0 未完成 / 1 已完成（SQLite 无 boolean，沿用全项目 INTEGER 0/1 口径） */
+  completed: integer('completed').notNull().default(0),
+  /** 计划时间 ISO 字符串；null 表示未排期 */
+  scheduledAt: text('scheduled_at'),
+  /** 逗号分隔的标签串，与 wb_capture / wb_note 的 tags 口径一致 */
+  tags: text('tags'),
+  /** 来源标记（inbox / note / manual…），供后续「收集箱 → 四象限」流转追溯 */
+  source: text('source'),
+  /** 象限内手工排序位（拖拽预留，越小越靠前） */
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});

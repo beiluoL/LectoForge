@@ -117,6 +117,15 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 四象限（艾森豪威尔矩阵）：紧急 × 重要 的 2×2 任务网格。
+    // 同 /habits、/schedule 的理由挂在顶层而非 /workbench 下，避免顶栏 isActive
+    // 的 startsWith 把「工作台」一起点亮；高亮走独立 match(['/quadrant'])。
+    path: '/quadrant',
+    name: 'Quadrant',
+    component: () => import('@/views/Quadrant/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     path: '/workbench/palace',
     name: 'WorkbenchPalace',
     component: () => import('@/views/MemoryPalace/index.vue'),

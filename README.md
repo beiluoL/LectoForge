@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 115 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点（详见《技术架构与功能手册.md》§7.3.1） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 135 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《技术架构与功能手册.md》§7.3.1） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -25,13 +25,13 @@
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
 │   ├── src/routes/      # 薄路由 19 模块 / 353 行：只绑定「路径 → Controller」，无任何 SQL
-│   │                    # 10 张表对应 110 个端点（学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve）
+│   │                    # 11 张表对应 135 个端点（学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve + 2026-08-09 新增四象限 /api/quadrant 6 个）
 │   ├── src/controllers/ # 控制层 19 模块 / 1319 行：解析请求、调 Service、决定 HTTP 状态码
 │   ├── src/services/    # 服务层 27 模块 / 4803 行：Drizzle 查询、文件 IO、axios 外呼
 │   │   └── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
 │   ├── src/types/       # 契约层 18 模块 / 1216 行：DTO / VO / 结果判别联合
 │   └── src/db/          # schema + 建表 + WAL
-├── src-ui/          # Vue 3 前端（20 个业务视图 / 24 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎）+ lucide-vue-next 图标体系
+├── src-ui/          # Vue 3 前端（21 个业务视图 / 25 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats) + 2026-08-09 新增 日程计划(/schedule)/习惯打卡(/habits)/四象限(/quadrant)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎）+ lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本
@@ -151,6 +151,19 @@ npm run tauri build
 - **事务级联**：`DELETE /api/habits/:id` 用 better-sqlite3 同步事务级联删除该习惯全部打卡记录。
 
 > 后端接口、表结构（`wb_habit` / `wb_habit_log`）、统计与热力图计算详见《技术架构与功能手册.md》§7.18。
+
+## 四象限任务模块（2026-08-09 新增）
+
+把「紧急 × 重要」二维决策可视化：2×2 网格（艾森豪威尔矩阵）把任务落到「重要且紧急 / 重要不紧急 / 紧急不重要 / 不重要不紧急」四个象限，支持勾选完成、拖拽换象限、增删改与「清空已完成」。
+
+- **路由 `/quadrant`**：独立入口（**前缀不加 `/workbench`**，顶栏「四象限」用 `match:['/quadrant']` 独立高亮，避免与「工作台」互相误亮），`meta: { layout: 'c', fullscreen: true }`。
+- **2×2 网格**：`qd-grid` 两列自适应（≤860px 退化为单列），每象限 `QuadrantCard` 含色条（借用 `--kb-destructive` / `--kb-warning` / `--kb-primary` / `--kb-accent` 四个 token，无硬编码色值）、序号徽章、图标、未完成计数、`...` 菜单与添加按钮。
+- **任务卡片**：原生 `type=checkbox`（`:checked` + `@change`，避免 0/1 数字被写成布尔）+ 标题 + 时间（`formatScheduleTime`，逾期红字）+ tags 胶囊 + 编辑 / 删除 / 拖拽手柄；已完成项默认折叠进折叠区。
+- **拖拽换象限**：原生 HTML5 Drag and Drop（不引入拖拽库），`dragstart` 写 `dataTransfer` 任务 id，`drop` 触发 `store.moveTask` 乐观搬桶 + 失败回滚。
+- **乐观交互**：新建 / 更新 / 勾选 / 删除 / 移动 / 清空已完成均乐观更新 + 失败回滚 + 轻量 toast，store ID 固定 `defineStore('quadrant')`。
+- **列表性能红线（后端）**：`GET /api/quadrant/tasks` **单次 SQL** 取出全量（按 `completed → sort_order → created_at` 排序），在 Service 层 `groupTasks()` 单趟 O(n) 分桶成 `urgent_important` / `not_urgent_important` / `urgent_not_important` / `not_urgent_not_important` 四个下划线键——前端**严禁循环 filter**，直接消费四分组；字段连字符 `quadrant` 与响应下划线键的映射在 Service `QUADRANT_KEYS` 与 Store `GROUP_OF` 收口。
+
+> 后端接口、表结构（`wb_quadrant_task`）、分组与映射逻辑详见《技术架构与功能手册.md》§7.19。
 
 ## v1.1.0 新增能力（本次更新）
 
