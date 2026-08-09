@@ -185,6 +185,27 @@ CREATE TABLE IF NOT EXISTS wb_embedding (
 );
 CREATE INDEX IF NOT EXISTS idx_wb_embedding_entity ON wb_embedding (entity_type, entity_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wb_embedding_uniq ON wb_embedding (entity_type, entity_id, model);
+CREATE TABLE IF NOT EXISTS wb_task_template (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL,
+  tasks TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS wb_daily_task (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  target_date TEXT NOT NULL,
+  content TEXT NOT NULL,
+  completed INTEGER NOT NULL DEFAULT 0,
+  parent_template_id INTEGER,
+  repeat_rule TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_daily_task_date ON wb_daily_task (target_date);
+CREATE INDEX IF NOT EXISTS idx_wb_daily_task_tpl ON wb_daily_task (parent_template_id);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====

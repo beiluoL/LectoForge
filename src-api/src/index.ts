@@ -23,6 +23,7 @@ import search from './routes/search';
 import dashboard from './routes/dashboard';
 import inbox from './routes/inbox';
 import pomodoro from './routes/pomodoro';
+import schedule from './routes/schedule';
 
 const app = Fastify({ logger: false });
 
@@ -135,6 +136,11 @@ app.register(inbox, { prefix: '/api' });
  * 独立前缀 /api：端点 /pomodoro/record、/pomodoro/stats、/pomodoro/config、/pomodoro/today。
  * 已完成时段落 wb_pomodoro_log（新表，不复用任何复习表），用户偏好落 pomodoro-config.json。 */
 app.register(pomodoro, { prefix: '/api' });
+
+/* ===== 日程计划 / 每日任务（晨间 Routine、备考日、重复任务）=====
+ * 独立前缀 /api：端点 /schedule/templates 与 /schedule/tasks 系列，
+ * 与既有 workbench 契约互不干扰；重复规则按需实时推算，不在启动期预生成。 */
+app.register(schedule, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });

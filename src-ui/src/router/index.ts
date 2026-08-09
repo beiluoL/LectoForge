@@ -92,6 +92,15 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 日程计划 / 每日任务：解决「今天要做什么」。
+    // 路径刻意挂在 /schedule 下（前缀不加 /workbench），与 /inbox、/library、/mindmap 同理，
+    // 避免顶栏 isActive 用 startsWith 时被「工作台」误吞高亮；高亮走独立 matches('/schedule')。
+    path: '/schedule',
+    name: 'Schedule',
+    component: () => import('@/views/Schedule/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     // 番茄钟历史统计：vue-chartjs 柱状图 + 三张总结卡。
     path: '/pomodoro/stats',
     name: 'PomodoroStats',

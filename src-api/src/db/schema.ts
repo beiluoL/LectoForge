@@ -198,6 +198,38 @@ export const wbPomodoroLog = sqliteTable('wb_pomodoro_log', {
   createdAt: text('created_at').notNull(),
 });
 
+// ===== 模块六：日程计划 / 每日任务 =====
+// wb_task_template：用户保存的「每日任务模板」（如「晨间 Routine」「备考日」），
+// 任务清单以 JSON 存于 tasks 列，结构见 types/schedule.ts 的 TemplateTask。
+// wb_daily_task：某一天实际要做的任务；手动/批量添加的 parentTemplateId 为 NULL，
+// 由模板生成（含重复规则推导）的带 parentTemplateId 与 repeatRule。
+export const wbTaskTemplate = sqliteTable('wb_task_template', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  name: text('name').notNull(),
+  // 任务清单 JSON：[{ content: string, time?: string, repeatRule?: RepeatRule | null }]
+  tasks: text('tasks').notNull().default('[]'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const wbDailyTask = sqliteTable('wb_daily_task', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  // 目标日期 YYYY-MM-DD（本机时区自然日，与 wb_pomodoro_log 聚合口径一致，绝不用 UTC 日）
+  targetDate: text('target_date').notNull(),
+  content: text('content').notNull(),
+  // 完成态 0/1：按日期独立存储，单日勾选不影响其它日期的同一重复任务
+  completed: integer('completed').notNull().default(0),
+  // 来源模板 id（手动添加 / 批量添加为 NULL）
+  parentTemplateId: integer('parent_template_id'),
+  // 重复规则 JSON：{ type:'daily', interval } | { type:'weekly', days:[0-6] } | { type:'monthly', day }
+  // 非重复任务为 NULL（空串也视为 NULL，避免 '' 被 JSON.parse 炸库）
+  repeatRule: text('repeat_rule'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 // ===== P3-G3：内容向量索引（本地 embedding 存储，相似度在应用层计算）=====
 export const wbEmbedding = sqliteTable('wb_embedding', {
   id: integer('id').primaryKey({ autoIncrement: true }),

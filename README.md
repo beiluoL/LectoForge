@@ -24,12 +24,12 @@
 ```
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
-│   ├── src/routes/      # 薄路由 18 模块 / 353 行：只绑定「路径 → Controller」，无任何 SQL
+│   ├── src/routes/      # 薄路由 19 模块 / 353 行：只绑定「路径 → Controller」，无任何 SQL
 │   │                    # 10 张表对应 110 个端点（学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve）
-│   ├── src/controllers/ # 控制层 18 模块 / 1319 行：解析请求、调 Service、决定 HTTP 状态码
-│   ├── src/services/    # 服务层 26 模块 / 4803 行：Drizzle 查询、文件 IO、axios 外呼
+│   ├── src/controllers/ # 控制层 19 模块 / 1319 行：解析请求、调 Service、决定 HTTP 状态码
+│   ├── src/services/    # 服务层 27 模块 / 4803 行：Drizzle 查询、文件 IO、axios 外呼
 │   │   └── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
-│   ├── src/types/       # 契约层 17 模块 / 1216 行：DTO / VO / 结果判别联合
+│   ├── src/types/       # 契约层 18 模块 / 1216 行：DTO / VO / 结果判别联合
 │   └── src/db/          # schema + 建表 + WAL
 ├── src-ui/          # Vue 3 前端（20 个业务视图 / 24 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎）+ lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
@@ -124,6 +124,19 @@ npm run tauri build
 - **复习页集成**：`/review` 顶部嵌入番茄钟状态条（阶段 + 剩余时间 + 暂停 / 继续），专注刷题中不被打断。
 
 > 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《技术架构与功能手册.md》番茄钟章节。
+
+## 日程计划模块（2026-08-09 新增）
+
+解决「今天要做什么」的轻量每日任务模块：**每日任务模板 + 一键生成今日计划 + 批量添加 + 精细重复规则**。
+
+- **路由 `/schedule`**：独立入口（**前缀不加 `/workbench`**，顶栏「日程计划」用 `match:['/schedule']` 独立高亮，避免与「工作台」互相误亮）。
+- **模板系统**：`wb_task_template` 存可复用任务清单（含 `repeatRule`），「把当前任务存为模板」一键沉淀。
+- **一键生成**：从模板 `POST /api/schedule/generate` 幂等生成某天计划（按「模板+日期+内容」去重）。
+- **重复规则**：`daily`（每 N 天）/ `weekly`（每周多选周几）/ `monthly`（每月 X 号）；`scheduleService.shouldGenerateToday` 以模板 `created_at` 为锚点实时推算，用户切到某日期时**按需展开**重复实例（落 `wb_daily_task`，独立勾选不影响其它日期）。
+- **批量添加**：底部 textarea 按行拆分，`POST /api/schedule/batch` 走 better-sqlite3 **同步事务**原子写入。
+- **乐观交互**：勾选完成 / 删除 / 改重复规则均乐观更新 + 失败回滚 + 轻量 toast。
+
+> 后端接口、表结构（`wb_task_template` / `wb_daily_task`）、重复推算详见《技术架构与功能手册.md》§7.17。
 
 ## v1.1.0 新增能力（本次更新）
 
