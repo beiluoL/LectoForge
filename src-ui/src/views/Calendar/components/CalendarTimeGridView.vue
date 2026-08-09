@@ -20,12 +20,13 @@
           <div class="mt-1 space-y-0.5">
             <div
               v-for="ev in allDayOf(cell.key)"
-              :key="ev.id"
-              class="truncate rounded px-1 py-0.5 text-[11px] text-white cursor-pointer"
-              :style="{ background: ev.color }"
+              :key="ev.sourceType === 'daily_task' ? 'dt-' + ev.taskId : ev.id"
+              class="truncate rounded px-1 py-0.5 text-[11px] cursor-pointer"
+              :class="ev.sourceType === 'daily_task' ? 'dt-task-line' : 'text-white'"
+              :style="ev.sourceType === 'daily_task' ? dailyTaskLineStyle : { background: ev.color }"
               :title="ev.title"
-              @click.stop="emit('select', ev)"
-            >📌 {{ ev.title }}</div>
+              @click.stop="onEventClick(cell.key, ev)"
+            ><template v-if="ev.sourceType === 'daily_task'"><span class="dt-dot"></span>{{ ev.title }}</template><template v-else>📌 {{ ev.title }}</template></div>
           </div>
         </div>
       </div>
@@ -66,11 +67,11 @@
             <!-- 定时事件（绝对定位） -->
             <div
               v-for="pos in timedOf(cell.key)"
-              :key="pos.ev.id"
+              :key="pos.ev.sourceType === 'daily_task' ? 'dt-' + pos.ev.taskId : pos.ev.id"
               class="absolute left-1 right-1 rounded px-1.5 py-0.5 text-[11px] overflow-hidden cursor-pointer shadow-sm"
               :style="timedStyle(pos)"
               :title="pos.ev.title"
-              @click.stop="emit('select', pos.ev)"
+              @click.stop="onEventClick(cell.key, pos.ev)"
             >
               <div class="font-medium truncate" style="color:#fff">{{ pos.ev.title }}</div>
               <div class="opacity-90 truncate" style="color:#fff">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
@@ -100,6 +101,7 @@ import type { CalendarEvent } from '@/api/calendar';
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
   (e: 'add', payload: { dateKey: string; time?: string }): void;
+  (e: 'selectTask', payload: { taskId: number; date: string }): void;
 }>();
 
 const store = useCalendarStore();
@@ -145,11 +147,37 @@ function dayHeaderStyle(cell: DayCell): Record<string, string> {
 }
 
 function timedStyle(pos: TimedPos): Record<string, string> {
+  // 每日任务不会以定时形态出现（全是全天），这里仅作防御性分支
+  if (pos.ev.sourceType === 'daily_task') {
+    return {
+      top: pos.top + 'px',
+      height: pos.height + 'px',
+      background: 'color-mix(in srgb, #B0B0B0 14%, transparent)',
+      color: 'var(--kb-foreground)',
+      borderLeft: '3px solid #B0B0B0',
+    };
+  }
   return {
     top: pos.top + 'px',
     height: pos.height + 'px',
     background: pos.ev.color,
   };
+}
+
+/** 每日任务的极简条样式（灰色，与日历事件区分） */
+const dailyTaskLineStyle: Record<string, string> = {
+  background: 'color-mix(in srgb, #B0B0B0 14%, transparent)',
+  color: 'var(--kb-foreground)',
+  borderLeft: '3px solid #B0B0B0',
+};
+
+/** 事件点击分流：每日任务跳 /schedule；普通事件弹详情抽屉 */
+function onEventClick(dateKey: string, ev: CalendarEvent) {
+  if (ev.sourceType === 'daily_task' && ev.taskId != null) {
+    emit('selectTask', { taskId: ev.taskId, date: dateKey });
+  } else {
+    emit('select', ev);
+  }
 }
 
 /** 点击时间格空白处：用落点 y 推算起始时刻（按 30 分钟吸附），向上抛给 index 打开新建 */
@@ -163,3 +191,21 @@ function onColumnClick(cell: DayCell, ev: MouseEvent) {
   emit('add', { dateKey: cell.key, time: `${hh}:${mm}` });
 }
 </script>
+
+<style scoped>
+/* 时间轴视图里的「日程计划任务」极简条 */
+.dt-task-line {
+  display: flex;
+  align-items: center;
+}
+.dt-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #b0b0b0;
+  margin-right: 4px;
+  flex: none;
+}
+</style>
+

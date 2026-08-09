@@ -49,6 +49,23 @@ export interface ListCalendarEventQuery extends PageQuery {
   endDate: string;
 }
 
+/**
+ * 合并后的单条「日历格内容」：既可能是自定义日历事件，也可能是来自 /schedule 的每日任务。
+ *
+ * 在 types 层只做类型声明（不引入运行时值）：`CalendarEventRow` 仍是库表行的原始形态，
+ * 这里通过交叉类型补上两个**前端渲染分流**用的字段：
+ * - sourceType：'calendar' = 普通日历事件；'daily_task' = 来自 wb_daily_task 的每日任务；
+ * - taskId：仅 daily_task 有，指向 wb_daily_task.id，前端据此跳转 /schedule 并高亮。
+ *
+ * 两个字段都是「可选 + 联合字面量」，这样既有的 CalendarEventRow 仍是它的合法子集，
+ * 既不用改其它用到 CalendarEventRow 的地方，又能让前端按 sourceType 安全分流。
+ */
+export interface CalendarEventWithSource extends CalendarEventRow {
+  sourceType: 'calendar' | 'daily_task';
+  /** 仅 sourceType==='daily_task' 时存在：对应 wb_daily_task 的主键 */
+  taskId?: number;
+}
+
 export interface CalendarEventCreateInput {
   title: string;
   /** ISO 时刻串，必填；服务端会归一化成 UTC ISO */

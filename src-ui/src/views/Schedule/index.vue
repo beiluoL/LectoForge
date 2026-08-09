@@ -72,12 +72,13 @@
       </div>
 
       <!-- 任务行 -->
-      <ul v-else class="sch-list">
+      <ul v-else ref="listRef" class="sch-list">
         <li
           v-for="t in tasks"
           :key="t.id"
+          :data-task-id="t.id"
           class="sch-row"
-          :class="{ 'is-done': t.completed }"
+          :class="{ 'is-done': t.completed, 'is-highlight': t.id === highlightId }"
         >
           <button
             class="sch-check"
@@ -189,7 +190,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import { useScheduleStore } from '@/store/schedule-store';
@@ -200,6 +202,28 @@ import TaskRepeatModal from './components/TaskRepeatModal.vue';
 const store = useScheduleStore();
 const { currentDate, tasks, templates, loading, generating, submitting, isToday, completedCount, totalCount, progress } =
   storeToRefs(store);
+
+const route = useRoute();
+/** 从日历跳转过来时，要高亮的任务 id（来自 ?taskId） */
+const highlightId = ref<number | null>(null);
+const listRef = ref<HTMLElement | null>(null);
+
+/** 读取 ?date & ?taskId：跳到对应日期、拉取任务并高亮 */
+async function applyQueryFromRoute() {
+  const qTask = route.query.taskId;
+  const qDate = typeof route.query.date === 'string' ? route.query.date : undefined;
+  if (qTask) {
+    if (qDate) store.currentDate = qDate;
+    await store.fetchTasks(qDate || store.currentDate);
+    highlightId.value = Number(qTask);
+    nextTick(() => {
+      const el = listRef.value?.querySelector(`[data-task-id="${highlightId.value}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  } else {
+    highlightId.value = null;
+  }
+}
 
 const progressPct = computed(() => Math.round(progress.value * 100));
 
@@ -214,7 +238,10 @@ const batchText = ref('');
 
 function onDateChange(e: Event) {
   const v = (e.target as HTMLInputElement).value;
-  if (v) store.fetchTasks(v);
+  if (v) {
+    highlightId.value = null;
+    store.fetchTasks(v);
+  }
 }
 
 async function submitBatch() {
@@ -266,8 +293,18 @@ function repeatTplCount(tpl: TaskTemplate): number {
 
 onMounted(() => {
   store.fetchTemplates();
-  store.fetchTasks();
+  if (route.query.taskId) {
+    applyQueryFromRoute();
+  } else {
+    store.fetchTasks();
+  }
 });
+
+/* 从日历跳来时（?taskId / ?date 变化）重新定位并高亮 */
+watch(
+  () => [route.query.taskId, route.query.date],
+  () => applyQueryFromRoute(),
+);
 </script>
 
 <style scoped>
@@ -360,6 +397,10 @@ onMounted(() => {
 }
 .sch-row.is-done {
   opacity: 0.62;
+}
+.sch-row.is-highlight {
+  border-color: var(--mc);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc) 32%, transparent);
 }
 .sch-check {
   flex: none;

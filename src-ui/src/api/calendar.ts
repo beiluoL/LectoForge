@@ -22,6 +22,10 @@ export interface CalendarEvent {
   location: string | null;
   createdAt: string;
   updatedAt: string;
+  /** 数据来源：'calendar' = 自定义日历事件；'daily_task' = 来自 /schedule 的每日任务 */
+  sourceType?: 'calendar' | 'daily_task';
+  /** 仅 daily_task 有：对应 wb_daily_task 主键，前端据此跳转 /schedule 高亮 */
+  taskId?: number;
 }
 
 export interface CreateCalendarEventInput {

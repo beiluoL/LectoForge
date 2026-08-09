@@ -37,13 +37,17 @@
         <div class="space-y-0.5">
           <div
             v-for="ev in visibleEvents(cell.key)"
-            :key="ev.id"
+            :key="ev.sourceType === 'daily_task' ? 'dt-' + ev.taskId : ev.id"
             class="event-line truncate rounded px-1 py-0.5 text-[11px] leading-tight cursor-pointer"
             :style="eventLineStyle(ev)"
             :title="ev.title"
-            @click.stop="emit('select', ev)"
+            @click.stop="onEventClick(cell.key, ev)"
           >
-            <template v-if="ev.isAllDay">📌 {{ ev.title }}</template>
+            <!-- 日程计划任务：极简样式（灰点 + 左边框），点击跳转 /schedule -->
+            <template v-if="ev.sourceType === 'daily_task'">
+              <span class="ev-dot"></span>{{ ev.title }}
+            </template>
+            <template v-else-if="ev.isAllDay">📌 {{ ev.title }}</template>
             <template v-else>
               <span class="opacity-80">{{ formatHM(ev.startTime) }}</span> {{ ev.title }}
             </template>
@@ -76,6 +80,7 @@ import type { CalendarEvent } from '@/api/calendar';
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
   (e: 'add', dateKey: string): void;
+  (e: 'selectTask', payload: { taskId: number; date: string }): void;
 }>();
 
 const store = useCalendarStore();
@@ -118,8 +123,17 @@ function dayNumStyle(cell: DayCell): Record<string, string> {
   };
 }
 
-/** 事件行样式：全天=实色底白字；定时=浅底 + 左色边 */
+/** 事件行样式：
+ * - daily_task（日程计划）：柔和灰、左边框 + 点状标记，极简风格，与日历事件明显区分；
+ * - 普通事件：全天=实色底白字；定时=浅底 + 左色边。 */
 function eventLineStyle(ev: CalendarEvent): Record<string, string> {
+  if (ev.sourceType === 'daily_task') {
+    return {
+      background: 'color-mix(in srgb, #B0B0B0 14%, transparent)',
+      color: 'var(--kb-foreground)',
+      borderLeft: '3px solid #B0B0B0',
+    };
+  }
   if (ev.isAllDay) {
     return { background: ev.color, color: '#fff' };
   }
@@ -130,6 +144,15 @@ function eventLineStyle(ev: CalendarEvent): Record<string, string> {
   };
 }
 
+/** 事件点击分流：每日任务跳 /schedule；普通事件弹详情抽屉 */
+function onEventClick(dateKey: string, ev: CalendarEvent) {
+  if (ev.sourceType === 'daily_task' && ev.taskId != null) {
+    emit('selectTask', { taskId: ev.taskId, date: dateKey });
+  } else {
+    emit('select', ev);
+  }
+}
+
 function onCellClick(cell: DayCell) {
   if (!cell.inMonth) {
     // 点击补位格：跳到那个月再开新建，避免把事件建到错误的月份
@@ -138,3 +161,17 @@ function onCellClick(cell: DayCell) {
   emit('add', cell.key);
 }
 </script>
+
+<style scoped>
+/* 日程计划任务前面的小灰点 */
+.ev-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #b0b0b0;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+</style>
+

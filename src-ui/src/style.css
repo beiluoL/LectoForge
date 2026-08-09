@@ -1454,3 +1454,77 @@ body.kb-review-immersive .kb-region-content > div {
 body.kb-review-immersive .kb-app-shell {
   background: var(--kb-immersive-bg) !important;
 }
+
+/* =====================================================================
+ * @vuepic/vue-datepicker 主题对齐 kb 设计 token
+ * 该组件是 Teleport 到 body 的浮层，故此处必须全局（非 scoped）。
+ * 浅色用 :root 默认变量，暗色用 :root[data-theme='dark']；
+ * 同时把输入框本体套成 .kb-input 的观感，与表单其它控件统一。
+ * ===================================================================== */
+.dp__theme_light {
+  --dp-background-color: var(--kb-card);
+  --dp-text-color: var(--kb-foreground);
+  --dp-hover-color: var(--kb-muted);
+  --dp-hover-text-color: var(--kb-foreground);
+  --dp-hover-icon-color: var(--kb-primary);
+  --dp-primary-color: var(--kb-primary);
+  --dp-primary-text-color: #fff;
+  --dp-primary-disabled-color: var(--kb-muted-foreground);
+  --dp-border-color: var(--kb-border);
+  --dp-menu-border-color: var(--kb-border);
+  --dp-border-color-hover: var(--kb-primary);
+  --dp-border-color-focus: var(--kb-primary);
+  --dp-disabled-color: var(--kb-muted-foreground);
+  --dp-disabled-color-text: var(--kb-muted-foreground);
+  --dp-icon-color: var(--kb-muted-foreground);
+  --dp-danger-color: var(--kb-destructive, #ef4444);
+  --dp-success-color: #10b981;
+  --dp-highlight-color: color-mix(in srgb, var(--kb-primary) 18%, transparent);
+  --dp-range-between-dates-background-color: color-mix(in srgb, var(--kb-primary) 14%, transparent);
+  --dp-range-between-dates-text-color: var(--kb-foreground);
+  --dp-scroll-bar-background: var(--kb-muted);
+  --dp-font-family: var(--font-sans);
+}
+:root[data-theme='dark'] .dp__theme_dark {
+  --dp-background-color: var(--kb-card);
+  --dp-text-color: var(--kb-foreground);
+  --dp-hover-color: var(--kb-muted);
+  --dp-hover-text-color: var(--kb-foreground);
+  --dp-hover-icon-color: var(--kb-primary);
+  --dp-primary-color: var(--kb-primary);
+  --dp-primary-text-color: #fff;
+  --dp-primary-disabled-color: var(--kb-muted-foreground);
+  --dp-border-color: var(--kb-border);
+  --dp-menu-border-color: var(--kb-border);
+  --dp-border-color-hover: var(--kb-primary);
+  --dp-border-color-focus: var(--kb-primary);
+  --dp-disabled-color: var(--kb-muted-foreground);
+  --dp-disabled-color-text: var(--kb-muted-foreground);
+  --dp-icon-color: var(--kb-muted-foreground);
+  --dp-danger-color: var(--kb-destructive, #ef4444);
+  --dp-success-color: #10b981;
+  --dp-highlight-color: color-mix(in srgb, var(--kb-primary) 22%, transparent);
+  --dp-range-between-dates-background-color: color-mix(in srgb, var(--kb-primary) 18%, transparent);
+  --dp-range-between-dates-text-color: var(--kb-foreground);
+  --dp-scroll-bar-background: var(--kb-muted);
+  --dp-font-family: var(--font-sans);
+}
+/* 输入框本体对齐 .kb-input */
+.lf-datepicker.dp__main,
+.lf-datepicker .dp__input {
+  width: 100%;
+  background: var(--kb-card);
+  color: var(--kb-foreground);
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-md, 8px);
+  font: inherit;
+  padding: 8px 12px;
+  outline: none;
+}
+.lf-datepicker .dp__input:focus,
+.lf-datepicker .dp__input:hover {
+  border-color: var(--kb-primary);
+}
+.lf-datepicker .dp__input::placeholder {
+  color: var(--kb-muted-foreground);
+}

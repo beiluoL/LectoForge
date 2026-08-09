@@ -282,6 +282,21 @@ export function batchAddTasks(targetDate: string, rawTasks: string[]): { created
   const created: DailyTaskVO[] = [];
   db.transaction((tx) => {
     for (const content of cleaned) {
+      // 去重：同一天、同一内容视为重复（来自 /schedule 批量框或 /calendar 新建任务），直接跳过，
+      // 避免「在日历上点一下又建一条」这类重复生成。
+      const dup = tx
+        .select({ id: wbDailyTask.id })
+        .from(wbDailyTask)
+        .where(
+          and(
+            eq(wbDailyTask.userId, CURRENT_USER),
+            eq(wbDailyTask.targetDate, targetDate),
+            eq(wbDailyTask.content, content),
+          ),
+        )
+        .get();
+      if (dup) continue;
+
       const res = tx
         .insert(wbDailyTask)
         .values({

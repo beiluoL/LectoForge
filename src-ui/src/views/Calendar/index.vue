@@ -39,11 +39,13 @@
           v-if="store.viewMode === 'month'"
           @select="openDetail"
           @add="(d) => openAdd({ dateKey: d })"
+          @select-task="openDailyTask"
         />
         <CalendarTimeGridView
           v-else
           @select="openDetail"
           @add="(p) => openAdd(p)"
+          @select-task="openDailyTask"
         />
       </div>
     </div>
@@ -75,6 +77,7 @@
 // 并按 store.loading / events.length 呈现 加载态 / 空态 / 数据态 三态。
 // 视图数据全部来自 useCalendarStore（storeToRefs 解构），本组件不持有任何业务状态。
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import { useCalendarStore } from '@/store/calendar-store';
@@ -87,6 +90,7 @@ import type { CalendarEvent } from '@/api/calendar';
 
 const store = useCalendarStore();
 const { loading, events, viewMode } = storeToRefs(store);
+const router = useRouter();
 
 onMounted(() => {
   store.refreshCurrentView();
@@ -140,6 +144,11 @@ function onDrawerEdit(ev: CalendarEvent) {
   // 编辑：关抽屉、开弹窗（带 event 走 PUT 分支）
   detailOpen.value = false;
   openAdd({ event: ev });
+}
+
+/** 点击「日程计划任务」：跳转到 /schedule 并带 date + taskId，由 Schedule 页高亮对应任务 */
+function openDailyTask(payload: { taskId: number; date: string }) {
+  router.push({ path: '/schedule', query: { date: payload.date, taskId: String(payload.taskId) } });
 }
 </script>
 

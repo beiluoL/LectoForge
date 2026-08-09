@@ -15,20 +15,24 @@
  * 于是范围过滤可以直接写 `start_time <= ?`，走 (user_id, start_time) 索引；
  * 一旦用 datetime(start_time) 之类的函数包裹，索引立刻失效退化成全表扫描。
  */
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import { db, CURRENT_USER, nowIso } from '../db';
-import { wbCalendarEvent } from '../db/schema';
+import { wbCalendarEvent, wbDailyTask } from '../db/schema';
 import { resolvePage } from '../lib/pagination';
 import type {
   CalendarEventCreateInput,
   CalendarEventRow,
   CalendarEventUpdateInput,
+  CalendarEventWithSource,
   ListCalendarEventQuery,
 } from '../types/calendar';
 
 /** 缺省事件色，与 --kb-primary 同色（前端色板的第一项） */
 const DEFAULT_COLOR = '#3B6FE0';
+
+/** 日程计划任务（daily_task）在日历上的统一呈现色：柔和的灰，与普通事件区分 */
+const DAILY_TASK_COLOR = '#B0B0B0';
 
 /** 十六进制色值：#RGB 或 #RRGGBB，大小写不敏感 */
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -137,9 +141,10 @@ export function getEventById(id: number): CalendarEventRow | undefined {
  * 把开始时间当作结束时间，等价于一个零长度区间。
  *
  * @param q 必须携带 startDate / endDate（YYYY-MM-DD 本地日），可选分页
- * @returns 按开始时间升序的事件数组（裸数组，不含分页元信息，与全站契约一致）
+ * @returns 按开始时间升序的「合并事件」数组（普通日历事件 + 每日任务），
+ *   裸数组，不含分页元信息，与全站契约一致。
  */
-export function listEventsInRange(q: ListCalendarEventQuery): CalendarEventRow[] {
+export function listEventsInRange(q: ListCalendarEventQuery): CalendarEventWithSource[] {
   const startIso = localDayStartIso(q?.startDate, 'start_date');
   const endIso = localDayEndIso(q?.endDate, 'end_date');
 
@@ -151,14 +156,15 @@ export function listEventsInRange(q: ListCalendarEventQuery): CalendarEventRow[]
 
   const { limit, offset } = resolvePage(q);
 
-  return db
+  /* ---------- 数据源 A：wb_calendar_event（普通日历事件）----------
+   * 直接比较字符串而非 datetime(...)：库里全是同格式 UTC ISO，字典序即时间序，
+   * 这样才吃得到 (user_id, start_time) 索引。 */
+  const calendarEvents = db
     .select()
     .from(wbCalendarEvent)
     .where(
       and(
         eq(wbCalendarEvent.userId, CURRENT_USER),
-        /* 直接比较字符串而非 datetime(...)：库里全是同格式 UTC ISO，
-         * 字典序即时间序，这样才吃得到 (user_id, start_time) 索引。 */
         sql`${wbCalendarEvent.startTime} <= ${endIso}
             and coalesce(${wbCalendarEvent.endTime}, ${wbCalendarEvent.startTime}) >= ${startIso}`,
       ),
@@ -170,6 +176,54 @@ export function listEventsInRange(q: ListCalendarEventQuery): CalendarEventRow[]
     .limit(limit)
     .offset(offset)
     .all() as CalendarEventRow[];
+
+  /* ---------- 数据源 B：wb_daily_task（来自 /schedule 的每日任务）----------
+   * 目标：让「日程计划」在日历网格里可见、可点（跳转 /schedule）。
+   * 映射规则（与用户约定一致）：
+   * - target_date 视为当天 00:00:00（本地）→ UTC ISO 作为 start_time，end_time 取当天 23:59:59.999，
+   *   于是它在日历上呈现为「当天全天」的一条，且 coveredDayKeys 只命中那一天；
+   * - is_all_day = 1（全天）；title = content；color = DAILY_TASK_COLOR（柔和灰）；
+   * - 额外带 sourceType:'daily_task' 与 taskId，便于前端点击时分流跳转。
+   * 普通事件的 sourceType 统一补 'calendar'，保持两侧类型一致。
+   *
+   * 🔴 同步 API：better-sqlite3 全程同步，这里不出现任何 await。 */
+  const dailyRows = db
+    .select()
+    .from(wbDailyTask)
+    .where(
+      and(
+        eq(wbDailyTask.userId, CURRENT_USER),
+        gte(wbDailyTask.targetDate, q.startDate),
+        lte(wbDailyTask.targetDate, q.endDate),
+      ),
+    )
+    .all();
+
+  const dailyEvents: CalendarEventWithSource[] = dailyRows.map((t) => ({
+    id: t.id,
+    userId: t.userId,
+    title: t.content,
+    description: null,
+    startTime: localDayStartIso(t.targetDate, 'start_time'),
+    endTime: localDayEndIso(t.targetDate, 'end_time'),
+    isAllDay: 1,
+    color: DAILY_TASK_COLOR,
+    location: null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    sourceType: 'daily_task',
+    taskId: t.id,
+  }));
+
+  const calendarWithSource: CalendarEventWithSource[] = calendarEvents.map((e) => ({
+    ...e,
+    sourceType: 'calendar',
+  }));
+
+  /* 合并：日历事件在前（全天优先的排序已在库内定好），每日任务追加在后。
+   * 每日任务数量由日期范围天然有界（≤ MAX_RANGE_DAYS 天），不随日历事件的分页 limit 被裁切，
+   * 保证「用户在日历上看到的每日任务」与 /schedule 完全一致。 */
+  return [...calendarWithSource, ...dailyEvents];
 }
 
 /* ------------------------------------------------------------------ */
