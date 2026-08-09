@@ -1,5 +1,5 @@
 <template>
-  <div class="sch-page wb-page" :style="{ '--mc': '#6366F1' }">
+  <div class="sch-page wb-page">
     <!-- ===== Hero 控制台 ===== -->
     <section class="wb-hero">
       <div class="wb-hero-bg">
@@ -24,9 +24,24 @@
           </div>
 
           <div class="sch-hero-tools">
-            <label class="sch-date">
+            <label class="sch-date" :class="{ 'is-dark': isDark }">
               <Icon name="calendar" :size="15" />
-              <input type="date" :value="currentDate" @change="onDateChange" />
+              <VueDatePicker
+                :model-value="currentDate"
+                model-type="yyyy-MM-dd"
+                :enable-time-picker="false"
+                format="yyyy-MM-dd"
+                preview-format="yyyy-MM-dd"
+                auto-apply
+                :clearable="false"
+                :teleport="true"
+                :dark="isDark"
+                hide-input-icon
+                input-class-name="sch-date-input"
+                menu-class-name="sch-date-menu"
+                class="sch-date-picker"
+                @update:model-value="onDateChange"
+              />
             </label>
             <button class="kb-btn kb-btn-primary" :disabled="generating" @click="openGenerate">
               <Icon name="sparkles" :size="15" />
@@ -59,7 +74,7 @@
 
       <!-- 加载骨架 -->
       <div v-if="loading" class="wb-skeleton">
-        <span v-for="n in 4" :key="n" class="wb-skel-line" style="height: 44px"></span>
+        <span v-for="n in 4" :key="n" class="wb-skel-line sch-skel-line"></span>
       </div>
 
       <!-- 空态 -->
@@ -190,9 +205,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
+import VueDatePicker from '@vuepic/vue-datepicker';
 import Icon from '@/components/ui/Icon.vue';
 import { useScheduleStore } from '@/store/schedule-store';
 import type { DailyTask, RepeatRule, TaskTemplate } from '@/api/schedule';
@@ -207,6 +223,13 @@ const route = useRoute();
 /** 从日历跳转过来时，要高亮的任务 id（来自 ?taskId） */
 const highlightId = ref<number | null>(null);
 const listRef = ref<HTMLElement | null>(null);
+
+/** 感知 data-theme，用于 vue-datepicker 的 :dark prop（浮层 teleport 到 body 后不再自动继承主题） */
+const isDark = ref(false);
+let themeObserver: MutationObserver | null = null;
+function syncDarkTheme() {
+  isDark.value = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark';
+}
 
 /** 读取 ?date & ?taskId：跳到对应日期、拉取任务并高亮 */
 async function applyQueryFromRoute() {
@@ -236,8 +259,7 @@ const repeatTarget = ref<DailyTask | null>(null);
 /* ===== 批量添加 ===== */
 const batchText = ref('');
 
-function onDateChange(e: Event) {
-  const v = (e.target as HTMLInputElement).value;
+function onDateChange(v: string | null) {
   if (v) {
     highlightId.value = null;
     store.fetchTasks(v);
@@ -292,12 +314,20 @@ function repeatTplCount(tpl: TaskTemplate): number {
 }
 
 onMounted(() => {
+  syncDarkTheme();
+  themeObserver = new MutationObserver(syncDarkTheme);
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
   store.fetchTemplates();
   if (route.query.taskId) {
     applyQueryFromRoute();
   } else {
     store.fetchTasks();
   }
+});
+
+onUnmounted(() => {
+  themeObserver?.disconnect();
 });
 
 /* 从日历跳来时（?taskId / ?date 变化）重新定位并高亮 */
@@ -311,34 +341,56 @@ watch(
 .sch-page {
   max-width: 880px;
   margin: 0 auto;
-  padding: 8px 4px 40px;
+  padding: var(--kb-space-2) var(--kb-space-1) var(--kb-space-8);
 }
 
 /* Hero 工具区 */
 .sch-hero-tools {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--kb-space-2);
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+/* 日期选择器：封装成与 .kb-input 统一的触发按钮 */
 .sch-date {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: var(--kb-space-2);
+  padding: var(--kb-space-2) var(--kb-space-3);
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
   color: var(--kb-muted-foreground);
-  font-size: 13px;
+  font-size: var(--kb-fs-sm);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.sch-date input {
+.sch-date:hover {
+  border-color: var(--kb-primary);
+}
+.sch-date:focus-within {
+  border-color: var(--kb-primary);
+  box-shadow: var(--kb-focus-ring);
+}
+.sch-date-picker {
+  width: auto;
+}
+.sch-date-picker :deep(.dp__input) {
   border: none;
   background: transparent;
+  padding: 0;
+  height: auto;
   color: var(--kb-foreground);
   font: inherit;
   outline: none;
+}
+.sch-date-picker :deep(.dp__input:focus) {
+  box-shadow: none;
+}
+.sch-date-picker :deep(.dp__input::placeholder) {
+  color: var(--kb-muted-foreground);
 }
 @media (max-width: 640px) {
   .sch-hero-tools {
@@ -350,24 +402,24 @@ watch(
 .sch-progress {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--kb-space-3);
 }
 .sch-progress-bar {
   flex: 1;
-  height: 8px;
+  height: var(--kb-space-2);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--mc) 16%, transparent);
+  background: color-mix(in srgb, var(--kb-primary) 16%, transparent);
   overflow: hidden;
 }
 .sch-progress-fill {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--mc);
-  transition: width 0.3s ease;
+  background: var(--kb-primary);
+  transition: width 0.2s ease;
 }
 .sch-progress-text {
-  font-size: 12px;
+  font-size: var(--kb-fs-xs);
   font-family: var(--font-mono);
   color: var(--kb-muted-foreground);
   white-space: nowrap;
@@ -380,50 +432,50 @@ watch(
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--kb-space-2);
 }
 .sch-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--kb-space-3);
+  padding: var(--kb-space-2) var(--kb-space-3);
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
-  transition: border-color 0.15s ease, opacity 0.15s ease;
+  transition: border-color 0.2s ease, opacity 0.2s ease;
 }
 .sch-row:hover {
-  border-color: color-mix(in srgb, var(--mc) 40%, var(--kb-border));
+  border-color: color-mix(in srgb, var(--kb-primary) 40%, var(--kb-border));
 }
 .sch-row.is-done {
   opacity: 0.62;
 }
 .sch-row.is-highlight {
-  border-color: var(--mc);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc) 32%, transparent);
+  border-color: var(--kb-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kb-primary) 32%, transparent);
 }
 .sch-check {
   flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--kb-radius-sm);
   border: 2px solid var(--kb-border);
   background: var(--kb-card);
-  color: #fff;
+  color: var(--kb-primary-foreground);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 .sch-check.is-checked {
-  background: var(--mc);
-  border-color: var(--mc);
+  background: var(--kb-primary);
+  border-color: var(--kb-primary);
 }
 .sch-content {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--kb-fs-body);
   color: var(--kb-foreground);
   word-break: break-word;
 }
@@ -435,23 +487,27 @@ watch(
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--kb-space-1);
+  padding: var(--kb-space-1) var(--kb-space-2);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
-  color: var(--mc);
-  background: color-mix(in srgb, var(--mc) 12%, transparent);
+  color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
   border: none;
   cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.sch-repeat-badge:hover {
+  background: color-mix(in srgb, var(--kb-primary) 20%, transparent);
 }
 .sch-actions {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--kb-space-1);
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease;
 }
 .sch-row:hover .sch-actions,
 .sch-row:focus-within .sch-actions {
@@ -462,12 +518,12 @@ watch(
 .sch-add {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--kb-space-3);
 }
 .sch-textarea {
   width: 100%;
   resize: vertical;
-  padding: 10px 12px;
+  padding: var(--kb-space-2) var(--kb-space-3);
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -475,19 +531,19 @@ watch(
   font: inherit;
   line-height: 1.6;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.2s ease;
 }
 .sch-textarea:focus {
-  border-color: var(--mc);
+  border-color: var(--kb-primary);
 }
 .sch-add-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--kb-space-3);
 }
 .sch-add-hint {
-  font-size: 12px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
 }
 
@@ -499,14 +555,14 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  background: rgba(15, 18, 24, 0.45);
+  padding: var(--kb-space-5);
+  background: color-mix(in srgb, var(--kb-foreground) 45%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 .sch-modal {
-  width: 460px;
-  max-width: 92vw;
+  width: 100%;
+  max-width: 460px;
   display: flex;
   flex-direction: column;
   border-radius: var(--kb-radius-lg);
@@ -519,49 +575,49 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: var(--kb-space-3) var(--kb-space-4);
   border-bottom: 1px solid var(--kb-border);
 }
 .sch-modal-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--kb-space-2);
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: var(--kb-fs-body);
   font-weight: 700;
   color: var(--kb-foreground);
 }
 .sch-modal-body {
-  padding: 14px 16px;
+  padding: var(--kb-space-3) var(--kb-space-4);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--kb-space-2);
   max-height: 60vh;
   overflow-y: auto;
 }
 .sch-modal-empty {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--kb-fs-sm);
   color: var(--kb-muted-foreground);
   text-align: center;
-  padding: 16px 0;
+  padding: var(--kb-space-4) 0;
 }
 .sch-tpl-item {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--kb-space-1);
   align-items: flex-start;
-  padding: 10px 14px;
+  padding: var(--kb-space-2) var(--kb-space-3);
   border-radius: var(--kb-radius-md);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 .sch-tpl-item:hover:not(:disabled) {
-  border-color: var(--mc);
-  background: color-mix(in srgb, var(--mc) 6%, var(--kb-card));
+  border-color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 6%, var(--kb-card));
 }
 .sch-tpl-item:disabled {
   opacity: 0.6;
@@ -570,19 +626,23 @@ watch(
 .sch-tpl-name {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 14px;
+  gap: var(--kb-space-2);
+  font-size: var(--kb-fs-body);
   font-weight: 600;
   color: var(--kb-foreground);
 }
 .sch-tpl-meta {
-  font-size: 12px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
+}
+
+.sch-skel-line {
+  height: var(--kb-space-8);
 }
 
 .sch-fade-enter-active,
 .sch-fade-leave-active {
-  transition: opacity 0.18s ease;
+  transition: opacity 0.2s ease;
 }
 .sch-fade-enter-from,
 .sch-fade-leave-to {

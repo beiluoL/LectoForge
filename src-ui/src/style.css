@@ -1485,7 +1485,10 @@ body.kb-review-immersive .kb-app-shell {
   --dp-scroll-bar-background: var(--kb-muted);
   --dp-font-family: var(--font-sans);
 }
-:root[data-theme='dark'] .dp__theme_dark {
+/* 暗色模式下同时覆盖 .dp__theme_light：vue-datepicker 的浮层默认带 .dp__theme_light，
+ * Teleport 到 body 后不再自动感知 data-theme，故在 :root[data-theme='dark'] 下统一覆盖。 */
+:root[data-theme='dark'] .dp__theme_dark,
+:root[data-theme='dark'] .dp__theme_light {
   --dp-background-color: var(--kb-card);
   --dp-text-color: var(--kb-foreground);
   --dp-hover-color: var(--kb-muted);
