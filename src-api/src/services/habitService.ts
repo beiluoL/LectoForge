@@ -1,0 +1,275 @@
+/* 习惯打卡业务层
+ *
+ * 职责边界（与项目三层架构一致）：
+ * - routes/habits.ts   只声明 HTTP 契约（路径 + 方法）；
+ * - controllers/habitController.ts 只做 HTTP 层（参数收口 + 错误 → 400 文案）；
+ * - 本文件是唯一承载业务逻辑的地方（SQL、统计、事务）。
+ *
+ * 时区口径（与番茄钟 / 日程一致）：
+ * 打卡按「本机自然日」分桶，库里 log_date 存 YYYY-MM-DD（本地时区），
+ * 绝不用 toISOString()——那是 UTC 日，会让「今天」在不同机器上错位。
+ */
+import { and, eq, sql } from 'drizzle-orm';
+
+import { db, CURRENT_USER, nowIso } from '../db';
+import { wbHabit, wbHabitLog } from '../db/schema';
+import type {
+  HabitCreateInput,
+  HabitRow,
+  HabitStatsVO,
+  HabitUpdateInput,
+  HabitWithToday,
+  ToggleLogInput,
+  ToggleLogResult,
+} from '../types/habit';
+
+/** 本机时区 YYYY-MM-DD（绝不用 toISOString 的 UTC 日） */
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayKey(): string {
+  return localDateKey(new Date());
+}
+
+function parseKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** 在 YYYY-MM-DD 字符串上加减天数（避免手动拼串出错） */
+function shiftKey(key: string, delta: number): string {
+  const d = parseKey(key);
+  d.setDate(d.getDate() + delta);
+  return localDateKey(d);
+}
+
+/** 当前连续天数：今天没打卡则从昨天起算（当天未结束，不视为断签） */
+function currentStreak(doneSet: Set<string>): number {
+  let cursor = todayKey();
+  if (!doneSet.has(cursor)) cursor = shiftKey(cursor, -1);
+  let streak = 0;
+  while (doneSet.has(cursor)) {
+    streak += 1;
+    cursor = shiftKey(cursor, -1);
+  }
+  return streak;
+}
+
+/* ------------------------------------------------------------------ */
+/* 读                                                                  */
+/* ------------------------------------------------------------------ */
+
+function getHabitById(id: number): HabitRow | undefined {
+  return db.select().from(wbHabit).where(eq(wbHabit.id, id)).get() as HabitRow | undefined;
+}
+
+/**
+ * 列出全部习惯，并**一句 SQL** 拼出每条的今日打卡状态（todayStatus），
+ * 同时附上当前连续天数（streak）。
+ *
+ * 🔴 N+1 红线：绝不能在「SELECT * FROM wb_habit」之后于循环里逐条查 wb_habit_log。
+ * - todayStatus：用 LEFT JOIN + 当天日期条件，在一个查询内算好；
+ * - streak：额外用**一条**聚合查询把本用户全部 log 捞回，在内存里按 habit 分组算连续天数，
+ *   全程只有 2 条 SQL，绝不随习惯数线性增长。
+ */
+export function getAllHabits(): HabitWithToday[] {
+  const today = todayKey();
+
+  const rows = db
+    .select({
+      id: wbHabit.id,
+      userId: wbHabit.userId,
+      name: wbHabit.name,
+      description: wbHabit.description,
+      iconName: wbHabit.iconName,
+      color: wbHabit.color,
+      frequency: wbHabit.frequency,
+      createdAt: wbHabit.createdAt,
+      updatedAt: wbHabit.updatedAt,
+      todayStatus: sql<number>`COALESCE(${wbHabitLog.status}, 0)`,
+    })
+    .from(wbHabit)
+    .leftJoin(
+      wbHabitLog,
+      and(
+        eq(wbHabitLog.habitId, wbHabit.id),
+        eq(wbHabitLog.logDate, today),
+        eq(wbHabitLog.userId, CURRENT_USER),
+      ),
+    )
+    .where(eq(wbHabit.userId, CURRENT_USER))
+    .all() as HabitWithToday[];
+
+  // 单条聚合：本用户全部打卡记录，内存分组后算各习惯连续天数
+  const logs = db
+    .select({ habitId: wbHabitLog.habitId, logDate: wbHabitLog.logDate, status: wbHabitLog.status })
+    .from(wbHabitLog)
+    .where(eq(wbHabitLog.userId, CURRENT_USER))
+    .all() as { habitId: number; logDate: string; status: number }[];
+
+  const doneByHabit = new Map<number, Set<string>>();
+  for (const l of logs) {
+    if (l.status !== 1) continue;
+    if (!doneByHabit.has(l.habitId)) doneByHabit.set(l.habitId, new Set());
+    doneByHabit.get(l.habitId)!.add(l.logDate);
+  }
+
+  for (const r of rows) {
+    r.streak = currentStreak(doneByHabit.get(r.id) ?? new Set());
+  }
+  return rows;
+}
+
+/* ------------------------------------------------------------------ */
+/* 写                                                                  */
+/* ------------------------------------------------------------------ */
+
+export function createHabit(input: HabitCreateInput): HabitRow {
+  const name = (input.name || '').trim();
+  if (!name) throw new Error('习惯名称不能为空');
+  const now = nowIso();
+  const res = db
+    .insert(wbHabit)
+    .values({
+      userId: CURRENT_USER,
+      name,
+      description: input.description ? input.description.trim() : null,
+      iconName: input.iconName || 'check-circle',
+      color: input.color || '#3B6FE0',
+      frequency: input.frequency || 'DAILY',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  return getHabitById(Number(res.lastInsertRowid))!;
+}
+
+export function updateHabit(id: number, patch: HabitUpdateInput): HabitRow {
+  const existing = getHabitById(id);
+  if (!existing) throw new Error('习惯不存在');
+
+  const values: Partial<HabitRow> = { updatedAt: nowIso() };
+  if (typeof patch.name === 'string' && patch.name.trim()) values.name = patch.name.trim();
+  if (patch.description !== undefined) {
+    values.description = patch.description ? patch.description.trim() : null;
+  }
+  if (patch.iconName) values.iconName = patch.iconName;
+  if (patch.color) values.color = patch.color;
+  if (patch.frequency) values.frequency = patch.frequency;
+
+  db.update(wbHabit).set(values).where(eq(wbHabit.id, id)).run();
+  return getHabitById(id)!;
+}
+
+/**
+ * 删除习惯 + 级联删除其全部打卡记录。
+ *
+ * ⚠️ better-sqlite3 同步事务：回调**禁止 async**——一旦在回调里 await，
+ * 首个 await 处事务就会提前提交，级联删除可能只跑一半。这里全程同步。
+ */
+export function deleteHabit(id: number): { ok: true } {
+  // better-sqlite3 同步事务：回调**禁止 async**——一旦在回调里 await，
+  // 首个 await 处事务就会提前提交，级联删除可能只跑一半。这里全程同步。
+  // 注意：drizzle 的 db.transaction 会**立即执行**回调并返回其结果（非可调用函数）。
+  db.transaction((tx) => {
+    tx.delete(wbHabitLog).where(eq(wbHabitLog.habitId, id)).run();
+    tx.delete(wbHabit).where(eq(wbHabit.id, id)).run();
+  });
+  return { ok: true };
+}
+
+/**
+ * 切换某天某习惯的打卡状态（toggle / upsert）。
+ * 已存在当日记录 → 翻转 status；不存在 → 插入 status=1。
+ * 返回切换后的最终状态，前端据此对齐（而非盲目信任乐观值）。
+ */
+export function toggleHabitLog(input: ToggleLogInput): ToggleLogResult {
+  const habitId = input.habitId;
+  if (!getHabitById(habitId)) throw new Error('习惯不存在');
+
+  const logDate = input.date ? input.date : todayKey();
+  const existing = db
+    .select()
+    .from(wbHabitLog)
+    .where(and(eq(wbHabitLog.habitId, habitId), eq(wbHabitLog.logDate, logDate)))
+    .get() as { id: number; status: number; note: string | null } | undefined;
+
+  if (existing) {
+    const next = existing.status ? 0 : 1;
+    db.update(wbHabitLog)
+      .set({
+        status: next,
+        note: input.note !== undefined ? input.note : existing.note,
+      })
+      .where(eq(wbHabitLog.id, existing.id))
+      .run();
+    return { habitId, logDate, status: next };
+  }
+
+  db.insert(wbHabitLog)
+    .values({
+      habitId,
+      userId: CURRENT_USER,
+      logDate,
+      status: 1,
+      note: input.note ?? null,
+      createdAt: nowIso(),
+    })
+    .run();
+  return { habitId, logDate, status: 1 };
+}
+
+/* ------------------------------------------------------------------ */
+/* 统计                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 生成 [end-days+1 .. end] 的升序日期数组，并标注是否打卡 */
+function buildRange(days: number, doneSet: Set<string>) {
+  const out: { date: string; status: 0 | 1 }[] = [];
+  const end = todayKey();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = shiftKey(end, -i);
+    out.push({ date: d, status: doneSet.has(d) ? 1 : 0 });
+  }
+  return out;
+}
+
+export function getHabitStats(habitId: number): HabitStatsVO {
+  const habit = getHabitById(habitId);
+  if (!habit) throw new Error('习惯不存在');
+
+  const logs = db
+    .select({ logDate: wbHabitLog.logDate, status: wbHabitLog.status })
+    .from(wbHabitLog)
+    .where(eq(wbHabitLog.habitId, habitId))
+    .all() as { logDate: string; status: number }[];
+  const doneSet = new Set(logs.filter((l) => l.status === 1).map((l) => l.logDate));
+
+  // 当前连续天数（复用公共逻辑：今天没打卡则从昨天起算）
+  const streak = currentStreak(doneSet);
+
+  // 最长连续天数
+  const sortedDays = [...doneSet].sort();
+  let bestStreak = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const k of sortedDays) {
+    if (prev && shiftKey(prev, 1) === k) run += 1;
+    else run = 1;
+    if (run > bestStreak) bestStreak = run;
+    prev = k;
+  }
+
+  return {
+    habitId,
+    streak,
+    bestStreak,
+    totalDone: doneSet.size,
+    monthlyData: buildRange(30, doneSet),
+    yearlyHeatmapData: buildRange(365, doneSet),
+  };
+}

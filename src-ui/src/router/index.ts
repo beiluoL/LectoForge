@@ -108,6 +108,15 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 习惯打卡（每日微习惯 + 连续打卡热力图）。
+    // 路径刻意挂在 /habits 下（前缀不加 /workbench），与 /inbox、/schedule、/library、/mindmap 同理，
+    // 避免顶栏 isActive 用 startsWith 时被「工作台」误吞高亮；高亮走独立 matches('/habits')。
+    path: '/habits',
+    name: 'Habits',
+    component: () => import('@/views/Habits/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     path: '/workbench/palace',
     name: 'WorkbenchPalace',
     component: () => import('@/views/MemoryPalace/index.vue'),

@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ===== 本地分类（替代线上 doc_category）=====
 export const categories = sqliteTable('categories', {
@@ -247,3 +247,35 @@ export const wbEmbedding = sqliteTable('wb_embedding', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+// ===== 模块七：习惯打卡（每日微习惯 + 连续打卡热力图）=====
+// wb_habit：用户定义的日常习惯（如「每日阅读」「早起」）。
+// wb_habit_log：某天对某习惯的打卡记录；同一 (habit_id, log_date) 唯一，toggle 走 upsert。
+// 逻辑外键（habit_id → wb_habit.id）由应用层维护，库级 foreign_keys = OFF。
+export const wbHabit = sqliteTable('wb_habit', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  name: text('name').notNull(),
+  description: text('description'),
+  iconName: text('icon_name').notNull().default('check-circle'),
+  color: text('color').notNull().default('#3B6FE0'),
+  frequency: text('frequency').notNull().default('DAILY'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const wbHabitLog = sqliteTable(
+  'wb_habit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    habitId: integer('habit_id').notNull(),
+    userId: integer('user_id').notNull().default(1),
+    logDate: text('log_date').notNull(),
+    status: integer('status').notNull().default(0),
+    note: text('note'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => ({
+    uniqHabitDate: uniqueIndex('idx_wb_habit_log_uniq').on(t.habitId, t.logDate),
+  }),
+);

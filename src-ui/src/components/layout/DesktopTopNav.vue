@@ -338,6 +338,8 @@ const navItems: NavItem[] = [
   { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'] },
   // 9. 计划（独立路由 /schedule，解决「今天要做什么」；match 覆盖自身避免被 /workbench 误吞）
   { path: '/schedule', label: '日程计划', icon: 'calendar-days', match: ['/schedule'], dividerBefore: true },
+  // 10. 习惯打卡（独立路由 /habits；match 覆盖自身避免被 /workbench 误吞）
+  { path: '/habits', label: '习惯打卡', icon: 'check-circle-2', match: ['/habits'], dividerBefore: true },
 ];
 
 // 窄窗常驻入口（1-5）与「更多」折叠入口（6-8）

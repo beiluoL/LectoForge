@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from './schema';
-import { categories, wbCapture, wbPalace, wbPalaceLoci } from './schema';
+import { categories, wbCapture, wbPalace, wbPalaceLoci, wbHabit, wbHabitLog } from './schema';
 import { getDbPath } from '../lib/paths';
 
 /* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 LECTOFORGE_DATA_DIR
@@ -206,6 +206,28 @@ CREATE TABLE IF NOT EXISTS wb_daily_task (
 );
 CREATE INDEX IF NOT EXISTS idx_wb_daily_task_date ON wb_daily_task (target_date);
 CREATE INDEX IF NOT EXISTS idx_wb_daily_task_tpl ON wb_daily_task (parent_template_id);
+CREATE TABLE IF NOT EXISTS wb_habit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL,
+  description TEXT,
+  icon_name TEXT NOT NULL DEFAULT 'check-circle',
+  color TEXT NOT NULL DEFAULT '#3B6FE0',
+  frequency TEXT NOT NULL DEFAULT 'DAILY',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS wb_habit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  habit_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  log_date TEXT NOT NULL,
+  status INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wb_habit_log_uniq ON wb_habit_log (habit_id, log_date);
+CREATE INDEX IF NOT EXISTS idx_wb_habit_log_date ON wb_habit_log (log_date);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====
@@ -521,4 +543,28 @@ seedIfEmpty(wbPalace, '演示记忆宫殿', () => {
     )
     .run();
   return loci.length;
+});
+
+/* ---- 习惯打卡：两个示例习惯，让新用户首次打开 /habits 就能看到可打卡的卡片 ---- */
+seedIfEmpty(wbHabit, '示例习惯', () => {
+  const now = nowIso();
+  const rows = [
+    { name: '每日阅读', description: '示例习惯，可删除或编辑', iconName: 'book-open', color: '#3B6FE0', frequency: 'DAILY' },
+    { name: '早起打卡', description: '示例习惯，可删除或编辑', iconName: 'sunrise', color: '#F59E0B', frequency: 'DAILY' },
+  ];
+  db.insert(wbHabit)
+    .values(
+      rows.map((r) => ({
+        userId: CURRENT_USER,
+        name: r.name,
+        description: r.description,
+        iconName: r.iconName,
+        color: r.color,
+        frequency: r.frequency,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  return rows.length;
 });
