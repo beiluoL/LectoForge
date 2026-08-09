@@ -1,7 +1,9 @@
 <template>
   <header
+    ref="rootEl"
     class="kb-topnav fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 sm:px-6 border-b"
     :style="{ background: 'var(--kb-card)', borderColor: 'var(--kb-border)' }"
+    @keydown.esc="closeMenus"
   >
     <!-- Left: Logo（原「知识库」文字入口已彻底移除，仅保留产品名 LectoForge + 图标，点击回工作台驾驶舱） -->
     <router-link
@@ -16,24 +18,90 @@
       >LectoForge</span>
     </router-link>
 
-    <!-- ============ 桌面端（lg+）：完整 8 入口 ============ -->
-    <nav class="hidden lg:flex items-center gap-1 ml-6 lg:ml-8">
-      <template v-for="it in navItems" :key="it.path">
-        <!-- 视觉分组细竖线：笔记↔文档库、复习↔费曼故事 -->
-        <span
-          v-if="it.dividerBefore"
-          class="self-center h-5 w-px mx-1"
-          :style="{ background: 'var(--kb-border)' }"
-        ></span>
-
-        <!-- 入口 5：复习（父级，带 macOS 原生存毛玻璃下拉） -->
+    <!-- ============================================================
+         主导航（单套模板同时服务桌面与窄窗）
+         - lg+   ：8 个入口全部平铺
+         - <lg   ：collapse 项（复习 / 费曼故事 / 思维导图 / 规划）隐藏，收进右侧「更多」
+         为什么只写一套：原实现把「桌面 nav」和「窄窗 nav」各抄了一遍下拉模板，
+         新增一个下拉就要改两处，极易漏改；这里改用 `hidden lg:flex` 做响应式裁剪。
+         ============================================================ -->
+    <nav class="flex items-center min-w-0 ml-4 lg:ml-8" aria-label="主导航">
+      <!-- 横向滚动条只包住「平铺项」：窄窗下 collapse 项已隐藏，
+           因此滚动容器内不存在任何下拉，彻底避开 overflow 裁切下拉面板的老问题。 -->
+      <div class="flex items-center gap-1 min-w-0 py-2 overflow-x-auto lg:overflow-visible no-scrollbar">
         <div
-          v-if="it.children?.length"
-          class="relative"
-          @mouseenter="reviewOpen = true"
-          @mouseleave="reviewOpen = false"
+          v-for="it in navItems"
+          :key="it.key"
+          class="items-center shrink-0"
+          :class="it.collapse ? 'hidden lg:flex' : 'flex'"
         >
-          <button type="button" class="nav-item" :class="{ 'is-active': isActive(it) }" @click="goTo(it)">
+          <!-- 视觉分组细竖线：文档库之前（整理组）、费曼故事之前（输出组）、规划之前（规划组） -->
+          <span
+            v-if="it.dividerBefore"
+            class="self-center h-5 w-px mx-1"
+            :style="{ background: 'var(--kb-border)' }"
+          ></span>
+
+          <!-- 父级下拉（复习 / 规划）：macOS 原生风毛玻璃面板 -->
+          <div
+            v-if="it.kind === 'group'"
+            class="relative"
+            @mouseenter="openKey = it.key"
+            @mouseleave="openKey = null"
+          >
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ 'is-active': isActive(it) }"
+              aria-haspopup="menu"
+              :aria-expanded="openKey === it.key"
+              @click="onGroupClick(it)"
+            >
+              <span class="relative inline-flex">
+                <Icon :name="it.icon" size="md" />
+                <span
+                  v-if="badgeValue(it)"
+                  class="nav-badge"
+                  :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
+                >{{ badgeValue(it) }}</span>
+              </span>
+              <span>{{ it.label }}</span>
+              <Icon name="chevron-down" size="xs" class="opacity-50" />
+            </button>
+
+            <Transition name="dropdown">
+              <div v-if="openKey === it.key" class="absolute left-0 top-full z-50 pt-2">
+                <div
+                  class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
+                         dark:border-neutral-700/20 dark:bg-neutral-900/80"
+                  role="menu"
+                >
+                  <router-link
+                    v-for="c in it.children"
+                    :key="c.path"
+                    :to="c.path"
+                    role="menuitem"
+                    class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
+                           hover:bg-black/5 dark:hover:bg-white/10"
+                    :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                    @click="closeMenus"
+                  >
+                    <Icon :name="c.icon" size="sm" />
+                    <span>{{ c.label }}</span>
+                  </router-link>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- 叶子入口（含带角标的 工作台 / 收集箱） -->
+          <router-link
+            v-else
+            :to="it.path"
+            class="nav-item"
+            :class="{ 'is-active': isActive(it) }"
+            @click="closeMenus"
+          >
             <span class="relative inline-flex">
               <Icon :name="it.icon" size="md" />
               <span
@@ -43,147 +111,64 @@
               >{{ badgeValue(it) }}</span>
             </span>
             <span>{{ it.label }}</span>
-            <Icon name="chevron-down" size="xs" class="opacity-50" />
-          </button>
-
-          <Transition name="dropdown">
-            <div v-if="reviewOpen" class="absolute left-0 top-full z-50 pt-2">
-              <div
-                class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
-                       dark:border-neutral-700/20 dark:bg-neutral-900/80"
-              >
-                <router-link
-                  v-for="c in it.children"
-                  :key="c.path"
-                  :to="c.path"
-                  class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
-                         hover:bg-black/5 dark:hover:bg-white/10"
-                  :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
-                  @click="reviewOpen = false"
-                >
-                  <Icon :name="c.icon" size="sm" />
-                  <span>{{ c.label }}</span>
-                </router-link>
-              </div>
-            </div>
-          </Transition>
+          </router-link>
         </div>
+      </div>
 
-        <!-- 普通入口（含带角标的 工作台 / 收集箱） -->
-        <router-link
-          v-else
-          :to="it.path"
+      <!-- 更多（仅窄窗）：承接被折叠的入口；刻意放在滚动容器之外，下拉面板才不会被裁切 -->
+      <div class="relative shrink-0 lg:hidden" @mouseleave="moreOpen = false">
+        <button
+          type="button"
           class="nav-item"
-          :class="{ 'is-active': isActive(it) }"
-          @click="closeMenus"
+          aria-haspopup="menu"
+          :aria-expanded="moreOpen"
+          @click="moreOpen = !moreOpen"
         >
-          <span class="relative inline-flex">
-            <Icon :name="it.icon" size="md" />
-            <span
-              v-if="badgeValue(it)"
-              class="nav-badge"
-              :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
-            >{{ badgeValue(it) }}</span>
-          </span>
-          <span>{{ it.label }}</span>
-        </router-link>
-      </template>
-    </nav>
-
-    <!-- ============ 窄窗（<lg）：保留 1-5 入口，6-8 收进「更多」 ============ -->
-    <nav class="flex lg:hidden items-center gap-1 ml-4 overflow-x-auto no-scrollbar">
-      <template v-for="it in primaryItems" :key="it.path">
-        <span
-          v-if="it.dividerBefore"
-          class="self-center h-5 w-px mx-1"
-          :style="{ background: 'var(--kb-border)' }"
-        ></span>
-
-        <div
-          v-if="it.children?.length"
-          class="relative"
-          @mouseenter="reviewOpen = true"
-          @mouseleave="reviewOpen = false"
-        >
-          <button type="button" class="nav-item" :class="{ 'is-active': isActive(it) }" @click="goTo(it)">
-            <span class="relative inline-flex">
-              <Icon :name="it.icon" size="md" />
-              <span
-                v-if="badgeValue(it)"
-                class="nav-badge"
-                :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
-              >{{ badgeValue(it) }}</span>
-            </span>
-            <span>{{ it.label }}</span>
-            <Icon name="chevron-down" size="xs" class="opacity-50" />
-          </button>
-
-          <Transition name="dropdown">
-            <div v-if="reviewOpen" class="absolute left-0 top-full z-50 pt-2">
-              <div
-                class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
-                       dark:border-neutral-700/20 dark:bg-neutral-900/80"
-              >
-                <router-link
-                  v-for="c in it.children"
-                  :key="c.path"
-                  :to="c.path"
-                  class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
-                         hover:bg-black/5 dark:hover:bg-white/10"
-                  :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
-                  @click="reviewOpen = false"
-                >
-                  <Icon :name="c.icon" size="sm" />
-                  <span>{{ c.label }}</span>
-                </router-link>
-              </div>
-            </div>
-          </Transition>
-        </div>
-
-        <router-link
-          v-else
-          :to="it.path"
-          class="nav-item"
-          :class="{ 'is-active': isActive(it) }"
-          @click="closeMenus"
-        >
-          <span class="relative inline-flex">
-            <Icon :name="it.icon" size="md" />
-            <span
-              v-if="badgeValue(it)"
-              class="nav-badge"
-              :style="{ background: badgeTone(it) === 'danger' ? 'var(--kb-destructive)' : 'var(--kb-warning)' }"
-            >{{ badgeValue(it) }}</span>
-          </span>
-          <span>{{ it.label }}</span>
-        </router-link>
-      </template>
-
-      <!-- 更多：费曼故事 / 思维导图 / 番茄钟 -->
-      <div class="relative" @mouseleave="moreOpen = false">
-        <button type="button" class="nav-item" @click="moreOpen = !moreOpen">
           <Icon name="more-horizontal" size="md" />
           <span>更多</span>
         </button>
         <Transition name="dropdown">
-          <div v-if="moreOpen" class="absolute right-0 top-full z-50 pt-2">
+          <div v-if="moreOpen" class="absolute left-0 top-full z-50 pt-2">
             <div
-              class="w-44 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
+              class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
                      dark:border-neutral-700/20 dark:bg-neutral-900/80"
+              role="menu"
             >
-              <router-link
-                v-for="it in moreItems"
-                :key="it.path"
-                :to="it.path"
-                class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
-                       hover:bg-black/5 dark:hover:bg-white/10"
-                :class="isActive(it) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
-                @click="closeMenus"
-              >
-                <Icon :name="it.icon" size="sm" />
-                <span>{{ it.label }}</span>
-              </router-link>
+              <template v-for="it in moreItems" :key="it.key">
+                <!-- 折叠项若本身是父级下拉（复习 / 规划），窄窗里摊平成「分组标题 + 子项」 -->
+                <template v-if="it.kind === 'group'">
+                  <div
+                    class="px-3 pt-2 pb-1 text-[11px] font-medium"
+                    :style="{ color: 'var(--kb-muted-foreground)' }"
+                  >{{ it.label }}</div>
+                  <router-link
+                    v-for="c in it.children"
+                    :key="c.path"
+                    :to="c.path"
+                    role="menuitem"
+                    class="flex items-center gap-2 rounded-lg py-2 pl-5 pr-3 text-sm transition-colors
+                           hover:bg-black/5 dark:hover:bg-white/10"
+                    :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                    @click="closeMenus"
+                  >
+                    <Icon :name="c.icon" size="sm" />
+                    <span>{{ c.label }}</span>
+                  </router-link>
+                </template>
+
+                <router-link
+                  v-else
+                  :to="it.path"
+                  role="menuitem"
+                  class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
+                         hover:bg-black/5 dark:hover:bg-white/10"
+                  :class="isActive(it) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                  @click="closeMenus"
+                >
+                  <Icon :name="it.icon" size="sm" />
+                  <span>{{ it.label }}</span>
+                </router-link>
+              </template>
             </div>
           </div>
         </Transition>
@@ -192,7 +177,9 @@
 
     <div class="flex-1"></div>
 
-    <!-- Right: 桌面端专属操作（沿用原逻辑） -->
+    <!-- Right: 工具栏组（搜索 / 番茄钟 / 设置 / 检查更新 / 计时胶囊）
+         番茄钟从主导航移到这里：它是「随时可用的工具」而非学习闭环里的一环，
+         和搜索、设置同属常驻工具，放右侧既减轻左侧拥挤度，也和 TimerCapsule 就近成组。 -->
     <div class="flex items-center gap-2">
       <button type="button" class="wb-icon-btn wb-search-trigger" title="搜索 (⌘K)" @click="openSearch">
         <Icon name="search" size="md" />
@@ -210,8 +197,17 @@
         <Icon name="hard-drive" size="xs" />
         本地离线
       </span>
-      <router-link to="/settings" class="wb-icon-btn" title="设置">
-        <Icon name="settings" size="md" />
+      <router-link
+        v-for="t in toolItems"
+        :key="t.key"
+        :to="t.path"
+        class="wb-icon-btn"
+        :class="{ 'is-active': isActive(t) }"
+        :title="t.label"
+        :aria-label="t.label"
+        @click="closeMenus"
+      >
+        <Icon :name="t.icon" size="md" />
       </router-link>
       <button type="button" class="wb-icon-btn" title="检查更新" @click="checkUpdate">
         <Icon name="refresh-cw" size="md" :class="updating ? 'animate-spin' : ''" />
@@ -223,15 +219,23 @@
 </template>
 
 <script setup lang="ts">
-// 桌面端顶部导航重构（2026-08-08）
-// 学习闭环：采集 → 内化 → 巩固 → 输出
-//   工作台(hub) / 收集箱(input) / 笔记·文档库(整理) / 复习(巩固·父级含间隔复习·记忆宫殿·主动回忆) /
-//   费曼故事·思维导图(输出) / 番茄钟(工具)
+// 桌面端顶部导航（2026-08-09「顶栏精简」重构）
+// 学习闭环：采集 → 内化 → 巩固 → 输出，外挂「规划」与常驻工具。
+//   工作台(hub) / 收集箱(input) / 笔记·文档库(整理) / 复习(巩固·父级)
+//   / 费曼故事·思维导图(输出) / 规划(父级：日程计划·四象限·习惯打卡)
+//   右侧工具栏：搜索 · 番茄钟 · 设置 · 检查更新 · 计时胶囊
+//
+// 本次改动要点：
+//   1. 原先平铺的「日程计划 / 四象限 / 习惯打卡」三个独立入口，合并为父级下拉「规划」；
+//      该父级**不挂路由**（router/index.ts 里没有也不需要 /plan），纯粹是下拉容器。
+//   2. 番茄钟从主导航移入右侧工具栏（图标按钮），主导航由 11 项降到 8 项。
+//   3. 桌面/窄窗两套重复模板合并成一套，靠 `hidden lg:flex` 做响应式裁剪。
+//
 // 关键约束：Vue3 <script setup lang="ts"> + Pinia(storeToRefs) + Tailwind + --kb-* token + lucide(Icon) + vue-router。
-// 注意：原「知识库」菜单入口已彻底删除；番茄钟（2026-08-08 起）不再走 pomodoro_popup 弹窗，
-// 菜单项就是普通路由跳转 /pomodoro，日常控制交给右侧内嵌的 TimerCapsule 胶囊。
+// 注意：番茄钟（2026-08-08 起）不再走 pomodoro_popup 弹窗，就是普通路由跳转 /pomodoro。
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { onClickOutside } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import TimerCapsule from '@/components/layout/TimerCapsule.vue';
 import { notify } from '@/utils/toast';
@@ -243,10 +247,17 @@ import { storeToRefs } from 'pinia';
 import { invoke } from '@tauri-apps/api/core';
 
 const route = useRoute();
-const reviewOpen = ref(false); // 复习下拉（桌面 + 窄窗共用）
-const moreOpen = ref(false);   // 更多下拉（窄窗）
+const rootEl = ref<HTMLElement | null>(null);
+/** 当前展开的父级下拉 key（复习 / 规划互斥，同一时刻最多开一个） */
+const openKey = ref<string | null>(null);
+/** 「更多」下拉（仅窄窗） */
+const moreOpen = ref(false);
 const updating = ref(false);
 const searchStore = useSearchStore();
+
+// 悬停已能开合下拉，但点击父级（规划）也会锁定展开态，
+// 因此需要 onClickOutside 兜底：点顶栏之外的任意位置一律收起。
+onClickOutside(rootEl, () => closeMenus());
 
 /* ---------------- Pinia 状态（storeToRefs 解构） ---------------- */
 const dashboardStore = useDashboardStore();
@@ -270,9 +281,22 @@ onMounted(async () => {
 });
 
 /* ---------------- 导航数据 ---------------- */
-type NavChild = { path: string; label: string; icon: string };
-type NavItem = {
+/** 角标数据源，取值对应下方 badgeValue() 里的两个派生量 */
+type BadgeSource = 'pendingCaptures' | 'dueReviews';
+
+/** 下拉子项：一定是可跳转的具体路由 */
+interface NavChild {
   path: string;
+  label: string;
+  icon: string;
+}
+
+interface NavBase {
+  /**
+   * 唯一键。不能拿 path 当 key —— 「规划」是纯下拉容器，压根没有 path，
+   * v-for key 与下拉开合标识都依赖这个字段。
+   */
+  key: string;
   label: string;
   icon: string;
   /**
@@ -280,17 +304,15 @@ type NavItem = {
    *
    * 为什么需要它：顶栏是**功能分组**视图，而路由表是**扁平**的——同一个业务域的页面
    * 因为历史原因散落在不同前缀下（详见 router/index.ts 的注释：/library、/mindmap、
-   * /inbox 都刻意没挂进 /workbench，否则会和「工作台」用 startsWith 互相误高亮）。
+   * /inbox、/schedule、/habits、/quadrant 都刻意没挂进 /workbench，
+   * 否则会和「工作台」用 startsWith 互相误高亮）。
    * 于是「一个顶栏项 ↔ 一条路由前缀」的假设不成立，必须显式声明它代表哪几段路由。
    *
-   * 典型场景是「复习」这一项，它同时代表四条不同前缀的路由：
-   *   /workbench/review  旧复习驾驶舱（父级自身 path，点击后落这里）
-   *   /review            间隔重复闪卡（含别名 /review/flashcard，靠前缀吞掉）
-   *   /workbench/palace  记忆宫殿
-   *   /workbench/recall  主动回忆
-   * 这四者在产品语义上同属「巩固」，用户从任意一个进去都应看到「复习」高亮；
-   * 若不写 match，只有停在 /workbench/review 时才亮，点进「间隔复习」顶栏就整个熄灭，
-   * 用户会以为自己跳出了当前模块。
+   * 两个典型场景：
+   *   复习：/workbench/review（父级自身，点击落这里）、/review（间隔复习，含别名
+   *         /review/flashcard）、/workbench/palace（记忆宫殿）、/workbench/recall（主动回忆）。
+   *   规划：/schedule（日程计划）、/quadrant（四象限）、/habits（习惯打卡）——
+   *         父级没有自己的路由，match 是它唯一的高亮依据，缺了它进任何子页面顶栏都会整个熄灭。
    *
    * 匹配方式为 `route.path === p || route.path.startsWith(p)`（见 isActive），
    * 因此前缀会连带吃掉全部子路由（/review → /review/flashcard 一并高亮）。
@@ -301,54 +323,102 @@ type NavItem = {
    */
   match?: string[];
   /** 角标数据源 */
-  badge?: 'pendingCaptures' | 'dueReviews';
+  badge?: BadgeSource;
   /** 视觉分组细竖线（位于该项之前） */
   dividerBefore?: boolean;
-  /** 子菜单（仅复习父级） */
-  children?: NavChild[];
-};
+  /** 窄窗（<lg）时从主栏隐藏、收进「更多」下拉 */
+  collapse?: boolean;
+}
+
+/** 叶子入口：点击直接跳路由，path 必填 */
+interface NavLeaf extends NavBase {
+  kind: 'leaf';
+  path: string;
+  children?: never;
+}
+
+/**
+ * 父级下拉：children 必填；path **可选**——
+ *   有 path（复习）：点父级跳「驾驶舱」页；
+ *   无 path（规划）：纯容器，点父级只切换下拉开合。
+ */
+interface NavGroup extends NavBase {
+  kind: 'group';
+  path?: string;
+  children: NavChild[];
+}
+
+/** 判别联合：kind 字段让模板里的 v-if/v-else 能安全收窄出 path，杜绝 any / 非空断言 */
+type NavItem = NavLeaf | NavGroup;
 
 const navItems: NavItem[] = [
-  // 1. 枢纽
-  { path: '/workbench', label: '工作台', icon: 'layout-dashboard', badge: 'pendingCaptures' },
-  // 2. 输入
-  { path: '/inbox', label: '收集箱', icon: 'inbox', badge: 'pendingCaptures' },
-  // 3. 整理
-  { path: '/workbench/notes', label: '笔记', icon: 'file-edit' },
-  // 4. 整理（前加分组竖线）
-  { path: '/library', label: '文档库', icon: 'library', dividerBefore: true },
-  // 5. 巩固（父级，含三个复习子项；match 覆盖全部复习子路由）
+  /* ---- 核心闭环：枢纽 → 采集 → 整理 ---- */
+  { kind: 'leaf', key: 'workbench', path: '/workbench', label: '工作台', icon: 'layout-dashboard', badge: 'pendingCaptures' },
+  { kind: 'leaf', key: 'inbox', path: '/inbox', label: '收集箱', icon: 'inbox', badge: 'pendingCaptures' },
+  { kind: 'leaf', key: 'notes', path: '/workbench/notes', label: '笔记', icon: 'file-edit' },
+  { kind: 'leaf', key: 'library', path: '/library', label: '文档库', icon: 'library', dividerBefore: true },
+
+  /* ---- 巩固：复习（父级下拉，点父级落复习驾驶舱） ---- */
   {
+    kind: 'group',
+    key: 'review',
     path: '/workbench/review',
     label: '复习',
     icon: 'refresh-ccw',
     match: ['/workbench/review', '/review', '/workbench/palace', '/workbench/recall'],
     badge: 'dueReviews',
+    collapse: true,
     children: [
       { path: '/review', label: '间隔复习', icon: 'brain-circuit' },
       { path: '/workbench/palace', label: '记忆宫殿', icon: 'map-pin' },
       { path: '/workbench/recall', label: '主动回忆', icon: 'pen-tool' },
     ],
   },
-  // 6. 输出（前加分组竖线）
-  { path: '/workbench/story', label: '费曼故事', icon: 'pen-line', dividerBefore: true },
-  // 7. 输出
-  { path: '/mindmap', label: '思维导图', icon: 'share-2' },
-  // 8. 工具（普通路由：番茄钟完整页，日常控制在顶栏胶囊里）
-  { path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'] },
-  // 9. 计划（独立路由 /schedule，解决「今天要做什么」；match 覆盖自身避免被 /workbench 误吞）
-  { path: '/schedule', label: '日程计划', icon: 'calendar-days', match: ['/schedule'], dividerBefore: true },
-  // 10. 习惯打卡（独立路由 /habits；match 覆盖自身避免被 /workbench 误吞）
-  { path: '/habits', label: '习惯打卡', icon: 'check-circle-2', match: ['/habits'], dividerBefore: true },
-  // 11. 四象限（独立路由 /quadrant；解决「先做哪个」，与日程计划的「什么时候做」互补）
-  { path: '/quadrant', label: '四象限', icon: 'layout-grid', match: ['/quadrant'] },
+
+  /* ---- 输出 ---- */
+  { kind: 'leaf', key: 'story', path: '/workbench/story', label: '费曼故事', icon: 'pen-line', dividerBefore: true, collapse: true },
+  // 思维导图沿用 share-2：lucide 没有 mindmap 这个图标名，写了会 fallback 成空 SVG。
+  { kind: 'leaf', key: 'mindmap', path: '/mindmap', label: '思维导图', icon: 'share-2', collapse: true },
+
+  /* ---- 规划（合并项）：日程计划 / 四象限 / 习惯打卡 三个旧入口收拢于此 ----
+   * 无 path = 纯下拉容器，router/index.ts 无需（也不应）为 /plan 建路由。
+   * 高亮完全靠 match，进入任一子页面父级都保持点亮。 */
+  {
+    kind: 'group',
+    key: 'plan',
+    label: '规划',
+    icon: 'calendar-days',
+    match: ['/schedule', '/quadrant', '/habits'],
+    dividerBefore: true,
+    collapse: true,
+    children: [
+      { path: '/schedule', label: '日程计划', icon: 'calendar-clock' },
+      { path: '/quadrant', label: '四象限', icon: 'layout-grid' },
+      { path: '/habits', label: '习惯打卡', icon: 'check-circle-2' },
+    ],
+  },
 ];
 
-// 窄窗常驻入口（1-5）与「更多」折叠入口（6-8）
-const primaryItems = navItems.slice(0, 5);
-const moreItems = navItems.slice(5);
+/**
+ * 右侧常驻工具（图标按钮形态，不参与主导航排版）。
+ * 番茄钟原先占着主导航一格，但它和搜索/设置一样是「随时呼出的工具」，
+ * 不属于学习闭环，故与设置一起编组到右侧，紧邻 TimerCapsule。
+ */
+const toolItems: NavLeaf[] = [
+  { kind: 'leaf', key: 'pomodoro', path: '/pomodoro', label: '番茄钟', icon: 'timer', match: ['/pomodoro'] },
+  { kind: 'leaf', key: 'settings', path: '/settings', label: '设置', icon: 'settings' },
+];
+
+/** 窄窗「更多」里承接的折叠入口（与主栏 hidden lg:flex 的判定同源，避免两处手写下标切片走偏） */
+const moreItems = computed<NavItem[]>(() => navItems.filter((it) => it.collapse));
 
 /* ---------------- 高亮 / 角标 ---------------- */
+/** 取该项代表的路由前缀集合；纯下拉容器（无 path 且无 match）返回空数组，永不高亮 */
+function navPrefixes(it: NavItem): string[] {
+  if (it.match) return it.match;
+  return it.path ? [it.path] : [];
+}
+
 /**
  * 判断顶栏项是否处于激活态。
  *
@@ -356,13 +426,12 @@ const moreItems = navItems.slice(5);
  * 工作台必须特判，因为它的 path 是所有 /workbench/* 子路由的公共前缀，
  * 走 startsWith 会导致打开「笔记」「复习」时工作台跟着一起亮（双高亮）。
  *
- * @param it 顶栏项配置，其 `match` 字段的完整语义见 NavItem 类型定义
+ * @param it 顶栏项配置，其 `match` 字段的完整语义见 NavBase 类型定义
  * @returns true 表示当前路由属于该项代表的业务域，应渲染 is-active 样式
  */
 function isActive(it: NavItem): boolean {
   if (it.path === '/workbench') return route.path === '/workbench'; // 工作台精确匹配，避免误吞子路由
-  const prefixes = it.match ?? [it.path];
-  return prefixes.some((p) => route.path === p || route.path.startsWith(p));
+  return navPrefixes(it).some((p) => route.path === p || route.path.startsWith(p));
 }
 
 function childActive(c: NavChild): boolean {
@@ -379,7 +448,7 @@ function badgeTone(it: NavItem): 'danger' | 'warning' {
   return it.badge === 'dueReviews' ? 'danger' : 'warning';
 }
 
-/* ---------------- 交互：父级跳转驾驶舱 / 子项独立路由 ---------------- */
+/* ---------------- 交互：父级跳转 / 子项独立路由 ---------------- */
 const router = useRouter();
 
 /** 仅当不在当前路由时跳转，避免重复压栈 */
@@ -387,21 +456,28 @@ function navigateTo(path: string) {
   if (route.path !== path) router.push(path);
 }
 
-/** 父级（复习）点击 → 跳转复习驾驶舱（/workbench/review） */
-function goTo(it: NavItem) {
-  reviewOpen.value = false;
-  moreOpen.value = false;
-  navigateTo(it.path);
+/**
+ * 父级下拉的点击行为，按有无 path 分流：
+ *   复习（有 path）→ 跳复习驾驶舱并收起下拉，保持既有手感；
+ *   规划（无 path）→ 只切换展开态（触屏 / 键盘用户没有 hover，必须能点开）。
+ */
+function onGroupClick(it: NavGroup) {
+  if (it.path) {
+    closeMenus();
+    navigateTo(it.path);
+    return;
+  }
+  openKey.value = openKey.value === it.key ? null : it.key;
 }
 
 /**
- * 普通导航项点击：仅收起两个下拉（复习 / 更多），跳转本身交给 router-link。
+ * 收起全部下拉（父级下拉 + 窄窗「更多」）。跳转本身交给 router-link。
  * 历史包袱说明：这里原先还负责拦截番茄钟项去呼出 pomodoro_popup 弹窗，
  * 弹窗形态已于 2026-08-08 移除，拦截逻辑随之删干净，番茄钟回归普通路由。
  */
 function closeMenus() {
   moreOpen.value = false;
-  reviewOpen.value = false;
+  openKey.value = null;
 }
 
 async function checkUpdate() {
@@ -440,6 +516,12 @@ async function checkUpdate() {
 .nav-item.is-active {
   color: var(--kb-primary);
   font-weight: 600;
+}
+
+/* 右侧工具栏图标按钮的激活态：番茄钟 / 设置 处于当前路由时与主导航同色 */
+.wb-icon-btn.is-active {
+  color: var(--kb-primary);
+  background: var(--kb-muted);
 }
 
 /* 图标右上角数字角标 */
