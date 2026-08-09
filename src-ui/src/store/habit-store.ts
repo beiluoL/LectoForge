@@ -14,9 +14,11 @@ import {
   createHabit as apiCreateHabit,
   deleteHabit as apiDeleteHabit,
   fetchHabits as apiFetchHabits,
+  fetchHabitsSummary as apiFetchHabitsSummary,
   toggleHabitLog as apiToggleHabitLog,
   type CreateHabitInput,
   type Habit,
+  type HabitsSummary,
 } from '@/api/habit';
 import { notify } from '@/utils/toast';
 
@@ -35,11 +37,22 @@ export const useHabitStore = defineStore(
     const loading = ref(false);
     const submitting = ref(false);
     const error = ref('');
+    /** 全局打卡概览（本周 / 本月打卡率），由 fetchHabits 顺带拉取 */
+    const summary = ref<HabitsSummary | null>(null);
 
     /** 今日已打卡数量 */
     const doneCount = computed(() => habits.value.filter((h) => h.todayStatus === 1).length);
     /** 习惯总数 */
     const totalCount = computed(() => habits.value.length);
+
+    /** 拉取全局概览（失败不影响主列表，静默） */
+    async function fetchSummary() {
+      try {
+        summary.value = await apiFetchHabitsSummary();
+      } catch {
+        /* 概览降级：不阻塞主流程 */
+      }
+    }
 
     /** 拉取全部习惯 */
     async function fetchHabits() {
@@ -47,6 +60,7 @@ export const useHabitStore = defineStore(
       error.value = '';
       try {
         habits.value = await apiFetchHabits();
+        fetchSummary(); // 顺带刷新本周/本月打卡率
       } catch (e) {
         error.value = e instanceof Error ? e.message : '习惯加载失败';
         habits.value = [];
@@ -103,6 +117,7 @@ export const useHabitStore = defineStore(
 
       try {
         await apiToggleHabitLog(habitId, target);
+        fetchSummary(); // 打卡状态变了，顺手刷新本周/本月打卡率
       } catch (e) {
         if (affectsToday) h.todayStatus = prev; // 回滚
         notify(e instanceof Error ? e.message : '打卡失败', 'error');
@@ -114,9 +129,11 @@ export const useHabitStore = defineStore(
       loading,
       submitting,
       error,
+      summary,
       doneCount,
       totalCount,
       fetchHabits,
+      fetchSummary,
       createHabit,
       removeHabit,
       toggleLog,

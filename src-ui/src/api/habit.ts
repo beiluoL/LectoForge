@@ -33,6 +33,22 @@ export interface HabitStats {
   yearlyHeatmapData: { date: string; status: 0 | 1 }[];
 }
 
+/** 全局打卡概览：本周 / 本月打卡率 */
+export interface HabitsSummary {
+  /** 本周打卡率（0-100） */
+  weekRate: number;
+  /** 本月打卡率（0-100） */
+  monthRate: number;
+  /** 今日已打卡习惯数 */
+  todayDone: number;
+  /** 习惯总数 */
+  totalHabits: number;
+  /** 本周已过天数（含今天） */
+  weekDaysElapsed: number;
+  /** 本月已过天数（含今天） */
+  monthDaysElapsed: number;
+}
+
 export interface CreateHabitInput {
   name: string;
   description?: string | null;
@@ -73,4 +89,9 @@ export function toggleHabitLog(
 /** 拉取单习惯统计（连续天数 / 热力图） */
 export function fetchHabitStats(id: number): Promise<HabitStats> {
   return apiGet<HabitStats>(`/habits/${id}/stats`);
+}
+
+/** 拉取全局打卡概览（本周 / 本月打卡率） */
+export function fetchHabitsSummary(): Promise<HabitsSummary> {
+  return apiGet<HabitsSummary>('/habits/summary');
 }

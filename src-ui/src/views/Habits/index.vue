@@ -25,15 +25,18 @@
     <!-- ===== 概览条 ===== -->
     <div class="hb-summary">
       <div class="hb-summary-card">
-        <span class="hb-summary-num">{{ doneCount }}</span>
+        <span class="hb-summary-num">{{ doneCount }}<span class="hb-summary-sub">/{{ totalCount }}</span></span>
         <span class="hb-summary-label">今日已打卡</span>
       </div>
       <div class="hb-summary-card">
-        <span class="hb-summary-num">{{ totalCount }}</span>
-        <span class="hb-summary-label">习惯总数</span>
+        <span class="hb-summary-num">{{ summary?.weekRate ?? 0 }}<span class="hb-summary-pct">%</span></span>
+        <div class="hb-rate-bar"><i :style="{ width: (summary?.weekRate ?? 0) + '%' }"></i></div>
+        <span class="hb-summary-label">本周打卡率</span>
       </div>
-      <div class="hb-summary-card hb-summary-hint">
-        <span class="hb-summary-label">继续加油，别断签 🔥</span>
+      <div class="hb-summary-card">
+        <span class="hb-summary-num">{{ summary?.monthRate ?? 0 }}<span class="hb-summary-pct">%</span></span>
+        <div class="hb-rate-bar"><i :style="{ width: (summary?.monthRate ?? 0) + '%' }"></i></div>
+        <span class="hb-summary-label">本月打卡率</span>
       </div>
     </div>
 
@@ -126,7 +129,7 @@ import CreateHabitModal from './components/CreateHabitModal.vue';
 import HabitDetailDrawer from './components/HabitDetailDrawer.vue';
 
 const store = useHabitStore();
-const { habits, loading, submitting, doneCount, totalCount } = storeToRefs(store);
+const { habits, loading, submitting, doneCount, totalCount, summary } = storeToRefs(store);
 
 // 进度环几何
 const RING_R = 34;
@@ -244,15 +247,38 @@ onMounted(() => {
   font-weight: 800;
   color: var(--kb-foreground);
   font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.hb-summary-sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-muted-foreground);
+}
+.hb-summary-pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--kb-muted-foreground);
 }
 .hb-summary-label {
   font-size: 12px;
   color: var(--kb-muted-foreground);
 }
-.hb-summary-hint {
-  justify-content: center;
-  flex: 1;
-  min-width: 160px;
+/* 打卡率进度条 */
+.hb-rate-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kb-foreground) 10%, transparent);
+  overflow: hidden;
+}
+.hb-rate-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--kb-primary);
+  transition: width 0.4s ease;
 }
 
 /* 列表 */

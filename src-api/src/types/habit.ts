@@ -63,3 +63,19 @@ export interface HabitStatsVO {
   /** 近 365 天（GitHub 风格热力图数据源），按日期升序 */
   yearlyHeatmapData: { date: string; status: 0 | 1 }[];
 }
+
+/** 全局打卡概览（跨所有习惯）：本周 / 本月打卡率 */
+export interface HabitSummaryVO {
+  /** 本周打卡率（百分比 0-100，整数；周一为一周起点） */
+  weekRate: number;
+  /** 本月打卡率（百分比 0-100，整数） */
+  monthRate: number;
+  /** 今日已打卡习惯数 */
+  todayDone: number;
+  /** 习惯总数 */
+  totalHabits: number;
+  /** 本周已过天数（含今天） */
+  weekDaysElapsed: number;
+  /** 本月已过天数（含今天） */
+  monthDaysElapsed: number;
+}

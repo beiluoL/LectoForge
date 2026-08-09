@@ -9,7 +9,7 @@
  * 打卡按「本机自然日」分桶，库里 log_date 存 YYYY-MM-DD（本地时区），
  * 绝不用 toISOString()——那是 UTC 日，会让「今天」在不同机器上错位。
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
 
 import { db, CURRENT_USER, nowIso } from '../db';
 import { wbHabit, wbHabitLog } from '../db/schema';
@@ -17,6 +17,7 @@ import type {
   HabitCreateInput,
   HabitRow,
   HabitStatsVO,
+  HabitSummaryVO,
   HabitUpdateInput,
   HabitWithToday,
   ToggleLogInput,
@@ -271,5 +272,81 @@ export function getHabitStats(habitId: number): HabitStatsVO {
     totalDone: doneSet.size,
     monthlyData: buildRange(30, doneSet),
     yearlyHeatmapData: buildRange(365, doneSet),
+  };
+}
+
+/**
+ * 全局打卡概览（跨所有习惯）：本周 / 本月打卡率。
+ *
+ * 口径：打卡率 = 「窗口内已打卡( status=1 )的 (习惯×天) 槽位数」 / 「窗口内应打卡槽位数」。
+ * - 本周：以周一为起点，窗口 = [本周一, 今天]，天数 = 本周已过天数(含今天)；
+ * - 本月：窗口 = [本月1号, 今天]，天数 = 本月已过天数(含今天)。
+ * 全部用聚合 COUNT 查询，习惯数为 0 时打卡率记 0（避免除零），无 N+1。
+ */
+export function getHabitsSummary(): HabitSummaryVO {
+  const today = todayKey();
+  const now = new Date();
+
+  // 周一为一周起点（中国习惯）：getDay() 周日=0 → (d+6)%7 周一=0 … 周日=6
+  const dow = (now.getDay() + 6) % 7;
+  const weekStart = shiftKey(today, -dow);
+  const weekDaysElapsed = dow + 1;
+
+  // 本月 1 号（YYYY-MM-01）
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const monthDaysElapsed = now.getDate();
+
+  const countRow = db
+    .select({ c: sql<number>`COUNT(*)` })
+    .from(wbHabit)
+    .where(eq(wbHabit.userId, CURRENT_USER))
+    .get() as { c: number } | undefined;
+  const habitCount = Number(countRow?.c ?? 0);
+
+  const todayDoneRow = db
+    .select({ c: sql<number>`COUNT(*)` })
+    .from(wbHabitLog)
+    .where(and(eq(wbHabitLog.userId, CURRENT_USER), eq(wbHabitLog.status, 1), eq(wbHabitLog.logDate, today)))
+    .get() as { c: number } | undefined;
+  const todayDone = Number(todayDoneRow?.c ?? 0);
+
+  const weekDoneRow = db
+    .select({ c: sql<number>`COUNT(*)` })
+    .from(wbHabitLog)
+    .where(
+      and(
+        eq(wbHabitLog.userId, CURRENT_USER),
+        eq(wbHabitLog.status, 1),
+        gte(wbHabitLog.logDate, weekStart),
+        lte(wbHabitLog.logDate, today),
+      ),
+    )
+    .get() as { c: number } | undefined;
+  const weekDone = Number(weekDoneRow?.c ?? 0);
+
+  const monthDoneRow = db
+    .select({ c: sql<number>`COUNT(*)` })
+    .from(wbHabitLog)
+    .where(
+      and(
+        eq(wbHabitLog.userId, CURRENT_USER),
+        eq(wbHabitLog.status, 1),
+        gte(wbHabitLog.logDate, monthStart),
+        lte(wbHabitLog.logDate, today),
+      ),
+    )
+    .get() as { c: number } | undefined;
+  const monthDone = Number(monthDoneRow?.c ?? 0);
+
+  const weekRate = habitCount > 0 ? Math.round((weekDone / (weekDaysElapsed * habitCount)) * 100) : 0;
+  const monthRate = habitCount > 0 ? Math.round((monthDone / (monthDaysElapsed * habitCount)) * 100) : 0;
+
+  return {
+    weekRate,
+    monthRate,
+    todayDone,
+    totalHabits: habitCount,
+    weekDaysElapsed,
+    monthDaysElapsed,
   };
 }

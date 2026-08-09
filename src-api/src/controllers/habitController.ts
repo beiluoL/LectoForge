@@ -68,3 +68,8 @@ export async function habitStats(req: FastifyRequest, reply: FastifyReply) {
     return reply.code(400).send({ code: 400, message });
   }
 }
+
+/** GET /habits/summary —— 跨习惯的本周 / 本月打卡率概览 */
+export async function summary() {
+  return habitService.getHabitsSummary();
+}
