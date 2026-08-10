@@ -1,17 +1,17 @@
 <template>
   <aside
-    class="task-sidebar flex h-full w-64 shrink-0 flex-col border-r"
-    :style="{ background: 'var(--kb-sidebar)', borderColor: 'var(--kb-border)' }"
+    class="task-sidebar flex h-full w-64 shrink-0 flex-col border-r border-gray-200/50 dark:border-neutral-800/50 pl-4 pr-3 pt-4 pb-4"
+    :style="{ background: 'var(--kb-sidebar)' }"
   >
     <!-- 智能列表 -->
     <p class="sidebar-group-label">智能列表</p>
-    <nav class="mt-1 px-2">
+    <nav class="mt-1">
       <button
         v-for="s in smartLists"
         :key="s.key"
         type="button"
         class="side-item"
-        :class="{ active: store.currentView === s.key }"
+        :class="[{ active: store.currentView === s.key }, 'pl-4']"
         @click="store.selectView(s.key)"
       >
         <Icon :name="s.icon" size="sm" class="side-icon shrink-0" />
@@ -24,14 +24,13 @@
 
     <!-- 自定义清单 -->
     <p class="sidebar-group-label">清单</p>
-    <nav class="min-h-0 flex-1 overflow-y-auto px-2">
+    <nav class="min-h-0 flex-1 overflow-y-auto">
       <button
         v-for="row in flatListRows"
         :key="row.list.id"
         type="button"
         class="side-item"
-        :class="{ active: store.currentView === `list:${row.list.id}` }"
-        :style="{ paddingLeft: 8 + row.depth * 14 + 'px' }"
+        :class="[{ active: store.currentView === `list:${row.list.id}` }, depthClass(row.depth)]"
         @click="store.selectView(`list:${row.list.id}`)"
       >
         <Icon
@@ -45,7 +44,7 @@
       </button>
 
       <!-- 新建清单行 -->
-      <div v-if="addingList" class="px-1 pt-1">
+      <div v-if="addingList" class="pl-4 pt-1">
         <input
           ref="listInput"
           v-model="newListName"
@@ -56,7 +55,7 @@
           @blur="confirmAddList"
         />
       </div>
-      <button v-else type="button" class="side-add" @click="startAddList">
+      <button v-else type="button" class="side-add pl-4" @click="startAddList">
         <Icon name="plus" size="xs" />
         <span>新建清单</span>
       </button>
@@ -114,6 +113,12 @@ function iconFor(list: TaskList): string {
   return 'list';
 }
 
+/** 树状缩进：用 Tailwind 的 pl-* 工具类按 depth 递增，保证严格树形层级（不依赖内联 paddingLeft） */
+const depthPl = ['pl-4', 'pl-8', 'pl-12', 'pl-16', 'pl-20'];
+function depthClass(d: number): string {
+  return depthPl[Math.min(Math.max(d, 0), depthPl.length - 1)];
+}
+
 /* ---------------- 新建清单 ---------------- */
 const addingList = ref(false);
 const newListName = ref('');
@@ -152,7 +157,8 @@ function cancelAddList() {
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 7px 8px;
+  /* 左内边距交给 Tailwind 的 pl-* 工具类控制树状缩进；这里只管上下与右内边距 */
+  padding: 7px 8px 7px 0;
   border-radius: var(--kb-radius-md);
   font-size: var(--kb-fs-body-sm);
   font-weight: 500;
@@ -163,27 +169,38 @@ function cancelAddList() {
 .side-item:hover {
   background: var(--kb-muted);
 }
-/* 选中态：极柔和主色底 + 主色字（等价于 bg-primary/10） */
+/* 选中态（Things 3）：极柔和主色底（5%）+ 主色字 + 3px 实色左边框 + 字重微提。
+   左边框用 inset box-shadow 而非 border-left，零布局抖动——真 border 会让整行右移 3px，
+   与未选中项的图标基线错开，产生「跳动」。 */
 .side-item.active {
-  background: color-mix(in srgb, var(--kb-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--kb-primary) 5%, transparent);
   color: var(--kb-primary);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 0 var(--kb-primary);
+}
+/* 选中项 hover 不被中性灰盖掉，保持主色调性 */
+.side-item.active:hover {
+  background: color-mix(in srgb, var(--kb-primary) 9%, transparent);
 }
 .side-item.active .side-icon {
   color: var(--kb-primary);
 }
-/* 右侧徽章：ml-auto 右对齐 + 浅灰圆角胶囊 */
+/* 右侧徽章：圆角药丸。底色收回 CSS 用 token 表达——原先的
+   bg-gray-200 dark:bg-neutral-700 在本项目暗色下不生效（Tailwind 未开 class 策略，
+   且 style.css 只为 .bg-gray-50/100 做了 [data-theme] 兜底，.bg-gray-200 没有），
+   会在深色侧边栏里留下一枚刺眼的亮灰药丸。 */
 .side-count {
   flex: none;
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
   border-radius: 9999px;
+  background: var(--kb-muted);
   font-size: var(--kb-fs-xs);
   font-weight: 600;
   line-height: 20px;
   text-align: center;
   color: var(--kb-muted-foreground);
-  background: var(--kb-muted);
 }
 .side-item.active .side-count {
   color: var(--kb-primary);
@@ -199,7 +216,7 @@ function cancelAddList() {
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 7px 8px;
+  padding: 7px 8px 7px 0;
   margin-top: 2px;
   border-radius: var(--kb-radius-md);
   font-size: var(--kb-fs-body-sm);

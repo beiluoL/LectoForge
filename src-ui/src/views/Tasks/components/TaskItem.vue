@@ -50,7 +50,7 @@
             :class="task.targetDate ? 'when' : 'due'"
             @click.stop="editingDate = true"
           >
-            <Icon :name="task.targetDate ? 'flag' : 'alert-circle'" size="xs" />
+            <Icon :name="task.targetDate ? 'calendar' : 'alert-circle'" size="xs" />
             <span>{{ formatDate(task.targetDate || task.dueDate!) }}</span>
           </button>
         </div>
@@ -66,8 +66,10 @@
         />
       </div>
 
-      <!-- 悬停操作：编辑 / 删除（仅 hover 显现） -->
-      <div class="task-actions opacity-0 transition-opacity group-hover:opacity-100">
+      <!-- 悬停操作：编辑 / 删除（仅 hover / 键盘聚焦时显现） -->
+      <div
+        class="task-actions opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+      >
         <button type="button" class="task-action" title="重命名" @click.stop="startEditTitle">
           <Icon name="edit" size="xs" />
         </button>
@@ -164,7 +166,7 @@ function onDelete() {
 }
 
 /* ---------------- 工具 ---------------- */
-/** YYYY-MM-DD → 「M月D日 周X」，纯展示 */
+/** YYYY-MM-DD → 「今天 / 明天 / 昨天 / M月D日」，纯展示（不含周几，胶囊更紧凑） */
 function formatDate(d: string): string {
   const dt = dayjs(d);
   const wk = ['日', '一', '二', '三', '四', '五', '六'][dt.day()];
@@ -265,25 +267,39 @@ onMounted(() => {
   color: var(--kb-foreground);
 }
 
-/* 日期标签：text-xs / 圆角胶囊 */
+/* 日期标签：「隐形胶囊」——极浅中性底 + 11px 字 + 全圆角，紧凑如 [ 8月9日 ]。
+   底色用 --kb-muted（浅 #E8ECF1 / 深 #252932），等价于 bg-gray-100 dark:bg-neutral-800，
+   但跟随 [data-theme] 切换；本项目 Tailwind 未开 class 暗色策略，dark: 变体不可靠。 */
 .task-date-pill-wrap {
   flex: none;
 }
 .task-date-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-size: var(--kb-fs-xs);
   font-weight: 500;
-  padding: 2px 8px;
+  line-height: 1;
+  padding: 3px 7px;
   border-radius: 9999px;
+  background: var(--kb-muted);
+  color: var(--kb-muted-foreground);
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
 }
+.task-date-pill:hover {
+  background: var(--kb-border);
+  color: var(--kb-foreground);
+}
+/* 目标日：完全中性，不抢视线 */
 .task-date-pill.when {
-  color: var(--kb-warning);
-  background: color-mix(in srgb, var(--kb-warning) 12%, transparent);
+  color: var(--kb-muted-foreground);
 }
+/* 截止日：保留语义——只把文字染成警示色，背景仍是那层极浅中性底 */
 .task-date-pill.due {
+  color: var(--kb-destructive);
+}
+.task-date-pill.due:hover {
   color: var(--kb-destructive);
   background: color-mix(in srgb, var(--kb-destructive) 12%, transparent);
 }
@@ -298,22 +314,28 @@ onMounted(() => {
 .task-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex: none;
 }
+/* 图标按钮容器化：28px（w-7 h-7）实心圆形命中区，hover 浮出底色形成「可按压的实体按钮」，
+   :active 轻微回弹，替代原先「点一个虚无图标」的手感 */
 .task-action {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 9999px;
   color: var(--kb-muted-foreground);
   cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.1s ease;
 }
 .task-action:hover {
   background: var(--kb-border);
   color: var(--kb-foreground);
+}
+.task-action:active {
+  transform: scale(0.92);
 }
 .task-action.danger:hover {
   color: var(--kb-destructive);

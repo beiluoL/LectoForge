@@ -3,10 +3,10 @@
     class="task-view flex h-full min-h-0 flex-1 flex-col"
     :style="{ background: 'var(--kb-card)' }"
   >
-    <!-- 头部：标题 + 计数（左） / 搜索 + 清空（右）水平对齐 -->
+    <!-- 头部：标题 + 计数（左） / 搜索 + 清空（右）水平对齐
+         macOS 原生做法：不画分割线，靠 pb-4 + 列表 pt-2 的 24px 留白做视觉分区 -->
     <header
-      class="task-view-header flex shrink-0 items-center justify-between gap-3 border-b px-6 py-4"
-      :style="{ borderColor: 'var(--kb-border)' }"
+      class="task-view-header flex shrink-0 items-center justify-between gap-3 px-6 pb-4 pt-5"
     >
       <div class="flex min-w-0 items-center gap-2">
         <h1
@@ -56,7 +56,7 @@
     <!-- 进度条（今天 / 计划视图给出真实进度） -->
     <div
       v-if="showProgress"
-      class="shrink-0 px-6 pt-3"
+      class="shrink-0 px-6 pb-1"
     >
       <div
         class="h-1.5 overflow-hidden rounded-full"
@@ -70,7 +70,7 @@
     </div>
 
     <!-- 主体：任务列表（滚动） -->
-    <div class="min-h-0 flex-1 overflow-y-auto px-6 py-3">
+    <div class="min-h-0 flex-1 overflow-y-auto px-6 pb-3 pt-2">
       <!-- 加载态 -->
       <div
         v-if="store.loading && store.visibleTasks.length === 0"
@@ -83,13 +83,13 @@
       <!-- 空态 -->
       <div
         v-else-if="store.visibleTasks.length === 0"
-        class="flex flex-col items-center py-16 text-center"
+        class="mt-[20%] flex flex-col items-center py-16 text-center"
       >
-        <Icon name="list-checks" size="2xl" :style="{ color: 'var(--kb-border)' }" />
-        <p class="mt-3 text-[length:var(--kb-fs-body-sm)] font-medium" :style="{ color: 'var(--kb-foreground)' }">
+        <Icon name="list-checks" size="56" class="text-gray-300 dark:text-neutral-700" />
+        <p class="mt-3 text-sm font-medium text-gray-600 dark:text-neutral-300">
           {{ emptyTitle }}
         </p>
-        <p class="mt-1 text-[length:var(--kb-fs-caption)]" :style="{ color: 'var(--kb-muted-foreground)' }">
+        <p class="mt-1 text-sm text-gray-400 dark:text-neutral-500">
           {{ emptyHint }}
         </p>
       </div>

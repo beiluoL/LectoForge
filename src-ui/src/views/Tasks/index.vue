@@ -1,11 +1,11 @@
 <template>
   <!-- 全屏三栏：左智能列表+清单 / 中任务树 / 底内联新建（已并入 TaskView）。
-       fullscreen 路由被 App 包在 <main class="pt-14"> + <div class="w-full px-4 py-6"> 内，
-       故用 calc(100vh - 6.5rem) 精确填满可视区（导航 3.5rem + 上下内边距 3rem），
-       不写死 h-screen 以免溢出顶栏产生滚动条；内部滚动由各栏自理。 -->
+       fullscreen 路由被 App 包在 <main class="flex-1 min-h-0"> + <div class="w-full h-full"> 内，
+       父链已用 flex-col+h-screen 撑满 100vh，故本组件直接 h-full 填满剩余空间即可，
+       不再依赖 calc(100vh - 6.5rem) 等脆弱计算；内部滚动由各栏自理。 -->
   <div
-    class="tasks-shell flex overflow-hidden"
-    :style="{ height: 'calc(100vh - 6.5rem)', background: 'var(--kb-background)' }"
+    class="tasks-shell flex overflow-hidden h-full"
+    :style="{ background: 'var(--kb-background)' }"
   >
     <TaskSidebar />
     <TaskView :highlight-id="highlightId" />

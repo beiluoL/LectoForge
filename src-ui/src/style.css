@@ -326,6 +326,11 @@ html.has-global-bg .kb-region-content {
 }
 
 html {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -355,11 +360,15 @@ samp {
 }
 
 body {
-  min-height: 100vh;
-  background-color: var(--color-background);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--kb-background);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  background-image: 
+  background-image:
     radial-gradient(circle at 20% 20%, rgba(59, 111, 224, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 80% 80%, rgba(59, 111, 224, 0.02) 0%, transparent 50%);
   background-size: 100% 100%;
@@ -367,7 +376,11 @@ body {
 }
 
 #app {
-  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
   font-family: var(--font-sans);
 }
 

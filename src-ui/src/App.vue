@@ -2,22 +2,22 @@
   <!-- 与 Web 端 CLayout（route.meta.layout === 'c'）结构一致：
        顶部 56px 固定导航 + pt-14 内容区；工作台页为 fullscreen，取消 max-w-7xl 居中限制。
        番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
-  <div class="kb-app-shell" :style="{ background: 'var(--kb-background)' }">
+  <div class="kb-app-shell flex flex-col h-screen overflow-hidden" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
-    <main :class="mainClass">
+    <main class="flex-1 min-h-0 overflow-hidden relative">
       <template v-if="route.meta.standalone">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
       </template>
       <template v-else-if="route.meta.fullscreen">
-        <div class="w-full px-4 sm:px-6 py-6">
+        <div class="w-full h-full">
           <router-view v-slot="{ Component }">
             <component :is="Component" :key="route.path" />
           </router-view>
         </div>
       </template>
-      <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 py-6 h-full overflow-y-auto">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 // 桌面端应用根组件：等价于 Web 端 App.vue + CLayout 的组合（去掉登录态恢复与番茄钟等 Web 专属逻辑）。
-import { onMounted, onUnmounted, computed } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
@@ -67,8 +67,7 @@ const noteStore = useNoteStore();
 /** 全局速记弹窗开关（Cmd/Ctrl+Shift+I）—— 收敛到收集箱 store，与页面内状态同源 */
 const { quickOpen } = storeToRefs(inboxStore);
 
-/** 内容区上边距：standalone 全屏页（引导 / 设置）无顶栏，其余页面让开 56px 固定顶栏 */
-const mainClass = computed(() => (route.meta.standalone ? '' : 'pt-14'));
+/** 内容区由 flex-1 min-h-0 自动撑满顶栏下方全部空间，不再需要 pt-14 */
 
 /** 三个全局弹层互斥：新开一个就把其余的收起来，避免遮罩叠遮罩 */
 function closeAllOverlays() {
