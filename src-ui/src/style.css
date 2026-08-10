@@ -1512,7 +1512,9 @@ body.kb-review-immersive .kb-app-shell {
   --dp-scroll-bar-background: var(--kb-muted);
   --dp-font-family: var(--font-sans);
 }
-/* 输入框本体对齐 .kb-input */
+/* 输入框本体对齐 .kb-input
+ * 注意：vue-datepicker 默认在左侧放图标（.dp__input_icon），其默认 padding-left 约 35px。
+ * 我们必须保留左侧图标占位，否则文字会和图标重叠。 */
 .lf-datepicker.dp__main,
 .lf-datepicker .dp__input {
   width: 100%;
@@ -1521,7 +1523,7 @@ body.kb-review-immersive .kb-app-shell {
   border: 1px solid var(--kb-border);
   border-radius: var(--kb-radius-md, 8px);
   font: inherit;
-  padding: 8px 12px;
+  padding: 8px 12px 8px 34px;
   outline: none;
 }
 .lf-datepicker .dp__input:focus,
@@ -1530,4 +1532,21 @@ body.kb-review-immersive .kb-app-shell {
 }
 .lf-datepicker .dp__input::placeholder {
   color: var(--kb-muted-foreground);
+}
+/* 左侧日历/时钟图标：固定左对齐、垂直居中、置于文字底层避免遮挡 */
+.lf-datepicker .dp__input_icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--kb-muted-foreground);
+  pointer-events: none;
+  z-index: 1;
+}
+/* 让输入文字始终位于图标之上，保持可读性 */
+.lf-datepicker .dp__input {
+  position: relative;
+  z-index: 2;
 }
