@@ -434,10 +434,16 @@ button:focus-visible,
   border-radius: var(--radius-sm);
 }
 
-/* Scrollbar styles */
+/* =====================================================================
+ * 细滚动条（内部滚动容器专用，贴近 macOS 浮层风格）
+ * 全局滚动条已通过 App.vue 各内容容器的 overflow-y-auto 收口到页面内部，
+ * 这里统一美化：半透明细条 + 圆角 + 2px 透明描边（content-box 裁剪出呼吸间隙）。
+ * 深浅色分别用半透明黑/白，自动适配两种底色；深色走 :root[data-theme='dark']
+ * （本项目无 .dark 类，早年那版提示词用 .dark 选择器永远不会命中，已修正）。
+ * ===================================================================== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -445,19 +451,34 @@ button:focus-visible,
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #D1D5DB;
-  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
   transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #9CA3AF;
+  background-color: rgba(0, 0, 0, 0.38);
 }
 
-/* Firefox scrollbar */
+/* 暗色：白底半透明滑块，避免浅灰滑块在深底下不可见 */
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.38);
+}
+
+/* Firefox 滚动条 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #D1D5DB transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
+}
+
+:root[data-theme='dark'] * {
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
 /* Selection */

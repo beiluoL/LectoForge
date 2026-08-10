@@ -9,7 +9,10 @@
        ⚠️ 故意不加 overflow-hidden：App.vue 的 lf-backbar（设置页返回条）是 position:sticky，
        祖先 overflow:hidden 会把它变成滚动容器的子元素而令 sticky 失效。内容均靠 px/py 内距内缩，
        不会铺到窗口四角，故仅 border-radius 即可保持圆角，无需裁剪。 -->
-  <div class="kb-app-shell min-h-screen rounded-[12px]" :style="{ background: 'var(--kb-background)' }">
+  <!-- h-screen + flex flex-col：窗口固定视口高度，不再随内容长高（这是消除全局滚动条的关键）。
+       刻意不加 overflow-hidden / mask-image：前者会令设置页 lf-backbar 的 position:sticky 失效，
+       后者会把整页淡成透明（vignette）。滚动统一收口到下方各内容容器自身的 overflow-y-auto。 -->
+  <div class="kb-app-shell flex flex-col h-screen rounded-[12px]" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
     <!-- standalone 页（/onboarding、/settings）刻意不挂顶栏，但窗口已是无边框：
          没有这条兜底拖拽条，用户在这两个页面既拖不动窗口也关不掉窗口（只剩系统菜单栏可用）。
@@ -30,20 +33,26 @@
         </router-view>
       </div>
     </main>
-    <main v-else :class="mainClass">
+    <!-- flex-1 min-h-0：在 flex 列布局下占满顶栏之外的剩余高度，且允许被内容容器压缩，
+         让内部 overflow-y-auto 容器拿到确定高度（h-full 才能解析），从而把滚动限制在内容区内。 -->
+    <main v-else class="flex-1 min-h-0" :class="mainClass">
       <template v-if="route.meta.standalone">
-        <router-view v-slot="{ Component }">
-          <component :is="Component" :key="route.path" />
-        </router-view>
+        <!-- standalone 页（/settings、/onboarding）此前直接挂在 main 下、靠文档滚动；
+             改为固定高度内部滚动，设置页 lf-backbar 的 sticky 仍相对此容器生效。 -->
+        <div class="h-full overflow-y-auto">
+          <router-view v-slot="{ Component }">
+            <component :is="Component" :key="route.path" />
+          </router-view>
+        </div>
       </template>
-      <!-- fullscreen（除 /tasks）：铺满宽度、不居中、原生滚动——恢复原始语义，
-           不影响收集箱 / 工作台等长页面的正常滚动与间距 -->
-      <div v-else-if="route.meta.fullscreen" class="w-full px-4 sm:px-6 py-6">
+      <!-- fullscreen（除 /tasks）：铺满宽度、不居中；滚动收口到本容器的 overflow-y-auto，
+           不再让整个窗口滚动（全局滚动条的另一个根因）。 -->
+      <div v-else-if="route.meta.fullscreen" class="h-full w-full overflow-y-auto px-4 sm:px-6 py-6">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
       </div>
-      <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div v-else class="h-full max-w-7xl mx-auto overflow-y-auto px-4 sm:px-6 py-6">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
