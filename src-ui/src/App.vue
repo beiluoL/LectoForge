@@ -4,7 +4,12 @@
        番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
   <!-- min-h-screen + 不透明底色：窗口开了 transparent:true，外壳必须自己兜住整屏背景，
        否则内容不足一屏时下半截会直接透出桌面。 -->
-  <div class="kb-app-shell min-h-screen" :style="{ background: 'var(--kb-background)' }">
+  <!-- rounded-[12px]：无边框 + transparent 窗口下，Web 视图本身是矩形、内容会顶出直角；
+       给外壳加 ~12px 圆角（与 macOS 原生窗口一致），圆角外的区域透出窗口背后的桌面/底色。
+       ⚠️ 故意不加 overflow-hidden：App.vue 的 lf-backbar（设置页返回条）是 position:sticky，
+       祖先 overflow:hidden 会把它变成滚动容器的子元素而令 sticky 失效。内容均靠 px/py 内距内缩，
+       不会铺到窗口四角，故仅 border-radius 即可保持圆角，无需裁剪。 -->
+  <div class="kb-app-shell min-h-screen rounded-[12px]" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
     <!-- standalone 页（/onboarding、/settings）刻意不挂顶栏，但窗口已是无边框：
          没有这条兜底拖拽条，用户在这两个页面既拖不动窗口也关不掉窗口（只剩系统菜单栏可用）。

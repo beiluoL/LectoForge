@@ -661,6 +661,12 @@ pub fn run() {
                 .build()?;
             }
 
+            // 无边框窗口原生阴影：对 "main" 窗口调用 NSWindow 原生 setHasShadow，
+            // 恢复 decorations:false 后被系统停掉的层次感。仅 macOS / Windows 生效；
+            // Linux 下该函数为空实现（crate 内部按 target_os 分流），调用安全无副作用。
+            // （apply_shell_style 已设 .shadow(true)，这里再强制一次，覆盖透明窗口的边界情况。）
+            window_shadows_v2::set_shadows(app, true);
+
             // 2) 共享状态
             let reminder_enabled = Arc::new(Mutex::new(true));
             app.manage(AppState { reminder_enabled: reminder_enabled.clone() });

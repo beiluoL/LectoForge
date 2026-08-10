@@ -11,7 +11,7 @@
   <header
     ref="rootEl"
     data-tauri-drag-region="deep"
-    class="kb-topnav fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center pl-5 pr-3 sm:pr-4"
+    class="kb-topnav fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center pl-5 pr-3 sm:pr-4 rounded-t-[12px]"
     @keydown.esc="closeMenus"
   >
     <!-- 自绘 macOS 红黄绿：顶掉被 decorations:false 移除的系统窗口按钮 -->
