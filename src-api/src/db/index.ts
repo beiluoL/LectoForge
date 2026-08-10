@@ -51,6 +51,11 @@ CREATE TABLE IF NOT EXISTS wb_capture (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+/* 收集箱主查询 = WHERE user_id = ? AND status = ? ORDER BY starred DESC, created_at DESC
+ * （captureService.listCaptures）。把 status 放在 user_id 之后吃等值前缀，
+ * created_at 收尾让排序直接走索引顺序，省掉 SQLite 的临时 B-tree 排序。
+ * starred 刻意不入索引：它只有 0/1 两个值，选择性极低，加进去只会撑大索引页。 */
+CREATE INDEX IF NOT EXISTS idx_wb_capture_status ON wb_capture (user_id, status, created_at);
 CREATE TABLE IF NOT EXISTS wb_note (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
@@ -72,6 +77,13 @@ CREATE TABLE IF NOT EXISTS wb_note (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+/* 到期卡扫描 = WHERE user_id = ? AND due_date <= ?（reviewService.noteDueWhere）。
+ * due_date 存 UTC ISO 串，字典序 === 时间序，所以范围比较能直接吃索引；
+ * 一旦有人把条件写成 datetime(due_date) <= ? 索引立刻失效退化全表扫。 */
+CREATE INDEX IF NOT EXISTS idx_wb_note_due ON wb_note (user_id, due_date);
+/* 笔记列表默认按 updated_at 倒序（noteService.listNotes / searchNotes / backlinks）；
+ * 没有这条索引时每次列表都要全表取出再排序，笔记上千条后翻页明显掉帧。 */
+CREATE INDEX IF NOT EXISTS idx_wb_note_updated ON wb_note (user_id, updated_at);
 CREATE TABLE IF NOT EXISTS wb_review_card (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
@@ -100,6 +112,15 @@ CREATE TABLE IF NOT EXISTS wb_review_log (
   cost_ms INTEGER,
   reviewed_at TEXT NOT NULL
 );
+/* 复习流水是**只增不减**的表：每答一张卡写一行，重度用户一年就是几万行。
+ * 三个高频读全都以 reviewed_at 做范围过滤，缺索引时一律全表扫描：
+ *   - getHeatmap        WHERE user_id = ? AND reviewed_at >= ?（近 N 天热力图）
+ *   - getForgettingCurve 同上（遗忘曲线）
+ *   - getReviewDay      WHERE user_id = ? AND reviewed_at BETWEEN ? AND ?（单日下钻）
+ * reviewed_at 存 UTC ISO 串（字典序 === 时间序），范围比较可直接命中索引。 */
+CREATE INDEX IF NOT EXISTS idx_wb_review_log_time ON wb_review_log (user_id, reviewed_at);
+/* 单日下钻拿到流水后要按 card_id 回查源表标题；同时「某张卡的历史表现」也走这条。 */
+CREATE INDEX IF NOT EXISTS idx_wb_review_log_card ON wb_review_log (card_id, reviewed_at);
 CREATE TABLE IF NOT EXISTS wb_palace (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
@@ -134,6 +155,12 @@ CREATE TABLE IF NOT EXISTS wb_palace_loci (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+/* 打开一座宫殿 = WHERE palace_id = ? ORDER BY sort_order, id
+ * （palaceService.getPalaceWithLoci / listLoci / listDueLoci）。
+ * sort_order 进索引后，位点顺序直接由索引给出，不再临时排序。 */
+CREATE INDEX IF NOT EXISTS idx_wb_palace_loci_palace ON wb_palace_loci (palace_id, sort_order);
+/* 与 idx_wb_note_due 对称：位点也是复习卡源，到期扫描走 user_id + due_date。 */
+CREATE INDEX IF NOT EXISTS idx_wb_palace_loci_due ON wb_palace_loci (user_id, due_date);
 CREATE TABLE IF NOT EXISTS wb_recall_session (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,

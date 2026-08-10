@@ -170,6 +170,9 @@ const { addEdges, screenToFlowCoordinate, fitView, getSelectedNodes } = useVueFl
 // 故这里用 any[] 承接，v-model 仍能被 VueFlow 的 Node[] / Edge[] prop 接受
 // （any 可赋值给具体类型）。其余局部 any（map 回调参数、PlainNode/PlainEdge 字段等）
 // 已在本次重构中收窄为具体类型。
+// ⚠️ 维持 any[] 是有意为之：曾尝试改成 ref<Node[]>([])/ref<Edge[]>([])，
+// 但 vue-tsc 在 .map/展开赋值的实例化链路上报 TS2589（类型展开过深），故保留此逃生舱。
+// Node / Edge 类型仍用于函数签名（createNode(): Node、onNodeDoubleClick 入参等），类型安全未丢。
 const nodes = ref<any[]>([])
 const edges = ref<any[]>([])
 const edgeType = ref<'smoothstep' | 'bezier' | 'straight'>('smoothstep')

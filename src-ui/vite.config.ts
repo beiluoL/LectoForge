@@ -107,6 +107,19 @@ export default defineConfig({
     // 分包后单块理应都在 500KB 以内；仍然告警说明分包表需要补规则
     chunkSizeWarningLimit: 600,
 
+    /* 压缩器：Terser 比 Vite 默认的 esbuild 压缩率更高，打进 .app 后体积更小，
+     * 代价是构建稍慢（本地打包可接受）。passes:2 跑两轮压缩，进一步榨干冗余。
+     * 若日后构建慢到不可接受，改回 'esbuild' 即可瞬间回退。 */
+    minify: 'terser',
+    terserOptions: {
+      compress: { passes: 2 },
+      format: { comments: false },
+    },
+
+    /* 让每次 `npm run build` 顺带打印 gzip 后的产物体积，便于长期盯住首屏 chunk
+     * 不悄悄膨胀（Vite 默认即 true，这里显式声明以表意图）。 */
+    reportCompressedSize: true,
+
     rollupOptions: {
       output: {
         /**

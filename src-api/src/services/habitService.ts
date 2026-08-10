@@ -105,16 +105,21 @@ export function getAllHabits(): HabitWithToday[] {
     .where(eq(wbHabit.userId, CURRENT_USER))
     .all() as HabitWithToday[];
 
-  // 单条聚合：本用户全部打卡记录，内存分组后算各习惯连续天数
+  /* 单条聚合：一次取回全部「已完成」打卡，内存分组后算各习惯连续天数。
+   *
+   * 这里刻意不分页——currentStreak 需要从今天往回连续走到第一个断点，
+   * 少一天数据结果就错，所以按天截断是不安全的优化。
+   * 真正的减负是把 `status = 1` 下推到 SQL：未完成的打卡记录（status=0）
+   * 拉回来也只是被下面的循环丢掉，属于纯浪费的 IO + 反序列化。
+   * 量级参考：10 个习惯打满 3 年约 1 万行，SQLite 本地读毫秒级，可接受。 */
   const logs = db
-    .select({ habitId: wbHabitLog.habitId, logDate: wbHabitLog.logDate, status: wbHabitLog.status })
+    .select({ habitId: wbHabitLog.habitId, logDate: wbHabitLog.logDate })
     .from(wbHabitLog)
-    .where(eq(wbHabitLog.userId, CURRENT_USER))
-    .all() as { habitId: number; logDate: string; status: number }[];
+    .where(and(eq(wbHabitLog.userId, CURRENT_USER), eq(wbHabitLog.status, 1)))
+    .all() as { habitId: number; logDate: string }[];
 
   const doneByHabit = new Map<number, Set<string>>();
   for (const l of logs) {
-    if (l.status !== 1) continue;
     if (!doneByHabit.has(l.habitId)) doneByHabit.set(l.habitId, new Set());
     doneByHabit.get(l.habitId)!.add(l.logDate);
   }
@@ -243,12 +248,14 @@ export function getHabitStats(habitId: number): HabitStatsVO {
   const habit = getHabitById(habitId);
   if (!habit) throw new Error('习惯不存在');
 
+  /* 同 listHabits：status = 1 下推到 SQL，避免把「取消打卡」的行拉回来再 filter 掉。
+   * 最长连续天数必须看完整历史，因此这里同样不能按天截断。 */
   const logs = db
-    .select({ logDate: wbHabitLog.logDate, status: wbHabitLog.status })
+    .select({ logDate: wbHabitLog.logDate })
     .from(wbHabitLog)
-    .where(eq(wbHabitLog.habitId, habitId))
-    .all() as { logDate: string; status: number }[];
-  const doneSet = new Set(logs.filter((l) => l.status === 1).map((l) => l.logDate));
+    .where(and(eq(wbHabitLog.habitId, habitId), eq(wbHabitLog.status, 1)))
+    .all() as { logDate: string }[];
+  const doneSet = new Set(logs.map((l) => l.logDate));
 
   // 当前连续天数（复用公共逻辑：今天没打卡则从昨天起算）
   const streak = currentStreak(doneSet);
