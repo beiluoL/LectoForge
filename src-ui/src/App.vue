@@ -4,9 +4,9 @@
        番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
   <div class="kb-app-shell" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
-    <!-- fullscreen 路由（如 /tasks）：fixed 钉满顶栏下方，脱离文档流；
-         组件内部自管滚动，完全不影响其他页面的原生滚动 -->
-    <main v-if="route.meta.fullscreen" class="relative">
+    <!-- fill 路由（仅任务清单 /tasks）：fixed 钉满顶栏下方，撑满高度、内部自管滚动，
+         消除透明窗口底部间隙；fixed 脱离文档流，完全不影响其他页面的原生滚动 -->
+    <main v-if="route.meta.fill" class="relative">
       <div class="fixed top-14 left-0 right-0 bottom-0 overflow-hidden">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
@@ -19,6 +19,13 @@
           <component :is="Component" :key="route.path" />
         </router-view>
       </template>
+      <!-- fullscreen（除 /tasks）：铺满宽度、不居中、原生滚动——恢复原始语义，
+           不影响收集箱 / 工作台等长页面的正常滚动与间距 -->
+      <div v-else-if="route.meta.fullscreen" class="w-full px-4 sm:px-6 py-6">
+        <router-view v-slot="{ Component }">
+          <component :is="Component" :key="route.path" />
+        </router-view>
+      </div>
       <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />

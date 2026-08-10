@@ -102,7 +102,9 @@ const routes: RouteRecordRaw[] = [
     path: '/tasks',
     name: 'Tasks',
     component: () => import('@/views/Tasks/index.vue'),
-    meta: { layout: 'c', fullscreen: true },
+    // fullscreen：铺满宽度（取消居中）；fill：额外撑满高度 + 内部自管滚动，
+    // 消除透明窗口底部间隙。fill 仅任务清单使用，其他 fullscreen 页面仍走"铺满宽度 + 原生滚动"。
+    meta: { layout: 'c', fullscreen: true, fill: true },
   },
   {
     /* 旧「日程计划」整体让位给任务清单。
