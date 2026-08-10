@@ -18,7 +18,7 @@
         @click.stop="onToggle"
       >
         <Transition name="check-pop">
-          <Icon v-if="task.completed === 1" name="check" size="xs" color="#fff" />
+          <Icon v-if="task.completed === 1" name="check" size="xs" :color="'var(--kb-primary-foreground)'" />
         </Transition>
       </button>
 
@@ -66,8 +66,8 @@
         />
       </div>
 
-      <!-- 悬停操作：编辑 / 删除 -->
-      <div class="task-actions opacity-0 group-hover:opacity-100">
+      <!-- 悬停操作：编辑 / 删除（仅 hover 显现） -->
+      <div class="task-actions opacity-0 transition-opacity group-hover:opacity-100">
         <button type="button" class="task-action" title="重命名" @click.stop="startEditTitle">
           <Icon name="edit" size="xs" />
         </button>
@@ -97,6 +97,7 @@
 // - 子任务通过自身递归渲染（Vue3 <script setup> 支持按文件名自引用）；
 // - 所有写操作直接走 useTaskStore：toggleComplete 乐观翻面+级联子任务，
 //   updateTask 改标题/日期，deleteTask 乐观摘除。
+// 本文件仅调整视觉尺寸/字体层级，逻辑与 store 绑定完全不变。
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import Icon from '@/components/ui/Icon.vue';
@@ -187,7 +188,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  /* 行内一致内边距：左右 16px / 上下 12px，整行约 44–50px，可点击区域均匀 */
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   cursor: default;
   transition: background 0.14s ease;
@@ -199,11 +201,11 @@ onMounted(() => {
   box-shadow: 0 0 0 2px var(--kb-warning);
 }
 
-/* 圆形复选框 */
+/* 圆形复选框：20px / 2px 边，token 色 */
 .task-check {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 9999px;
   border: 2px solid var(--kb-border);
   background: transparent;
@@ -211,7 +213,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.task-check:hover {
+  border-color: var(--kb-primary);
 }
 .task-check.done {
   border-color: var(--kb-primary);
@@ -237,7 +242,9 @@ onMounted(() => {
   min-width: 0;
 }
 .task-title {
-  font-size: 14px;
+  /* 标题：text-sm / medium / 前景色 */
+  font-size: var(--kb-fs-body-md);
+  font-weight: 500;
   color: var(--kb-foreground);
   white-space: nowrap;
   overflow: hidden;
@@ -251,14 +258,14 @@ onMounted(() => {
 .task-title-input {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--kb-fs-body-md);
   border: none;
   outline: none;
   background: transparent;
   color: var(--kb-foreground);
 }
 
-/* 日期标签 */
+/* 日期标签：text-xs / 圆角胶囊 */
 .task-date-pill-wrap {
   flex: none;
 }
@@ -266,7 +273,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--kb-fs-xs);
   font-weight: 500;
   padding: 2px 8px;
   border-radius: 9999px;
@@ -283,7 +290,7 @@ onMounted(() => {
 .task-date-input {
   flex: none;
   width: 150px;
-  font-size: 12px;
+  font-size: var(--kb-fs-caption);
   padding: 2px 6px;
 }
 
@@ -293,7 +300,6 @@ onMounted(() => {
   align-items: center;
   gap: 2px;
   flex: none;
-  transition: opacity 0.14s ease;
 }
 .task-action {
   width: 24px;

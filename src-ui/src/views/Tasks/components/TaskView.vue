@@ -1,29 +1,40 @@
 <template>
-  <section class="task-view flex flex-col min-h-0 flex-1">
-    <!-- 头部：标题 + 进度 + 搜索 + 清空日志本 -->
-    <header class="task-view-header shrink-0 border-b px-6 py-4" :style="{ borderColor: 'var(--kb-border)' }">
-      <div class="flex items-center gap-3">
-        <h1 class="text-xl font-semibold truncate" :style="{ color: 'var(--kb-foreground)' }">
+  <section
+    class="task-view flex h-full min-h-0 flex-1 flex-col"
+    :style="{ background: 'var(--kb-card)' }"
+  >
+    <!-- 头部：标题 + 计数（左） / 搜索 + 清空（右）水平对齐 -->
+    <header
+      class="task-view-header flex shrink-0 items-center justify-between gap-3 border-b px-6 py-4"
+      :style="{ borderColor: 'var(--kb-border)' }"
+    >
+      <div class="flex min-w-0 items-center gap-2">
+        <h1
+          class="truncate text-[length:var(--kb-fs-h4)] font-semibold"
+          :style="{ color: 'var(--kb-foreground)' }"
+        >
           {{ store.currentTitle }}
         </h1>
-        <span class="text-xs tabular-nums" :style="{ color: 'var(--kb-muted-foreground)' }">
+        <span
+          class="tabular-nums text-[length:var(--kb-fs-body-sm)]"
+          :style="{ color: 'var(--kb-muted-foreground)' }"
+        >
           {{ store.doneCount }}/{{ store.totalCount }}
         </span>
+      </div>
 
-        <div class="flex-1"></div>
-
-        <!-- 搜索：本地即时过滤，不发请求 -->
+      <div class="flex shrink-0 items-center gap-2">
+        <!-- 搜索：左对齐带图标的内联输入框，宽度不撑满 -->
         <div class="relative">
           <Icon
             name="search"
             size="xs"
-            class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
             :style="{ color: 'var(--kb-muted-foreground)' }"
           />
           <input
             v-model="store.filters.keyword"
-            class="kb-input text-sm"
-            :style="{ paddingLeft: '28px', width: '180px' }"
+            class="h-8 w-44 rounded-md border border-transparent bg-[var(--kb-background)] pl-8 pr-2 text-[length:var(--kb-fs-body-sm)] text-[var(--kb-foreground)] outline-none transition-colors placeholder:text-[var(--kb-muted-foreground)] focus:border-[var(--kb-primary)] focus:ring-2 focus:ring-[var(--kb-primary)]"
             placeholder="搜索任务"
           />
         </div>
@@ -40,11 +51,15 @@
           <span>清空</span>
         </button>
       </div>
+    </header>
 
-      <!-- 进度条（今天 / 计划视图给出真实进度） -->
+    <!-- 进度条（今天 / 计划视图给出真实进度） -->
+    <div
+      v-if="showProgress"
+      class="shrink-0 px-6 pt-3"
+    >
       <div
-        v-if="showProgress"
-        class="mt-3 h-1.5 rounded-full overflow-hidden"
+        class="h-1.5 overflow-hidden rounded-full"
         :style="{ background: 'var(--kb-muted)' }"
       >
         <div
@@ -52,24 +67,31 @@
           :style="{ width: store.progress + '%', background: 'var(--kb-primary)' }"
         ></div>
       </div>
-    </header>
+    </div>
 
     <!-- 主体：任务列表（滚动） -->
-    <div class="flex-1 min-h-0 overflow-y-auto px-6 py-3">
+    <div class="min-h-0 flex-1 overflow-y-auto px-6 py-3">
       <!-- 加载态 -->
-      <div v-if="store.loading && store.visibleTasks.length === 0" class="py-10 text-center text-sm"
-           :style="{ color: 'var(--kb-muted-foreground)' }">
+      <div
+        v-if="store.loading && store.visibleTasks.length === 0"
+        class="py-10 text-center text-[length:var(--kb-fs-body-sm)]"
+        :style="{ color: 'var(--kb-muted-foreground)' }"
+      >
         加载中…
       </div>
 
       <!-- 空态 -->
       <div
         v-else-if="store.visibleTasks.length === 0"
-        class="py-16 flex flex-col items-center text-center"
+        class="flex flex-col items-center py-16 text-center"
       >
         <Icon name="list-checks" size="2xl" :style="{ color: 'var(--kb-border)' }" />
-        <p class="mt-3 text-sm font-medium" :style="{ color: 'var(--kb-foreground)' }">{{ emptyTitle }}</p>
-        <p class="mt-1 text-xs" :style="{ color: 'var(--kb-muted-foreground)' }">{{ emptyHint }}</p>
+        <p class="mt-3 text-[length:var(--kb-fs-body-sm)] font-medium" :style="{ color: 'var(--kb-foreground)' }">
+          {{ emptyTitle }}
+        </p>
+        <p class="mt-1 text-[length:var(--kb-fs-caption)]" :style="{ color: 'var(--kb-muted-foreground)' }">
+          {{ emptyHint }}
+        </p>
       </div>
 
       <!-- 任务树 -->
@@ -82,16 +104,21 @@
         />
       </div>
     </div>
+
+    <!-- 底部内联新建栏：mt-auto 顶到视图最底部，消除底部留白 -->
+    <TaskFooter class="mt-auto shrink-0" />
   </section>
 </template>
 
 <script setup lang="ts">
-// 任务主视图：标题 + 进度 + 搜索 + 清空（日志本）+ 任务树。
+// 任务主视图：标题 + 进度 + 搜索 + 清空（日志本）+ 任务树 + 底部内联新建。
 // 数据全部来自 useTaskStore（storeToRefs 解构），本组件不持有业务状态；
 // 任务行由 TaskItem 递归渲染，过滤后的列表在 store 内 computed（visibleTasks）。
+// 仅做布局/视觉重构：头部水平对齐、内容区填满、新建栏用 mt-auto 钉底。
 import { computed } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import TaskItem from './TaskItem.vue';
+import TaskFooter from './TaskFooter.vue';
 import { useTaskStore } from '@/store/task-store';
 
 const store = useTaskStore();

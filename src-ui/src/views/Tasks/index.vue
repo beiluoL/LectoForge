@@ -1,15 +1,21 @@
 <template>
-  <div class="tasks-root flex h-full min-h-0" :style="{ background: 'var(--kb-background)' }">
+  <!-- 全屏三栏：左智能列表+清单 / 中任务树 / 底内联新建（已并入 TaskView）。
+       fullscreen 路由被 App 包在 <main class="pt-14"> + <div class="w-full px-4 py-6"> 内，
+       故用 calc(100vh - 6.5rem) 精确填满可视区（导航 3.5rem + 上下内边距 3rem），
+       不写死 h-screen 以免溢出顶栏产生滚动条；内部滚动由各栏自理。 -->
+  <div
+    class="tasks-shell flex overflow-hidden"
+    :style="{ height: 'calc(100vh - 6.5rem)', background: 'var(--kb-background)' }"
+  >
     <TaskSidebar />
     <TaskView :highlight-id="highlightId" />
-    <TaskFooter />
   </div>
 </template>
 
 <script setup lang="ts">
 // 任务清单主入口（路由 /tasks，对标 Things 3）。
-// 左：智能列表 + 自定义清单（TaskSidebar）；中：当前视图任务树（TaskView）；
-// 底：常驻新建栏（TaskFooter）。三栏由本组件拼装，业务状态全在 useTaskStore。
+// 左：智能列表 + 自定义清单（TaskSidebar）；中：当前视图任务树（TaskView）。
+// 底：常驻新建栏已并入 TaskView（mt-auto 顶到底部），本组件只拼装两栏。
 //
 // 深链：从日历点任务色块跳入时带 ?date=<YYYY-MM-DD>&taskId=<n>，
 //   - date 决定落到哪个智能列表（今天 / 计划 / 日志本）；
@@ -20,7 +26,6 @@ import { useRoute } from 'vue-router';
 import dayjs from 'dayjs';
 import TaskSidebar from './components/TaskSidebar.vue';
 import TaskView from './components/TaskView.vue';
-import TaskFooter from './components/TaskFooter.vue';
 import { useTaskStore, type TaskViewKey } from '@/store/task-store';
 
 const store = useTaskStore();
@@ -43,10 +48,3 @@ onMounted(async () => {
   }
 });
 </script>
-
-<style scoped>
-.tasks-root {
-  /* 让三栏在布局容器内正确占满；左右两栏各自管理自己的滚动 */
-  overflow: hidden;
-}
-</style>

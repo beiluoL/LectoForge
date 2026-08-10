@@ -1,44 +1,47 @@
 <template>
   <aside
-    class="task-sidebar flex flex-col shrink-0 border-r h-full"
-    :style="{ width: '244px', background: 'var(--kb-sidebar)', borderColor: 'var(--kb-border)' }"
+    class="task-sidebar flex h-full w-64 shrink-0 flex-col border-r"
+    :style="{ background: 'var(--kb-sidebar)', borderColor: 'var(--kb-border)' }"
   >
     <!-- 智能列表 -->
-    <div class="px-3 pt-4 pb-1">
-      <p class="sidebar-group-label">智能列表</p>
-    </div>
-    <nav class="px-2 space-y-0.5">
+    <p class="sidebar-group-label">智能列表</p>
+    <nav class="mt-1 px-2">
       <button
         v-for="s in smartLists"
         :key="s.key"
         type="button"
-        class="sidebar-item"
+        class="side-item"
         :class="{ active: store.currentView === s.key }"
         @click="store.selectView(s.key)"
       >
-        <Icon :name="s.icon" size="sm" class="shrink-0" />
-        <span class="flex-1 text-left truncate">{{ s.label }}</span>
-        <span v-if="counterOf(s.key)" class="sidebar-count">{{ counterOf(s.key) }}</span>
+        <Icon :name="s.icon" size="sm" class="side-icon shrink-0" />
+        <span class="flex-1 truncate text-left">{{ s.label }}</span>
+        <span v-if="counterOf(s.key)" class="side-count">{{ counterOf(s.key) }}</span>
       </button>
     </nav>
 
+    <div class="side-sep"></div>
+
     <!-- 自定义清单 -->
-    <div class="px-3 pt-5 pb-1 flex items-center justify-between">
-      <p class="sidebar-group-label">清单</p>
-    </div>
-    <nav class="px-2 space-y-0.5 flex-1 min-h-0 overflow-y-auto">
+    <p class="sidebar-group-label">清单</p>
+    <nav class="min-h-0 flex-1 overflow-y-auto px-2">
       <button
         v-for="row in flatListRows"
         :key="row.list.id"
         type="button"
-        class="sidebar-item"
+        class="side-item"
         :class="{ active: store.currentView === `list:${row.list.id}` }"
-        :style="{ paddingLeft: 10 + row.depth * 14 + 'px' }"
+        :style="{ paddingLeft: 8 + row.depth * 14 + 'px' }"
         @click="store.selectView(`list:${row.list.id}`)"
       >
-        <Icon :name="iconFor(row.list)" size="xs" class="shrink-0" :style="{ color: row.list.color }" />
-        <span class="flex-1 text-left truncate">{{ row.list.name }}</span>
-        <span v-if="row.list.openCount" class="sidebar-count">{{ row.list.openCount }}</span>
+        <Icon
+          :name="iconFor(row.list)"
+          size="xs"
+          class="shrink-0"
+          :style="{ color: row.list.color || 'var(--kb-muted-foreground)' }"
+        />
+        <span class="flex-1 truncate text-left">{{ row.list.name }}</span>
+        <span v-if="row.list.openCount" class="side-count">{{ row.list.openCount }}</span>
       </button>
 
       <!-- 新建清单行 -->
@@ -46,14 +49,14 @@
         <input
           ref="listInput"
           v-model="newListName"
-          class="kb-input text-sm"
+          class="kb-input text-[length:var(--kb-fs-body-sm)]"
           placeholder="清单名称"
           @keyup.enter="confirmAddList"
           @keyup.esc="cancelAddList"
           @blur="confirmAddList"
         />
       </div>
-      <button v-else type="button" class="sidebar-add" @click="startAddList">
+      <button v-else type="button" class="side-add" @click="startAddList">
         <Icon name="plus" size="xs" />
         <span>新建清单</span>
       </button>
@@ -66,6 +69,7 @@
 // 树在 JS 层先拍平成「带 depth 的扁平数组」再一次性 v-for（不嵌套递归模板），
 // 既支持 area→project→list 任意层级，又避免递归组件带来的类型/key 复杂度。
 // 计数统一读 store.counters（智能列表）与 list.openCount（清单）。
+// 本文件仅做视觉/布局重构，所有 store 绑定与业务逻辑保持不变。
 import { computed, nextTick, ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useTaskStore } from '@/store/task-store';
@@ -134,65 +138,77 @@ function cancelAddList() {
 </script>
 
 <style scoped>
+/* 分组小标题：caption 字号 + 大写 + 宽字距，对齐设计系统 --kb-fs-caption */
 .sidebar-group-label {
-  font-size: 11px;
+  padding: 16px 16px 8px;
+  font-size: var(--kb-fs-caption);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--kb-muted-foreground);
 }
-.sidebar-item {
+.side-item {
   display: flex;
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 7px 8px;
   border-radius: var(--kb-radius-md);
-  font-size: 13px;
+  font-size: var(--kb-fs-body-sm);
   font-weight: 500;
   color: var(--kb-sidebar-foreground);
   cursor: pointer;
   transition: background 0.14s ease, color 0.14s ease;
 }
-.sidebar-item:hover {
+.side-item:hover {
   background: var(--kb-muted);
 }
-.sidebar-item.active {
-  background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
+/* 选中态：极柔和主色底 + 主色字（等价于 bg-primary/10） */
+.side-item.active {
+  background: color-mix(in srgb, var(--kb-primary) 10%, transparent);
   color: var(--kb-primary);
 }
-.sidebar-count {
+.side-item.active .side-icon {
+  color: var(--kb-primary);
+}
+/* 右侧徽章：ml-auto 右对齐 + 浅灰圆角胶囊 */
+.side-count {
   flex: none;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   border-radius: 9999px;
-  font-size: 11px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
-  line-height: 18px;
+  line-height: 20px;
   text-align: center;
   color: var(--kb-muted-foreground);
   background: var(--kb-muted);
 }
-.sidebar-item.active .sidebar-count {
+.side-item.active .side-count {
   color: var(--kb-primary);
-  background: color-mix(in srgb, var(--kb-primary) 15%, transparent);
+  background: color-mix(in srgb, var(--kb-primary) 16%, transparent);
 }
-.sidebar-add {
+.side-sep {
+  height: 1px;
+  margin: 10px 16px;
+  background: var(--kb-border);
+}
+.side-add {
   display: flex;
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 7px 8px;
   margin-top: 2px;
   border-radius: var(--kb-radius-md);
-  font-size: 13px;
+  font-size: var(--kb-fs-body-sm);
   font-weight: 500;
   color: var(--kb-muted-foreground);
   cursor: pointer;
   transition: background 0.14s ease, color 0.14s ease;
 }
-.sidebar-add:hover {
+.side-add:hover {
   background: var(--kb-muted);
   color: var(--kb-foreground);
 }
