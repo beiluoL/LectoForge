@@ -1,14 +1,27 @@
 <template>
+  <!-- 无边框沉浸式顶栏（2026-08-10）：窗口 decorations:false 后，这一条就是窗口的顶边框本身。
+       - data-tauri-drag-region="deep"：整条顶栏（含子元素间的空隙）都能按住拖动窗口，
+         双击则最大化/还原。⚠️ 必须写 "deep" 而不是裸属性——Tauri 2.11 的注入脚本里，
+         裸属性语义是「只有直接点中该元素本身才算拖拽区」（`return el === composedPath[0]`），
+         而 header 的可点面积几乎全被子元素占满，写裸属性等于只有几像素边缘能拖。
+       - 子树中的可交互分区标 ="false" 显式让位给点击。另外该脚本会把 A/BUTTON/INPUT 等
+         标签视为天然阻断点，所以 router-link 与各按钮即便不标也点得动，="false" 是双保险。
+       - 横向不再有 px-4/sm:px-6 的对称内距：左侧改为 20px（macOS 交通灯的标准左边距），
+         背景由 inset-x-0 铺满窗口整宽，视觉上再无左侧/顶部的留白间隙。 -->
   <header
     ref="rootEl"
-    class="kb-topnav fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 sm:px-6 border-b"
-    :style="{ background: 'var(--kb-card)', borderColor: 'var(--kb-border)' }"
+    data-tauri-drag-region="deep"
+    class="kb-topnav fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center pl-5 pr-3 sm:pr-4"
     @keydown.esc="closeMenus"
   >
+    <!-- 自绘 macOS 红黄绿：顶掉被 decorations:false 移除的系统窗口按钮 -->
+    <WindowControls class="mr-4 shrink-0" />
+
     <!-- Left: Logo（原「知识库」文字入口已彻底移除，仅保留产品名 LectoForge + 图标，点击回工作台驾驶舱） -->
     <router-link
       to="/workbench"
       class="flex items-center shrink-0 gap-2"
+      data-tauri-drag-region="false"
       style="color: var(--kb-primary)"
     >
       <Icon name="brain" size="xl" />
@@ -25,7 +38,7 @@
          为什么只写一套：原实现把「桌面 nav」和「窄窗 nav」各抄了一遍下拉模板，
          新增一个下拉就要改两处，极易漏改；这里改用 `hidden lg:flex` 做响应式裁剪。
          ============================================================ -->
-    <nav class="flex items-center min-w-0 ml-4 lg:ml-8" aria-label="主导航">
+    <nav class="flex items-center min-w-0 ml-4 lg:ml-8" data-tauri-drag-region="false" aria-label="主导航">
       <!-- 横向滚动条只包住「平铺项」：窄窗下 collapse 项已隐藏，
            因此滚动容器内不存在任何下拉，彻底避开 overflow 裁切下拉面板的老问题。 -->
       <div class="flex items-center gap-1 min-w-0 py-2 overflow-x-auto lg:overflow-visible no-scrollbar">
@@ -175,12 +188,14 @@
       </div>
     </nav>
 
-    <div class="flex-1"></div>
+    <!-- 中间空白：顶栏面积最大的可拖拽区域，由 header 的 "deep" 覆盖，无需再标属性。
+         self-stretch 让它撑满 56px 全高，拖拽热区不至于只有中间一条细线。 -->
+    <div class="flex-1 self-stretch"></div>
 
     <!-- Right: 工具栏组（搜索 / 番茄钟 / 设置 / 检查更新 / 计时胶囊）
          番茄钟从主导航移到这里：它是「随时可用的工具」而非学习闭环里的一环，
          和搜索、设置同属常驻工具，放右侧既减轻左侧拥挤度，也和 TimerCapsule 就近成组。 -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2" data-tauri-drag-region="false">
       <button type="button" class="wb-icon-btn wb-search-trigger" title="搜索 (⌘K)" @click="openSearch">
         <Icon name="search" size="md" />
         <kbd class="wb-kbd">⌘K</kbd>
@@ -227,6 +242,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { onClickOutside } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import TimerCapsule from '@/components/layout/TimerCapsule.vue';
+// 无边框窗口的自绘红黄绿；非 Tauri 宿主（浏览器预览）下组件内部自行隐藏
+import WindowControls from '@/components/layout/WindowControls.vue';
 import { notify } from '@/utils/toast';
 import { useSearchStore } from '@/store/search-store';
 import { useDashboardStore } from '@/store/dashboard-store';
@@ -484,6 +501,26 @@ async function checkUpdate() {
 </script>
 
 <style scoped>
+/* 顶栏外壳：窗口无边框后，这一条同时承担「应用顶栏」和「窗口标题栏」两个身份。
+ *
+ * 背景刻意用 --kb-card 派生的半透明色 + 毛玻璃，而不是写死 bg-white/90：
+ * 本项目 tailwind.config.js 没有 darkMode 键（默认 media = 跟随 OS），
+ * 而应用主题走的是 documentElement[data-theme]，两者不同源——
+ * 写 dark: 变体会在「OS 浅色 + 应用深色」时露出白条。明暗一律交给 token。
+ *
+ * 半透明是有实际意义的：内容区滚动时会从顶栏下方穿过，毛玻璃能透出下面的色块流动，
+ * 这正是 macOS 原生应用顶栏的观感；不透明的话顶栏会像一块贴上去的补丁。
+ */
+.kb-topnav {
+  background: color-mix(in srgb, var(--kb-card) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid color-mix(in srgb, var(--kb-border) 85%, transparent);
+  /* 拖拽区内禁止文本选中：否则按住顶栏拖窗口会顺手把「LectoForge」选蓝一片 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* 导航项基础样式（使用 --kb-* token，hover/active 由 class 控制） */
 .nav-item {
   display: inline-flex;

@@ -326,6 +326,10 @@ html.has-global-bg .kb-region-content {
 }
 
 html {
+  /* 无边框 + transparent:true 的窗口下，html 必须自带底色。
+   * body 平时是有背景的，但 `html.has-global-bg body` 会把它置成 transparent；
+   * 那一刻若 html 也没底色，窗口就会真的透出桌面（透明窗口不是「白底」，是「没有底」）。 */
+  background-color: var(--kb-background);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -369,6 +373,22 @@ body {
 #app {
   min-height: 100vh;
   font-family: var(--font-sans);
+}
+
+/* =====================================================================
+ * 无边框窗口 · standalone 页顶部拖拽条的连带修正（2026-08-10）
+ * /onboarding 与 /settings 不挂顶栏，App.vue 为它们补了一条 40px 的
+ * 自绘拖拽条（含红黄绿），main 侧已用 pt-10 让位；此处修正两类会穿透
+ * 该让位的元素。选择器带 main 标签是为了压过组件 scoped 样式的特异性，
+ * 从而不必动用 !important。
+ * ===================================================================== */
+/* 设置页的返回条是 sticky top:0，不下沉就会滚到拖拽条底下被压住 */
+main.lf-standalone-main .lf-backbar {
+  top: 40px;
+}
+/* 引导页整屏居中容器：拖拽条已占掉 40px，扣除后才不会凭空多出一截滚动 */
+main.lf-standalone-main .ob-root {
+  min-height: calc(100vh - 40px);
 }
 
 a {

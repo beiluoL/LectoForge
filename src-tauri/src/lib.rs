@@ -518,6 +518,40 @@ fn resolve_node_bin(resource_dir: &Path) -> Option<PathBuf> {
     candidates.into_iter().find(|p| p.exists())
 }
 
+/// 主窗口「无边框沉浸式外壳」的统一样式入口（2026-08-10）。
+///
+/// 为什么抽成函数：主窗口在 release / debug 两个 `#[cfg]` 分支里各建一次（连的 URL 不同），
+/// 窗口外观参数必须逐字一致，否则会出现「dev 好看、打包后多一条原生标题栏」这类
+/// 只能靠肉眼比对才能发现的偏差。集中一处后，改外观只需改这里。
+///
+/// ⚠️ 注意：本项目 `tauri.conf.json` 的 `app.windows` 是**空数组**——窗口完全由这里
+/// 程序化创建。往 conf 的 windows 里写 `decorations/transparent` 不会生效，别走错地方。
+///
+/// 各参数的取舍：
+/// - `decorations(false)`：干掉 macOS 原生标题栏。原生红黄绿与标题条一并消失，
+///   由前端 `WindowControls.vue` 自绘补回，顶栏（DesktopTopNav）自此直接贴到窗口最顶边。
+/// - `transparent(true)`：让 WKWebView 背景可透。依赖 `macOSPrivateApi: true`（tauri.conf.json）
+///   与 Cargo feature `macos-private-api`，两者本项目均已开启，缺一会在运行时 panic。
+///   页面侧由 `style.css` 的 `html/body` 兜底色保证不会真的透出桌面。
+/// - `shadow(true)`：`decorations(false)` 会让 macOS 连窗口投影一起收走，窗口边缘会「糊」在
+///   桌面上。显式要回系统投影，比在 CSS 里画假阴影真实得多（CSS 阴影画在窗口内部，
+///   只会挤占内容区，不可能溢出到窗口之外）。
+/// - `resizable(true)`：无边框窗口仍保留 `NSWindowStyleMask::Resizable`，四边可拖拽缩放；
+///   显式声明是为了防止后来者以为无边框就等于固定尺寸。
+/// - `min_inner_size`：顶栏在 <lg 断点会把「复习/费曼故事/思维导图/规划」折进「更多」下拉，
+///   再窄就只剩挤成一团的图标；给个下限省得用户把窗口拖成一条缝后找不回来。
+fn apply_shell_style<'a, R: tauri::Runtime, M: Manager<R>>(
+    builder: WebviewWindowBuilder<'a, R, M>,
+) -> WebviewWindowBuilder<'a, R, M> {
+    builder
+        .inner_size(1200.0, 800.0)
+        .min_inner_size(960.0, 640.0)
+        .decorations(false)
+        .transparent(true)
+        .shadow(true)
+        .resizable(true)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -607,25 +641,23 @@ pub fn run() {
 
                 api_port = port;
 
-                WebviewWindowBuilder::new(
+                apply_shell_style(WebviewWindowBuilder::new(
                     app,
                     "main",
                     WebviewUrl::External(format!("http://127.0.0.1:{port}").parse().unwrap()),
-                )
+                ))
                 .title("LectoForge 学习工作台")
-                .inner_size(1200.0, 800.0)
                 .build()?;
             }
 
             #[cfg(debug_assertions)]
             {
-                WebviewWindowBuilder::new(
+                apply_shell_style(WebviewWindowBuilder::new(
                     app,
                     "main",
                     WebviewUrl::External("http://localhost:5173".parse().unwrap()),
-                )
+                ))
                 .title("LectoForge 学习工作台 (dev)")
-                .inner_size(1200.0, 800.0)
                 .build()?;
             }
 

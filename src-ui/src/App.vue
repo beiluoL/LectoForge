@@ -2,8 +2,20 @@
   <!-- 与 Web 端 CLayout（route.meta.layout === 'c'）结构一致：
        顶部 56px 固定导航 + pt-14 内容区；工作台页为 fullscreen，取消 max-w-7xl 居中限制。
        番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
-  <div class="kb-app-shell" :style="{ background: 'var(--kb-background)' }">
+  <!-- min-h-screen + 不透明底色：窗口开了 transparent:true，外壳必须自己兜住整屏背景，
+       否则内容不足一屏时下半截会直接透出桌面。 -->
+  <div class="kb-app-shell min-h-screen" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
+    <!-- standalone 页（/onboarding、/settings）刻意不挂顶栏，但窗口已是无边框：
+         没有这条兜底拖拽条，用户在这两个页面既拖不动窗口也关不掉窗口（只剩系统菜单栏可用）。
+         高度 40px，下方 main 用 pt-10 让位，不会遮挡页面内容。 -->
+    <div
+      v-else
+      data-tauri-drag-region="deep"
+      class="lf-standalone-titlebar fixed inset-x-0 top-0 z-50 flex h-10 w-full items-center pl-5"
+    >
+      <WindowControls />
+    </div>
     <!-- fill 路由（仅任务清单 /tasks）：fixed 钉满顶栏下方，撑满高度、内部自管滚动，
          消除透明窗口底部间隙；fixed 脱离文档流，完全不影响其他页面的原生滚动 -->
     <main v-if="route.meta.fill" class="relative">
@@ -50,6 +62,8 @@ import { onMounted, onUnmounted, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
+// 无边框窗口的自绘红黄绿：standalone 页没有顶栏，需要单独摆一组，否则窗口关不掉
+import WindowControls from '@/components/layout/WindowControls.vue';
 import ToastHost from '@/components/ui/ToastHost.vue';
 import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
@@ -76,8 +90,18 @@ const noteStore = useNoteStore();
 /** 全局速记弹窗开关（Cmd/Ctrl+Shift+I）—— 收敛到收集箱 store，与页面内状态同源 */
 const { quickOpen } = storeToRefs(inboxStore);
 
-/** 内容区上边距：standalone 全屏页（引导 / 设置）无顶栏，其余页面让开 56px 固定顶栏 */
-const mainClass = computed(() => (route.meta.standalone ? '' : 'pt-14'));
+/**
+ * 内容区上边距。
+ *
+ * ⚠️ `pt-14` 不能删：顶栏是 `fixed` 定位、脱离文档流，这 56px 是给它让出的位置，
+ * 与「消除窗口留白间隙」是两码事——删掉只会让首屏内容被顶栏盖住。
+ *
+ * standalone 页（引导 / 设置）虽无顶栏，但无边框窗口下补了一条 40px 拖拽条，
+ * 故改为 `pt-10`；`lf-standalone-main` 供 style.css 下沉页内 sticky 元素（如设置页返回条）。
+ */
+const mainClass = computed(() =>
+  route.meta.standalone ? 'lf-standalone-main pt-10' : 'pt-14',
+);
 
 /** 三个全局弹层互斥：新开一个就把其余的收起来，避免遮罩叠遮罩 */
 function closeAllOverlays() {
