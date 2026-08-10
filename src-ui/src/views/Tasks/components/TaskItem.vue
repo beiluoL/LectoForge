@@ -219,11 +219,6 @@ function cancelTitle() {
   editingTitle.value = false;
 }
 
-/** 任务原本落在 targetDate 还是 dueDate（沿用原 onDateChange 的语义） */
-function activeField(): 'targetDate' | 'dueDate' {
-  return props.task.targetDate !== null ? 'targetDate' : 'dueDate';
-}
-
 /** 打开弹窗时，用任务现有日期 + 本地存储的时刻回填内部模型 */
 function onPickerOpen() {
   syncTheme();
@@ -243,16 +238,19 @@ function onPickerOpen() {
 /** 确定 / 清除 都会走到这里：Date = 落库日期，null = 清空 */
 function onPickerChange(value: Date | Date[] | null) {
   if (Array.isArray(value)) value = value[0] ?? null;
-  const field = activeField();
+  const id = props.task.id;
   if (!value || !(value instanceof Date) || Number.isNaN(value.getTime())) {
-    store.updateTask(props.task.id, { [field]: null } as { targetDate: null } | { dueDate: null });
-    writeTaskTime(props.task.id, null);
+    // 清空：沿用原 onDateChange 的语义，清掉该任务实际使用的日期字段
+    if (props.task.targetDate !== null) store.updateTask(id, { targetDate: null });
+    else store.updateTask(id, { dueDate: null });
+    writeTaskTime(id, null);
     return;
   }
   const key = dateKeyOf(value);
   const time = isAllDay.value ? null : hhmmOf(value);
-  store.updateTask(props.task.id, { [field]: key } as { targetDate: string } | { dueDate: string });
-  writeTaskTime(props.task.id, time);
+  if (props.task.targetDate !== null) store.updateTask(id, { targetDate: key });
+  else store.updateTask(id, { dueDate: key });
+  writeTaskTime(id, time);
 }
 
 function onClearClick() {
