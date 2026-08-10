@@ -185,18 +185,6 @@
         <Icon name="search" size="md" />
         <kbd class="wb-kbd">⌘K</kbd>
       </button>
-      <span
-        class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-        :style="{
-          background: 'var(--kb-muted)',
-          color: 'var(--kb-muted-foreground)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '11px',
-        }"
-      >
-        <Icon name="hard-drive" size="xs" />
-        本地离线
-      </span>
       <router-link
         v-for="t in toolItems"
         :key="t.key"
@@ -219,9 +207,10 @@
 </template>
 
 <script setup lang="ts">
-// 桌面端顶部导航（2026-08-09「顶栏精简」重构）
+// 桌面端顶部导航（2026-08-09「顶栏精简」重构；2026-08-10 移除「工作台」单列入口与「本地离线」徽标）
 // 学习闭环：采集 → 内化 → 巩固 → 输出，外挂「规划」与常驻工具。
-//   工作台(hub) / 收集箱(input) / 笔记·文档库(整理) / 复习(巩固·父级)
+//   首页「工作台」经左上角 Logo 进入，不再占主导航一格；
+//   收集箱(input) / 笔记·文档库(整理) / 复习(巩固·父级)
 //   / 费曼故事·思维导图(输出) / 规划(父级：日程计划·四象限·习惯打卡)
 //   右侧工具栏：搜索 · 番茄钟 · 设置 · 检查更新 · 计时胶囊
 //
@@ -352,8 +341,7 @@ interface NavGroup extends NavBase {
 type NavItem = NavLeaf | NavGroup;
 
 const navItems: NavItem[] = [
-  /* ---- 核心闭环：枢纽 → 采集 → 整理 ---- */
-  { kind: 'leaf', key: 'workbench', path: '/workbench', label: '工作台', icon: 'layout-dashboard', badge: 'pendingCaptures' },
+  /* ---- 核心闭环：采集 → 整理（首页「工作台」经 Logo 进入，不再单列导航项） ---- */
   { kind: 'leaf', key: 'inbox', path: '/inbox', label: '收集箱', icon: 'inbox', badge: 'pendingCaptures' },
   { kind: 'leaf', key: 'notes', path: '/workbench/notes', label: '笔记', icon: 'file-edit' },
   { kind: 'leaf', key: 'library', path: '/library', label: '文档库', icon: 'library', dividerBefore: true },
@@ -423,15 +411,13 @@ function navPrefixes(it: NavItem): string[] {
 /**
  * 判断顶栏项是否处于激活态。
  *
- * 规则：`/workbench`（工作台）**精确匹配**，其余项按 `match ?? [path]` 做前缀匹配。
- * 工作台必须特判，因为它的 path 是所有 /workbench/* 子路由的公共前缀，
- * 走 startsWith 会导致打开「笔记」「复习」时工作台跟着一起亮（双高亮）。
+ * 规则：按 `match ?? [path]` 做前缀匹配（`route.path === p || route.path.startsWith(p)`）。
+ * 首页「工作台」经 Logo 进入、不再单列导航项，故不再需要精确匹配特判。
  *
  * @param it 顶栏项配置，其 `match` 字段的完整语义见 NavBase 类型定义
  * @returns true 表示当前路由属于该项代表的业务域，应渲染 is-active 样式
  */
 function isActive(it: NavItem): boolean {
-  if (it.path === '/workbench') return route.path === '/workbench'; // 工作台精确匹配，避免误吞子路由
   return navPrefixes(it).some((p) => route.path === p || route.path.startsWith(p));
 }
 
