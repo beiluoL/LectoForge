@@ -17,7 +17,7 @@
   >
     <button
       type="button"
-      class="lf-light lf-close w-3.5 h-3.5 rounded-full border border-[#e0443e]"
+      class="lf-light lf-close w-3.5 h-3.5 rounded-full border border-black/[0.08]"
       title="关闭"
       aria-label="关闭窗口"
       data-tauri-drag-region="false"
@@ -31,7 +31,7 @@
 
     <button
       type="button"
-      class="lf-light lf-min w-3.5 h-3.5 rounded-full border border-[#dca22e]"
+      class="lf-light lf-min w-3.5 h-3.5 rounded-full border border-black/[0.08]"
       title="最小化"
       aria-label="最小化窗口"
       data-tauri-drag-region="false"
@@ -45,14 +45,14 @@
 
     <button
       type="button"
-      class="lf-light lf-max w-3.5 h-3.5 rounded-full border border-[#1f9e2e]"
+      class="lf-light lf-max w-3.5 h-3.5 rounded-full border border-black/[0.08]"
       title="最大化 / 还原"
       aria-label="最大化或还原窗口"
       data-tauri-drag-region="false"
       @click="run('toggleMaximize')"
     >
       <Icon
-        name="maximize"
+        name="maximize-2"
         class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
       />
     </button>
@@ -145,7 +145,8 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
 .lf-light:active { filter: brightness(0.78); }
 
 /* 字形（× − ⤢）：默认隐藏（纯圆点）；鼠标移到红黄绿整组（父容器 .lf-traffic.group）
-   或键盘聚焦任一灯时，三颗图标同时浮现。颜色纯黑、矢量渲染，Retina 上始终锐利。 */
+   或键盘聚焦任一灯时，三颗图标同时浮现。绿色用 maximize-2（方框 + 对角双向箭头），
+   与 macOS 原生全屏符号一致。颜色纯黑、矢量渲染，Retina 上始终锐利。 */
 .lf-glyph {
   width: 10px;
   height: 10px;

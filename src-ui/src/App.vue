@@ -4,17 +4,17 @@
        番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
   <!-- min-h-screen + 不透明底色：窗口开了 transparent:true，外壳必须自己兜住整屏背景，
        否则内容不足一屏时下半截会直接透出桌面。 -->
-  <!-- rounded-[20px] + clip-path：无边框 + transparent 窗口下，Web 视图本身是矩形、内容会顶出直角；
-       给外壳加 20px 大圆角（对标 Safari 的圆润感），圆角外的区域透出窗口背后的桌面/底色。
-       ⚠️ 用 clip-path: inset(0 round 20px) 而非 overflow-hidden：border-radius 本身不裁剪后代溢出，
+  <!-- rounded-[14px] + clip-path：无边框 + transparent 窗口下，Web 视图本身是矩形、内容会顶出直角；
+       给外壳加 14px 圆角（接近 macOS 原生应用的圆润度），圆角外的区域透出窗口背后的桌面/底色。
+       ⚠️        用 clip-path: inset(0 round 14px) 而非 overflow-hidden：border-radius 本身不裁剪后代溢出，
        滚到内部列表底部时滚动条/内容会戳穿圆角出现「直角漏底」；clip-path 会裁剪整棵子树（含滚动条）
        到圆角形，从根上消除漏边。关键：clip-path 不像 overflow:hidden 那样建立滚动容器，
        不会令设置页 lf-backbar（position:sticky）失效，也不像 mask-image 把整页淡成透明（vignette）。 -->
   <!-- h-screen + flex flex-col：窗口固定视口高度，不再随内容长高（这是消除全局滚动条的关键）。
        滚动统一收口到下方各内容容器自身的 overflow-y-auto。 -->
   <div
-    class="kb-app-shell flex flex-col h-screen rounded-[20px]"
-    :style="{ background: 'var(--kb-background)', clipPath: 'inset(0 round 20px)' }"
+    class="kb-app-shell flex flex-col h-screen rounded-[14px]"
+    :style="{ background: 'var(--kb-background)', clipPath: 'inset(0 round 14px)' }"
   >
     <DesktopTopNav v-if="!route.meta.standalone" />
     <!-- standalone 页（/onboarding、/settings）刻意不挂顶栏，但窗口已是无边框：
@@ -23,14 +23,14 @@
     <div
       v-else
       data-tauri-drag-region="deep"
-      class="lf-standalone-titlebar fixed inset-x-0 top-0 z-50 flex h-10 w-full items-center pl-5 rounded-t-[20px]"
+      class="lf-standalone-titlebar fixed inset-x-0 top-0 z-50 flex h-10 w-full items-center pl-5 rounded-t-[14px]"
     >
       <WindowControls />
     </div>
     <!-- fill 路由（仅任务清单 /tasks）：fixed 钉满顶栏下方，撑满高度、内部自管滚动，
          消除透明窗口底部间隙；fixed 脱离文档流，完全不影响其他页面的原生滚动 -->
     <main v-if="route.meta.fill" class="relative">
-      <div class="fixed top-14 left-0 right-0 bottom-0 overflow-hidden rounded-b-[20px]">
+      <div class="fixed top-14 left-0 right-0 bottom-0 overflow-hidden rounded-b-[14px]">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>

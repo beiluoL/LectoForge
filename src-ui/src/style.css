@@ -327,7 +327,7 @@ html.has-global-bg .kb-region-content {
 
 html {
   /* 无边框 + transparent:true 的窗口下，html/body 必须**透明**。
-   * 外壳 .kb-app-shell 用 clip-path: inset(0 round 20px) 裁成 20px 圆角卡片，
+   * 外壳 .kb-app-shell 用 clip-path: inset(0 round 14px) 裁成 14px 圆角卡片，
    * 被裁掉的四个角需要一路透到透明窗口（露出桌面）才看得到圆角；
    * 若 html/body 还铺不透明同色底，透明角底下仍是同色，圆角就被「补平」消失（旧 bug）。
    * 唯一不透明面是外壳自身。global-bg 壁纸模式靠 z-index:-1 的背景层兜底，与透明不冲突。
