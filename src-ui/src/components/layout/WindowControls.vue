@@ -52,7 +52,7 @@
       @click="run('toggleMaximize')"
     >
       <Icon
-        name="plus"
+        name="maximize"
         class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
       />
     </button>
@@ -120,6 +120,19 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
 .lf-traffic {
   /* 拖拽区里的一块「点击 + 拖动」混合区，光标保持默认箭头 */
   cursor: default;
+  /* 整组悬停高亮：把三颗灯包进一颗极淡的圆角「胶囊」，鼠标移到红黄绿区域即整条亮起，
+     还原 macOS 原生交通灯区的精致反馈。用 token 派生的 6% 前景色 —— 深浅主题下都自然，
+     且刻意不走 Tailwind 的 dark: 变体（项目铁律：明暗一律走 --kb-* token + color-mix）。
+     注意只补上/右/下内距，左侧留给 Tailwind 的 pl-4（16px 窗口边距），不可覆盖。 */
+  padding-top: 3px;
+  padding-right: 8px;
+  padding-bottom: 3px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.lf-traffic:hover {
+  background-color: color-mix(in srgb, var(--kb-foreground) 6%, transparent);
 }
 
 .lf-light {
@@ -142,7 +155,7 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
 .lf-light:hover { filter: brightness(0.9); }
 .lf-light:active { filter: brightness(0.78); }
 
-/* 字形（× − ＋）：默认隐藏，悬停 / 键盘聚焦该颗灯时才浮现（per-button，不是整组一起亮，
+/* 字形（× − ⤢）：默认隐藏，悬停 / 键盘聚焦该颗灯时才浮现（per-button，不是整组一起亮，
    那是不少仿制品的破绽）。颜色纯黑、矢量渲染，Retina 上始终锐利。 */
 .lf-glyph {
   width: 10px;
