@@ -29,6 +29,7 @@ import quadrant from './routes/quadrant';
 import tasks from './routes/tasks';
 import lists from './routes/lists';
 import calendar from './routes/calendar';
+import backup from './routes/backup';
 
 const app = Fastify({ logger: false });
 
@@ -171,6 +172,11 @@ app.register(quadrant, { prefix: '/api' });
  * 日历回答「几点到几点被占用了」。
  * 唯一的读接口强制携带 start_date / end_date，不提供全量拉取形态。 */
 app.register(calendar, { prefix: '/api' });
+
+/* ===== 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）=====
+ * 独立前缀 /api：端点 /backup（立即备份）、/backup/schedule（GET/PUT 计划）。
+ * 实际打包由 Node 侧车用 child_process 拉起 backup.js（archiver）完成。 */
+app.register(backup, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });

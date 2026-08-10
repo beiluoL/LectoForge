@@ -24,7 +24,7 @@
  * ```
  */
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { getAppConfig, initAppConfig } from '@/api/config'
 
 /** AI 网关参数（引导页 Step 2 / 设置中心共用） */
@@ -63,6 +63,13 @@ export const useAppStore = defineStore(
 
     /** initFromBackend 是否已执行完成（守卫可据此避免重复请求；非必须） */
     const initialized = ref<boolean>(false)
+
+    /** 数据备份设置（目录 / 每日自动备份开关与时刻），由设置中心「数据备份」区维护 */
+    const backup = reactive({
+      dir: '',
+      auto: false,
+      time: '03:00',
+    })
 
     /**
      * 与后端 /api/config 对齐（后端为权威来源）。
@@ -124,14 +131,23 @@ export const useAppStore = defineStore(
       return persistConfig(hasOnboarded.value)
     }
 
+    /** 局部更新备份设置（设置中心「数据备份」区写回） */
+    function updateBackup(patch: Partial<{ dir: string; auto: boolean; time: string }>): void {
+      if (patch.dir !== undefined) backup.dir = patch.dir
+      if (patch.auto !== undefined) backup.auto = patch.auto
+      if (patch.time !== undefined) backup.time = patch.time
+    }
+
     return {
       hasOnboarded,
       settings,
       initialized,
+      backup,
       initFromBackend,
       updateSettings,
       completeOnboarding,
       saveSettings,
+      updateBackup,
     }
   },
   {
@@ -139,7 +155,15 @@ export const useAppStore = defineStore(
     persist: {
       key: 'kf:app',
       storage: localStorage,
-      pick: ['hasOnboarded', 'settings.dataDir', 'settings.ai.apiUrl', 'settings.ai.model'],
+      pick: [
+        'hasOnboarded',
+        'settings.dataDir',
+        'settings.ai.apiUrl',
+        'settings.ai.model',
+        'backup.dir',
+        'backup.auto',
+        'backup.time',
+      ],
     },
   },
 )

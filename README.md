@@ -24,13 +24,15 @@
 ```
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
-│   ├── src/routes/      # 薄路由 22 模块 / 353 行：只绑定「路径 → Controller」，无任何 SQL
-│   │                    # 17 张表对应 149 个端点（学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve + 2026-08-09 新增四象限 /api/quadrant 6 个 + 同日新增日历视图 /api/calendar 4 个）
-│   ├── src/controllers/ # 控制层 22 模块 / 1319 行：解析请求、调 Service、决定 HTTP 状态码
-│   ├── src/services/    # 服务层 30 模块 / 4803 行：Drizzle 查询、文件 IO、axios 外呼
-│   │   └── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
-│   ├── src/types/       # 契约层 22 模块 / 1216 行：DTO / VO / 结果判别联合
-│   └── src/db/          # schema + 建表 + WAL
+│   ├── src/routes/      # 薄路由 25 模块 / 522 行：只绑定「路径 → Controller」，无任何 SQL
+│   │                    # 17 张表对应 163 个端点（以《技术架构与功能手册.md》§4.1 汇总表为准：学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve + 2026-08-09 新增四象限 /api/quadrant 6 个 + 同日新增日历视图 /api/calendar 4 个 + 2026-08-10 任务清单 /api/tasks 7 个 与 /api/lists 4 个、数据备份 /api/backup 3 个）
+│   ├── src/controllers/ # 控制层 25 模块 / 1959 行：解析请求、调 Service、决定 HTTP 状态码
+│   ├── src/services/    # 服务层 33 模块 / 7570 行：Drizzle 查询、文件 IO、axios 外呼
+│   │   ├── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
+│   │   └── backupService.ts # child_process 拉起 backup.js 打包 + 每日备份计划持久化
+│   ├── src/types/       # 契约层 23 模块 / 1938 行：DTO / VO / 结果判别联合
+│   ├── src/db/          # schema + 建表 + WAL
+│   └── backup.js        # 纯 JS 备份脚本（archiver 打 zip），被 Tauri 单独打进 api/backup.js
 ├── src-ui/          # Vue 3 前端（24 个业务视图 / 28 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats) + 2026-08-09 新增 日程计划(/schedule)/习惯打卡(/habits)/四象限(/quadrant)/日历(/calendar)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎、calendarStore 日历状态）+ lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
@@ -179,6 +181,20 @@ npm run tauri build
 
 > 后端接口、表结构（`wb_calendar_event`）、范围查询与 UTC ISO 时间口径详见《技术架构与功能手册.md》§7.20。
 
+## 数据备份模块（2026-08-10 新增）
+
+「所有数据都在你自己电脑上」的另一面是「电脑坏了就全没了」。设置中心 `/settings` 的**关于**卡片新增「数据备份」区，把学习资产一键打成可离线保管的 zip，并支持每日定时自动备份。
+
+- **入口**：选择备份目录（原生目录选择器）→「立即备份」→ 结果直接显示 zip 文件名；「打开目录」在访达中定位；「每日自动备份」开关 + 时刻选择；下方列出该目录最近的备份（名称 / 体积 / 时间）。
+- **备份内容**：`db/`（SQLite 主库 + `-wal`/`-shm`）、`uploads/`（录音 / 图片 / 附件）、`config/`（`config.json` + `ai-config.json`）、`mindmaps/`，外加 `backup-meta.json` 记录来源路径便于恢复。文件名 `lectoforge-backup-YYYYMMDD-HHmmss.zip`（**本地时间**）。
+- **一致性**：打包前后端先执行 `PRAGMA wal_checkpoint(TRUNCATE)`，把 WAL 里的未落盘事务刷进主库，保证 zip 里的 `.db` 单文件就是完整快照。
+- **执行链路**：前端 `invoke('create_backup')` → Rust `ureq` 调 `POST /api/backup` → Node 侧车 `child_process.spawn` 拉起 `src-api/backup.js`（`archiver` 压缩）→ 返回 zip 绝对路径。Rust 只做调度与编排，不碰文件。
+- **每日调度**：`tauri::async_runtime::spawn` + `tokio::time::sleep` 长驻循环，每轮重新读计划（改开关 / 改时刻**即时生效，无需重启**），到点二次确认后触发，成功弹原生通知并 `emit("backup:done")`。
+- **后端端点（3 个）**：`POST /api/backup`、`GET /api/backup/schedule`、`PUT /api/backup/schedule`；计划落 `<dataDir>/backup-config.json`。
+- **权限**：新增 `tauri-plugin-fs`（scope 限 `$APPDATA`/`$APPCONFIG`/`$HOME`）+ 5 条自定义命令 ACL；「打开目录」复用 `tauri-plugin-shell` 的 `command("open")`。
+
+> ⚠️ 打包前务必确认 `tauri.conf.json` resources 含 `"../src-api/backup.js": "api/backup.js"`，且 `archiver` 已随 `scripts/prepare-bin.sh` 进 `.prod-modules/node_modules`。详见《技术架构与功能手册.md》§7.22 / §9.2.1。
+
 ## v1.1.0 新增能力（本次更新）
 
 在原有四模块闭环 + 文档库 + 思维导图之上，本次更新补齐了**稳定性基建**与**四个体验型功能**：
@@ -208,7 +224,7 @@ npm run tauri build
 
 ## 原生能力（Tauri，macOS）
 
-桌面壳 `src-tauri/src/lib.rs` 在白屏壳基础上增加了四项原生能力，**业务代码零改动**：
+桌面壳 `src-tauri/src/lib.rs` 在白屏壳基础上增加了以下原生能力，**业务代码零改动**：
 
 ### 1. 原生菜单 + 状态栏托盘
 macOS 标准菜单栏：
@@ -227,7 +243,13 @@ macOS 标准菜单栏：
 
 > 轮询走 `ureq`（纯 Rust HTTP，无 OpenSSL 依赖），只请求计数端点，开销极小。
 
-### 3. 自动更新
+### 3. 每日数据备份调度
+- `tauri::async_runtime::spawn` + `tokio::time::sleep` 长驻循环，到点调 `POST /api/backup` 触发 Node 侧车打包。
+- 每轮重新读取计划，设置中心改开关 / 改时刻**即时生效，无需重启**；成功后弹原生通知并 `emit("backup:done")`。
+- 用到 `tauri-plugin-fs`（预建备份目录，scope 限 `$APPDATA`/`$APPCONFIG`/`$HOME`）与 `tauri-plugin-shell`（在访达中打开备份目录）。
+- 详见上文「数据备份模块」。
+
+### 4. 自动更新
 - 集成 `tauri-plugin-updater`，菜单「检查更新…」与前端侧边栏「检查更新」按钮共用 `check_for_update` 命令。
 - 检测到新版本自动下载并安装，完成后弹通知。
 - **当前 `tauri.conf.json` 中 `updater.active=false`**：因自动更新需要你自己的 ed25519 签名密钥与发布端点（属个人密钥，不能提交到仓库）。激活步骤见下方「启用自动更新」。

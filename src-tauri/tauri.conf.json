@@ -26,6 +26,7 @@
     "resources": {
       "../src-ui/dist": "web",
       "../src-api/dist": "api",
+      "../src-api/backup.js": "api/backup.js",
       "../src-api/.prod-modules/node_modules": "api/node_modules",
       "../src-api/package.json": "api/package.json"
     },

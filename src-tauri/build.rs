@@ -6,7 +6,7 @@
 fn main() {
     tauri_build::try_build(
         tauri_build::Attributes::new().app_manifest(
-            tauri_build::AppManifest::new().commands(&[
+            tauri_build::AppManifest::new()            .commands(&[
                 "update_tray_title",
                 "trigger_notification",
                 "restart_sidecar",
@@ -15,6 +15,11 @@ fn main() {
                 "open_external_url",
                 "quit_app",
                 "take_pending_deep_link",
+                "create_backup",
+                "set_backup_schedule",
+                "get_backup_schedule",
+                "open_backup_folder",
+                "list_backups",
             ]),
         ),
     )

@@ -236,6 +236,67 @@
         <div><dt>版本</dt><dd>v1.0.0</dd></div>
         <div><dt>运行模式</dt><dd><span class="lf-badge"><Icon name="hard-drive" :size="12" /> 本地离线</span></dd></div>
       </dl>
+
+      <!-- 数据备份：立即备份 + 每日自动备份开关与时刻 + 最近备份列表 -->
+      <div class="lf-backup">
+        <div class="lf-card-head" style="margin: 1.1rem 0 .75rem;">
+          <Icon name="archive" :size="18" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
+          <div>
+            <h3 class="lf-card-title" style="font-size: .9375rem;">数据备份</h3>
+            <p class="lf-card-desc">定期把数据库、上传文件与配置打包成 zip，换机或重装后可一键恢复。</p>
+          </div>
+        </div>
+
+        <div class="lf-dir-row">
+          <input
+            v-model="appStore.backup.dir"
+            class="kb-input"
+            placeholder="选择备份保存目录"
+            spellcheck="false"
+          />
+          <button class="kb-btn" :disabled="pickingBackup" @click="pickBackupDir">
+            <Icon :name="pickingBackup ? 'loader' : 'folder-search'" :size="15" :class="pickingBackup ? 'lf-spin' : ''" />
+            选择文件夹
+          </button>
+        </div>
+
+        <div class="lf-actions">
+          <button class="kb-btn kb-btn-primary" :disabled="backupBusy" @click="onBackupNow">
+            <Icon :name="backupBusy ? 'loader' : 'download'" :size="15" :class="backupBusy ? 'lf-spin' : ''" />
+            立即备份
+          </button>
+          <button class="kb-btn kb-btn-sm" @click="openBackupFolder">
+            <Icon name="folder-open" :size="14" /> 打开目录
+          </button>
+          <span v-if="backupMsg" class="lf-test-result" :class="backupMsg.ok ? 'is-ok' : 'is-fail'">
+            <Icon :name="backupMsg.ok ? 'check-circle' : 'x-circle'" :size="14" />
+            {{ backupMsg.text }}
+          </span>
+        </div>
+
+        <label class="lf-switch">
+          <input type="checkbox" v-model="appStore.backup.auto" @change="onToggleAuto" />
+          <span class="lf-switch-track"></span>
+          <span class="lf-switch-label">每日自动备份</span>
+        </label>
+
+        <div v-if="appStore.backup.auto" class="lf-field lf-span-2" style="margin-top: .6rem;">
+          <label class="kb-label">每日触发时刻</label>
+          <input type="time" v-model="appStore.backup.time" class="kb-input" style="max-width: 160px;" @change="onTimeChange" />
+        </div>
+
+        <div v-if="backupList.length" class="lf-backup-list">
+          <p class="lf-field-hint">最近备份（共 {{ backupList.length }} 个）</p>
+          <ul>
+            <li v-for="b in backupList" :key="b.name">
+              <Icon name="file" :size="14" />
+              <span class="lf-bname">{{ b.name }}</span>
+              <span class="lf-bmeta">{{ formatSize(b.size) }} · {{ formatTime(b.modifiedAt) }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div class="lf-actions">
         <button class="kb-btn kb-btn-sm" @click="rerunOnboarding">
           <Icon name="rotate-ccw" :size="14" /> 重新运行新手引导
@@ -259,6 +320,8 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 // 顶层静态导入：build 模式下动态 import('@tauri-apps/api/core') 的 chunk 可能加载失败
 import { invoke } from '@tauri-apps/api/core'
+// 数据备份：用 fs 插件确保备份目录存在（Tauri 2 fs 插件）
+import { mkdir } from '@tauri-apps/plugin-fs'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError, confirmDialog, toastState } from '@/utils/toast'
 import { useAppStore } from '@/store/app-store'
@@ -287,6 +350,12 @@ const picking = ref(false)
 const testing = ref(false)
 const saving = ref(false)
 const testState = ref<{ ok: boolean; text: string } | null>(null)
+
+// 数据备份相关本地状态
+const pickingBackup = ref(false)
+const backupBusy = ref(false)
+const backupMsg = ref<{ ok: boolean; text: string } | null>(null)
+const backupList = ref<Array<{ name: string; size: number; modifiedAt: number }>>([])
 
 const presets = ref<AiProviderPreset[]>([])
 const embedPresets = ref<AiProviderPreset[]>([])
@@ -455,6 +524,8 @@ onMounted(async () => {
   } catch {
     form.dataDir = appStore.settings.dataDir
   }
+  // 数据备份计划（不计入「未保存改动」基线）
+  await loadBackupSettings()
   // 全部载入完成后才立基线，否则回填过程会被误判成「用户改动」
   baseline.value = snapshot()
 })
@@ -572,6 +643,134 @@ async function clearEmbeddingKey() {
 /** 重新运行引导：跳回 /onboarding（守卫会在 hasOnboarded=true 时拦截，故用 query 放行） */
 function rerunOnboarding() {
   router.push({ path: '/onboarding', query: { rerun: '1' } })
+}
+
+/* ============ 数据备份 ============
+ * 目录 / 开关 / 时刻经 store 持久化到 localStorage，并实时经 Rust 命令落盘到后端 backup-config.json；
+ * 立即备份与每日调度都由 Rust 侧调用后端 POST /api/backup（Node 侧车用 child_process 跑 backup.js）。 */
+
+/** 把当前备份设置写回后端（Rust → 后端 PUT /api/backup/schedule） */
+async function persistSchedule(): Promise<void> {
+  try {
+    await invoke('set_backup_schedule', {
+      enabled: appStore.backup.auto,
+      time: appStore.backup.time,
+      outDir: appStore.backup.dir,
+    })
+  } catch (e) {
+    notify(getApiError(e, '保存备份计划失败'), 'error')
+  }
+}
+
+/** 选择备份保存目录 */
+async function pickBackupDir() {
+  if (pickingBackup.value) return
+  pickingBackup.value = true
+  try {
+    const dir = await invoke<string>('select_directory')
+    if (dir) {
+      appStore.updateBackup({ dir })
+      await persistSchedule()
+      await refreshBackupList()
+    }
+  } catch {
+    /* 用户取消：静默 */
+  } finally {
+    pickingBackup.value = false
+  }
+}
+
+/** 立即备份一次 */
+async function onBackupNow() {
+  if (backupBusy.value) return
+  if (!appStore.backup.dir) {
+    notify('请先选择备份保存目录', 'info')
+    return
+  }
+  backupBusy.value = true
+  backupMsg.value = null
+  try {
+    // 用 fs 插件确保目录存在（backup.js 也会自建，这里用 fs 插件做一次）
+    try {
+      await mkdir(appStore.backup.dir, { recursive: true })
+    } catch {
+      /* 目录可能已存在，忽略 */
+    }
+    const zipPath = await invoke<string>('create_backup', { outDir: appStore.backup.dir })
+    backupMsg.value = { ok: true, text: `已备份：${zipPath.split('/').pop()}` }
+    await refreshBackupList()
+  } catch (e) {
+    backupMsg.value = { ok: false, text: getApiError(e, '备份失败') }
+  } finally {
+    backupBusy.value = false
+  }
+}
+
+/** 切换每日自动备份 */
+async function onToggleAuto() {
+  await persistSchedule()
+}
+
+/** 修改每日触发时刻 */
+async function onTimeChange() {
+  await persistSchedule()
+}
+
+/** 打开备份目录（Finder 中定位） */
+async function openBackupFolder() {
+  if (!appStore.backup.dir) {
+    notify('请先选择备份保存目录', 'info')
+    return
+  }
+  try {
+    await invoke('open_backup_folder', { path: appStore.backup.dir })
+  } catch (e) {
+    notify(getApiError(e, '打开目录失败'), 'error')
+  }
+}
+
+/** 刷新最近备份列表（Rust list_backups 命令，std::fs 读取，无 ACL 范围限制） */
+async function refreshBackupList() {
+  if (!appStore.backup.dir) {
+    backupList.value = []
+    return
+  }
+  try {
+    const list = await invoke<Array<{ name: string; size: number; modifiedAt: number }>>('list_backups', {
+      dir: appStore.backup.dir,
+    })
+    backupList.value = list
+  } catch {
+    backupList.value = []
+  }
+}
+
+/** 载入后端保存的备份计划，回填 UI；目录为空时默认落到数据目录下的 backups/ */
+async function loadBackupSettings() {
+  try {
+    const s = await invoke<{ enabled: boolean; time: string; outDir: string }>('get_backup_schedule')
+    let dir = s.outDir || ''
+    if (!dir && appStore.settings.dataDir) dir = `${appStore.settings.dataDir}/backups`
+    appStore.updateBackup({ dir, auto: s.enabled, time: s.time || '03:00' })
+    // 把默认目录落盘，保证自动备份在用户未手动选择时也能运行
+    if (dir) await persistSchedule()
+  } catch {
+    /* 后端未就绪（如浏览器预览）：保留本地持久化值 */
+  }
+  await refreshBackupList()
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
+function formatTime(secs: number): string {
+  const d = new Date(secs * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 </script>
 
@@ -691,6 +890,16 @@ function rerunOnboarding() {
 .lf-about dt { width: 84px; flex-shrink: 0; font-size: var(--kb-fs-body-sm); color: var(--kb-muted-foreground); margin: 0; }
 .lf-about dd { font-size: var(--kb-fs-body-sm); color: var(--kb-foreground); margin: 0; }
 .lf-badge { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .55rem; border-radius: 999px; background: var(--kb-muted); color: var(--kb-muted-foreground); font-size: var(--kb-fs-caption, .75rem); }
+
+/* 数据备份子区 */
+.lf-backup { border-top: 1px solid var(--kb-border); padding-top: .25rem; margin-top: -.25rem; }
+.lf-dir-row .kb-input { font-family: var(--font-mono); font-size: 12.5px; }
+.lf-backup-list { margin-top: .9rem; }
+.lf-backup-list ul { list-style: none; margin: .4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 12rem; overflow-y: auto; }
+.lf-backup-list li { display: flex; align-items: center; gap: .5rem; padding: .35rem .55rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md, 10px); background: var(--kb-muted); }
+.lf-backup-list li > :first-child { color: var(--kb-muted-foreground); flex-shrink: 0; }
+.lf-bname { font-size: var(--kb-fs-body-sm); color: var(--kb-foreground); font-family: var(--font-mono); word-break: break-all; }
+.lf-bmeta { margin-left: auto; font-size: var(--kb-fs-caption, .72rem); color: var(--kb-muted-foreground); white-space: nowrap; flex-shrink: 0; }
 
 .lf-spin { animation: lf-rotate .9s linear infinite; }
 @keyframes lf-rotate { to { transform: rotate(360deg); } }

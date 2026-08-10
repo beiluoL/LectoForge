@@ -1944,14 +1944,17 @@ dependencies = [
 name = "lectoforge-desktop"
 version = "1.0.0"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tauri-plugin-fs",
  "tauri-plugin-notification",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "tokio",
  "ureq",
 ]
 

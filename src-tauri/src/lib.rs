@@ -40,6 +40,11 @@ struct DeepLinkState {
 
 const DEFAULT_BACKEND_PORT: u16 = 8787;
 
+/// 实际生效的后端端口。正常恒为 8787（启动时 `free_port` + `pick_free_port` 会强行腾出该端口），
+/// 但兜底顺延时会变；`#[tauri::command]` 拿不到 setup 里的局部变量，所以用原子量做全局桥接。
+static API_PORT: std::sync::atomic::AtomicU16 =
+    std::sync::atomic::AtomicU16::new(DEFAULT_BACKEND_PORT);
+
 /// 注入给 Node 侧车的数据目录环境变量名（与 src-api/src/lib/paths.ts 的 DATA_DIR_ENV 一致）
 #[cfg(not(debug_assertions))]
 const DATA_DIR_ENV: &str = "LECTOFORGE_DATA_DIR";
@@ -520,6 +525,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 后端实际监听端口：生产由宿主协商后写入，开发固定用默认值（dev:api 监听它）
             #[allow(unused_mut, unused_assignments)]
@@ -746,9 +752,14 @@ pub fn run() {
             // 5) 后台复习提醒调度（每 30 分钟轮询后端，有待复习卡片则弹原生通知）
             start_reminder_scheduler(app.handle().clone(), reminder_enabled.clone(), api_port);
 
+            // 6) 数据自动备份调度（每日循环，到点触发后端备份；计划变更即时生效）
+            // 先把真实端口写进全局原子量，备份类命令（无 setup 上下文）才能拿到正确端口
+            API_PORT.store(api_port, std::sync::atomic::Ordering::Relaxed);
+            start_backup_scheduler(app.handle().clone(), api_port);
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app, update_tray_title, take_pending_deep_link])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app, update_tray_title, take_pending_deep_link, create_backup, set_backup_schedule, get_backup_schedule, open_backup_folder, list_backups])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
@@ -1048,6 +1059,237 @@ fn open_external_url(url: String) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+// =============================================================================
+// 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）
+//
+// 架构：Rust 不直接打包文件，而是作为「调度与编排」层——
+//   - 立即备份 / 每日调度都通过 ureq 调后端 POST /api/backup 触发（后端在 Node 侧车里
+//     用 child_process 拉起 backup.js，依赖 archiver 完成真正的 zip 打包）；
+//   - 计划（enabled / time / outDir）由后端持久化到 <dataDir>/backup-config.json，
+//     Rust 侧仅做中转与读取；
+//   - 调度器用 tauri::async_runtime::spawn 长驻循环，到点重新拉取最新计划再触发（改设置即时生效）。
+// 这样路径解析（getDbPath / getUploadsDir）与 zip 逻辑都在 Node 侧，dev/build 都稳。
+// =============================================================================
+
+#[derive(Clone, Default)]
+struct BackupSchedule {
+    enabled: bool,
+    time: String,
+    out_dir: String,
+}
+
+/// 调后端 POST /api/backup 触发一次备份（阻塞调用，须配合 spawn_blocking）。
+fn post_backup_sync(port: u16, out_dir: &str) -> Result<String, String> {
+    let url = format!("http://127.0.0.1:{port}/api/backup");
+    let body = serde_json::json!({ "outDir": out_dir });
+    let resp = ureq::post(&url)
+        .timeout(std::time::Duration::from_secs(300))
+        .send_json(body)
+        .map_err(|e| format!("触发备份失败：{e}"))?;
+    let v: serde_json::Value = resp
+        .into_json()
+        .map_err(|e| format!("备份响应解析失败：{e}"))?;
+    let zip = v
+        .pointer("/data/zipPath")
+        .and_then(|p| p.as_str())
+        .ok_or_else(|| "备份未返回 zip 路径".to_string())?;
+    Ok(zip.to_string())
+}
+
+/// 读取后端备份计划（阻塞调用）。
+fn get_backup_schedule_sync(port: u16) -> Option<BackupSchedule> {
+    let url = format!("http://127.0.0.1:{port}/api/backup/schedule");
+    let resp = ureq::get(&url).timeout(std::time::Duration::from_secs(5)).call().ok()?;
+    let v: serde_json::Value = resp.into_json().ok()?;
+    let d = v.get("data")?;
+    Some(BackupSchedule {
+        enabled: d.get("enabled").and_then(|x| x.as_bool()).unwrap_or(false),
+        time: d
+            .get("time")
+            .and_then(|x| x.as_str())
+            .unwrap_or("03:00")
+            .to_string(),
+        out_dir: d
+            .get("outDir")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+    })
+}
+
+/// 前端「立即备份」命令：经后端 child_process 跑 backup.js，返回 zip 绝对路径。
+#[tauri::command]
+async fn create_backup(out_dir: String) -> Result<String, String> {
+    let port = API_PORT.load(std::sync::atomic::Ordering::Relaxed);
+    tauri::async_runtime::spawn_blocking(move || post_backup_sync(port, &out_dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// 前端保存备份计划命令：转发到后端持久化（enabled / time / outDir）。
+#[tauri::command]
+async fn set_backup_schedule(enabled: bool, time: String, out_dir: String) -> Result<(), String> {
+    let port = API_PORT.load(std::sync::atomic::Ordering::Relaxed);
+    let url = format!("http://127.0.0.1:{port}/api/backup/schedule");
+    let body = serde_json::json!({ "enabled": enabled, "time": time, "outDir": out_dir });
+    tauri::async_runtime::spawn_blocking(move || {
+        ureq::put(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send_json(body)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(())
+}
+
+/// 前端读取备份计划命令：供设置页初始化「每日自动备份」开关与时刻。
+#[tauri::command]
+async fn get_backup_schedule() -> Result<serde_json::Value, String> {
+    let port = API_PORT.load(std::sync::atomic::Ordering::Relaxed);
+    let s = tauri::async_runtime::spawn_blocking(move || get_backup_schedule_sync(port))
+        .await
+        .map_err(|e| e.to_string())?;
+    match s {
+        Some(s) => Ok(serde_json::json!({ "enabled": s.enabled, "time": s.time, "outDir": s.out_dir })),
+        None => Ok(serde_json::json!({ "enabled": false, "time": "03:00", "outDir": "" })),
+    }
+}
+
+/// 列出某目录下的备份 zip 文件（名称 / 字节大小 / 修改时间，倒序），供设置页展示最近备份。
+#[tauri::command]
+fn list_backups(dir: String) -> Result<Vec<serde_json::Value>, String> {
+    let entries = std::fs::read_dir(&dir).map_err(|e| format!("无法读取备份目录：{e}"))?;
+    let mut out = Vec::new();
+    for e in entries.filter_map(|x| x.ok()) {
+        let p = e.path();
+        if p.extension().and_then(|x| x.to_str()) == Some("zip") {
+            if let Ok(meta) = p.metadata() {
+                if meta.is_file() {
+                    let modified_at = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    out.push(serde_json::json!({
+                        "name": p.file_name().and_then(|x| x.to_str()).unwrap_or(""),
+                        "size": meta.len(),
+                        "modifiedAt": modified_at,
+                    }));
+                }
+            }
+        }
+    }
+    out.sort_by(|a, b| b["modifiedAt"].as_u64().cmp(&a["modifiedAt"].as_u64()));
+    Ok(out)
+}
+
+/// 打开备份目录（在访达/Finder 中定位）：用 shell 插件唤起系统 `open`，
+/// 失败时兜底 std::process::Command（与 open_external_url 同款写法，仓库刻意禁用 shell.open 全局）。
+#[tauri::command]
+async fn open_backup_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_shell::ShellExt;
+        if app.shell().command("open").args([path.clone()]).spawn().is_ok() {
+            return Ok(());
+        }
+        let _ = std::process::Command::new("open").arg(&path).spawn();
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer").arg(&path).spawn();
+        Ok(())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+        Ok(())
+    }
+}
+
+/// 计算到下一个 `HH:MM`（本地时区）的等待时长；已过的时刻顺延到明天。
+fn duration_until(time: &str) -> Option<std::time::Duration> {
+    // from_local_datetime 是 TimeZone trait 的方法，必须把 trait 引进作用域才能调用
+    use chrono::TimeZone;
+    let mut it = time.split(':');
+    let h: u32 = it.next()?.parse().ok()?;
+    let m: u32 = it.next()?.parse().ok()?;
+    let now = chrono::Local::now();
+    let date = now.date_naive();
+    let target_naive = date.and_hms_opt(h, m, 0)?;
+    // 夏令时切换当天某些本地时刻可能不存在/二义，取不到就顺延到明天同一时刻
+    let mut target = match chrono::Local.from_local_datetime(&target_naive).single() {
+        Some(t) => t,
+        None => chrono::Local
+            .from_local_datetime(&date.succ_opt()?.and_hms_opt(h, m, 0)?)
+            .single()?,
+    };
+    if target <= now {
+        target += chrono::Duration::days(1);
+    }
+    let secs = (target - now).num_seconds().max(0) as u64;
+    Some(std::time::Duration::from_secs(secs))
+}
+
+/// 每日备份调度器：在 Tauri 异步运行时里长驻循环，到点触发后端备份。
+/// 用 tauri::async_runtime::spawn 跑（用户明确要求），配合 tokio::time::sleep 不阻塞运行时。
+/// 每次循环都重新拉取最新计划，使「设置中心改时间/开关」即时生效，无需重启。
+fn start_backup_scheduler(app: tauri::AppHandle, port: u16) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            let sched = match tauri::async_runtime::spawn_blocking(move || get_backup_schedule_sync(port))
+                .await
+                .ok()
+                .flatten()
+            {
+                Some(s) if s.enabled && !s.out_dir.is_empty() => s,
+                _ => continue,
+            };
+            let wait = match duration_until(&sched.time) {
+                Some(d) => d,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                    continue;
+                }
+            };
+            tokio::time::sleep(wait).await;
+            // 到点再确认一次（用户可能中途关掉了自动备份）
+            if let Some(s) =
+                tauri::async_runtime::spawn_blocking(move || get_backup_schedule_sync(port)).await.ok().flatten()
+            {
+                if s.enabled && !s.out_dir.is_empty() {
+                    let done =
+                        tauri::async_runtime::spawn_blocking(move || post_backup_sync(port, &s.out_dir)).await;
+                    // 让用户「看得见」自动备份确实跑过了——这正是本能力要给的安全感
+                    match done {
+                        Ok(Ok(zip)) => {
+                            let _ = app.emit("backup:done", &zip);
+                            #[cfg(target_os = "macos")]
+                            {
+                                let _ = app
+                                    .notification()
+                                    .builder()
+                                    .title("LectoForge 自动备份完成")
+                                    .body(&zip)
+                                    .show();
+                            }
+                        }
+                        Ok(Err(e)) => {
+                            let _ = app.emit("backup:failed", &e);
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+        }
+    });
 }
 
 /// 取出并清空一条待消费的深链剪藏（lectoforge://capture 拉起时由 `RunEvent::Opened` 写入）。
