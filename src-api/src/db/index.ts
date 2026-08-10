@@ -3,7 +3,16 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from './schema';
-import { categories, wbCapture, wbPalace, wbPalaceLoci, wbHabit, wbHabitLog, wbQuadrantTask } from './schema';
+import {
+  categories,
+  wbCapture,
+  wbPalace,
+  wbPalaceLoci,
+  wbHabit,
+  wbHabitLog,
+  wbQuadrantTask,
+  wbTaskList,
+} from './schema';
 import { getDbPath } from '../lib/paths';
 
 /* 库文件位置全权交给 lib/paths：打包后落在宿主注入的 LECTOFORGE_DATA_DIR
@@ -265,6 +274,42 @@ CREATE TABLE IF NOT EXISTS wb_calendar_event (
  * 前提是 start_time 永远是同格式的 UTC ISO 串（见 schema.ts 的时间存储口径），
  * 否则字符串比较的顺序就不等于时间顺序，索引会给出错误结果。 */
 CREATE INDEX IF NOT EXISTS idx_wb_calendar_event_range ON wb_calendar_event (user_id, start_time);
+/* ===== 任务清单（Things 3 模型）：wb_task_list + wb_task ===== */
+CREATE TABLE IF NOT EXISTS wb_task_list (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'list',
+  parent_id INTEGER,
+  icon_name TEXT NOT NULL DEFAULT 'list',
+  color TEXT NOT NULL DEFAULT '#3B6FE0',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_task_list_owner ON wb_task_list (user_id, parent_id, sort_order);
+CREATE TABLE IF NOT EXISTS wb_task (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'inbox',
+  completed INTEGER NOT NULL DEFAULT 0,
+  list_id INTEGER,
+  parent_task_id INTEGER,
+  target_date TEXT,
+  due_date TEXT,
+  completed_at TEXT,
+  tags TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+/* 侧边栏五个智能列表 = WHERE user_id = ? AND status = ?，全部吃这条索引；
+ * 把 sort_order 也带进复合索引，让「按手工序输出」不再需要额外的 filesort。 */
+CREATE INDEX IF NOT EXISTS idx_wb_task_status ON wb_task (user_id, status, sort_order);
+CREATE INDEX IF NOT EXISTS idx_wb_task_list_ref ON wb_task (user_id, list_id);
+CREATE INDEX IF NOT EXISTS idx_wb_task_target_date ON wb_task (user_id, target_date);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====
@@ -356,6 +401,100 @@ addColumn('wb_note', 'image_hint', 'TEXT');
   if (locCols.some((c) => c.name === 'label')) {
     sqlite.exec(`UPDATE wb_palace_loci SET name = COALESCE(NULLIF(name, ''), label) WHERE name IS NULL OR name = ''`);
     sqlite.exec(`ALTER TABLE wb_palace_loci DROP COLUMN label`); // 需 SQLite >= 3.35
+  }
+}
+
+/* ===================================================================
+ * 一次性数据迁移：wb_daily_task → wb_task
+ *
+ * 幂等策略用 SQLite 内置的 `PRAGMA user_version`（整型，随库文件走），
+ * 而**不是**「wb_task 表为空就搬」——后者有个致命缺陷：
+ * 用户把搬过来的任务全删光之后，下次启动会被原样塞回来，删不掉。
+ * user_version 是「这个库已经跑到第几号迁移」的单调计数器，只增不减。
+ *
+ * 版本号约定（新增迁移时往下追加，永远不要复用旧号）：
+ *   0 → 1  wb_daily_task 搬入 wb_task
+ *
+ * 映射规则（与产品口径一致）：
+ *   completed = 1                 → status 'logbook'，completed_at 回填 updated_at
+ *   target_date == 今天(本机时区)  → status 'today'
+ *   target_date >  今天            → status 'upcoming'
+ *   target_date <  今天且未完成     → status 'today'
+ *       ↑ 这条是刻意的：Things 3 里过期未做的事会浮到「今天」催你处理，
+ *         若原样丢进 upcoming 会永远沉底，等于静默丢任务。
+ *
+ * 旧表**不删除、不清空**：日历联查与历史统计仍在读它，
+ * 删表等于炸掉现有功能；两张表在过渡期并存由各自的 Service 负责去重。
+ * =================================================================== */
+{
+  const SCHEMA_VERSION = 1;
+  const row = sqlite.pragma('user_version', { simple: true }) as number;
+  const current = typeof row === 'number' ? row : 0;
+
+  if (current < 1) {
+    try {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const ts = d.toISOString();
+
+      const legacy = sqlite
+        .prepare(
+          `SELECT id, user_id, target_date, content, completed, updated_at, created_at
+             FROM wb_daily_task ORDER BY target_date ASC, id ASC`,
+        )
+        .all() as Array<{
+        id: number;
+        user_id: number;
+        target_date: string;
+        content: string;
+        completed: number;
+        updated_at: string | null;
+        created_at: string | null;
+      }>;
+
+      if (legacy.length > 0) {
+        const insert = sqlite.prepare(
+          `INSERT INTO wb_task
+             (user_id, title, notes, status, completed, list_id, parent_task_id,
+              target_date, due_date, completed_at, tags, sort_order, created_at, updated_at)
+           VALUES (?, ?, NULL, ?, ?, NULL, NULL, ?, NULL, ?, '日程迁移', ?, ?, ?)`,
+        );
+
+        // better-sqlite3 的事务回调**必须是同步函数**：写成 async 会在第一个
+        // await 处提前提交，后半段插入就落在事务之外，失败时无法整体回滚。
+        const run = sqlite.transaction((rows: typeof legacy) => {
+          rows.forEach((r, i) => {
+            const done = Number(r.completed) === 1;
+            const date = r.target_date;
+            let status: string;
+            if (done) status = 'logbook';
+            else if (date > today) status = 'upcoming';
+            else status = 'today'; // 今天 + 已过期未完成，都浮到「今天」
+            insert.run(
+              r.user_id ?? 1,
+              r.content,
+              status,
+              done ? 1 : 0,
+              date,
+              done ? (r.updated_at ?? ts) : null,
+              i,
+              r.created_at ?? ts,
+              r.updated_at ?? ts,
+            );
+          });
+          return rows.length;
+        });
+
+        const n = run(legacy);
+        console.log(`[lectoforge-desktop] 数据迁移完成：wb_daily_task → wb_task（${n} 条）`);
+      }
+
+      sqlite.pragma(`user_version = ${SCHEMA_VERSION}`);
+    } catch (e) {
+      // 迁移失败不阻断启动：新表照样可用，用户手动补录即可；
+      // 不推进 user_version，下次启动会重试。
+      console.error('[lectoforge-desktop] wb_daily_task → wb_task 迁移失败', e);
+    }
   }
 }
 
@@ -680,6 +819,35 @@ seedIfEmpty(wbQuadrantTask, '四象限示例任务', () => {
         scheduledAt: r.scheduledAt,
         tags: r.tags,
         source: 'seed',
+        sortOrder: i,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  return rows.length;
+});
+
+/* ---- 任务清单：预置三个清单骨架（不预置任务本身）。
+ * 只播清单不播任务，是刻意的：任务是极私人的东西，塞几条假待办进「今天」
+ * 会让用户第一眼就想删；而空空如也的侧边栏又让人不知道「清单」这个概念存在。
+ * 给三个空容器，既示范了 area / project / list 三种类型的差别，又不脏数据。 ---- */
+seedIfEmpty(wbTaskList, '默认任务清单', () => {
+  const now = nowIso();
+  const rows = [
+    { name: '个人', type: 'area', iconName: 'user', color: '#3B6FE0' },
+    { name: '工作', type: 'area', iconName: 'briefcase', color: '#8E7CFF' },
+    { name: '学习计划', type: 'project', iconName: 'graduation-cap', color: '#F0A020' },
+  ];
+  db.insert(wbTaskList)
+    .values(
+      rows.map((r, i) => ({
+        userId: CURRENT_USER,
+        name: r.name,
+        type: r.type,
+        parentId: null,
+        iconName: r.iconName,
+        color: r.color,
         sortOrder: i,
         createdAt: now,
         updatedAt: now,

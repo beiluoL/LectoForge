@@ -22,10 +22,31 @@ export interface CalendarEvent {
   location: string | null;
   createdAt: string;
   updatedAt: string;
-  /** 数据来源：'calendar' = 自定义日历事件；'daily_task' = 来自 /schedule 的每日任务 */
-  sourceType?: 'calendar' | 'daily_task';
-  /** 仅 daily_task 有：对应 wb_daily_task 主键，前端据此跳转 /schedule 高亮 */
+  /**
+   * 数据来源（与后端 types/calendar.ts 的 sourceType 一一对应）：
+   * - 'calendar'   自定义日历事件
+   * - 'daily_task' 旧「日程计划」每日任务（过渡期保留）
+   * - 'task'       任务清单的「什么时候做」
+   * - 'task_due'   任务清单的「截止日」
+   */
+  sourceType?: CalendarSourceType;
+  /** 任务类来源专有：daily_task → wb_daily_task.id；task / task_due → wb_task.id */
   taskId?: number;
+  /** 仅 task / task_due：0 未完成 / 1 已完成，前端据此加删除线 */
+  taskCompleted?: number;
+}
+
+export type CalendarSourceType = 'calendar' | 'daily_task' | 'task' | 'task_due';
+
+/**
+ * 是否为「任务类」条目（而非普通日历事件）。
+ *
+ * 三种任务来源在日历里的渲染规则与点击行为完全一致（极简样式 + 跳 /tasks），
+ * 差别只在配色。把判断收口成一个函数，是因为它散落在月视图、周视图、日视图
+ * 至少 6 处；每加一种来源就要改 6 个 `=== 'daily_task'` 是必然漏改的写法。
+ */
+export function isTaskSource(ev: Pick<CalendarEvent, 'sourceType'>): boolean {
+  return ev.sourceType === 'daily_task' || ev.sourceType === 'task' || ev.sourceType === 'task_due';
 }
 
 export interface CreateCalendarEventInput {

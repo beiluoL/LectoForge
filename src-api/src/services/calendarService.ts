@@ -15,10 +15,10 @@
  * 于是范围过滤可以直接写 `start_time <= ?`，走 (user_id, start_time) 索引；
  * 一旦用 datetime(start_time) 之类的函数包裹，索引立刻失效退化成全表扫描。
  */
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 
 import { db, CURRENT_USER, nowIso } from '../db';
-import { wbCalendarEvent, wbDailyTask } from '../db/schema';
+import { wbCalendarEvent, wbDailyTask, wbTask } from '../db/schema';
 import { resolvePage } from '../lib/pagination';
 import type {
   CalendarEventCreateInput,
@@ -33,6 +33,12 @@ const DEFAULT_COLOR = '#3B6FE0';
 
 /** 日程计划任务（daily_task）在日历上的统一呈现色：柔和的灰，与普通事件区分 */
 const DAILY_TASK_COLOR = '#B0B0B0';
+
+/** 任务清单「什么时候做」在日历上的呈现色：柔和蓝紫，与普通事件的主蓝拉开距离 */
+const TASK_COLOR = '#8E7CFF';
+
+/** 任务清单「截止日」的呈现色：警示红。截止日是硬约束，视觉上必须比 target_date 更抢眼 */
+const TASK_DUE_COLOR = '#E5484D';
 
 /** 十六进制色值：#RGB 或 #RRGGBB，大小写不敏感 */
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -215,15 +221,80 @@ export function listEventsInRange(q: ListCalendarEventQuery): CalendarEventWithS
     taskId: t.id,
   }));
 
+  /* ---------- 数据源 C：wb_task（任务清单 /tasks）----------
+   * 一条任务最多在日历上产生**两个**条目：
+   * - target_date（什么时候做）→ sourceType 'task'，柔和蓝；
+   * - due_date（截止日）      → sourceType 'task_due'，警示红。
+   * 两者刻意分开呈现，理由见 types/calendar.ts 的 sourceType 注释。
+   *
+   * 只发**一条 SQL** 把范围内 target_date 或 due_date 命中的任务全捞回来，
+   * 再在 JS 层裂成两组；分两次查会让同时命中两个日期的任务被查两遍。
+   *
+   * 子任务（parent_task_id 非空）不上日历：Checklist 项是父任务的实现细节，
+   * 让它们各自占一格会把月视图刷爆。
+   *
+   * 🔴 同步 API：better-sqlite3 全程同步，这里不出现任何 await。 */
+  const taskRows = db
+    .select()
+    .from(wbTask)
+    .where(
+      and(
+        eq(wbTask.userId, CURRENT_USER),
+        isNull(wbTask.parentTaskId),
+        sql`(
+          (${wbTask.targetDate} is not null and ${wbTask.targetDate} between ${q.startDate} and ${q.endDate})
+          or
+          (${wbTask.dueDate} is not null and ${wbTask.dueDate} between ${q.startDate} and ${q.endDate})
+        )`,
+      ),
+    )
+    .all();
+
+  const taskEvents: CalendarEventWithSource[] = [];
+  taskRows.forEach((t) => {
+    const base = {
+      userId: t.userId,
+      description: t.notes,
+      isAllDay: 1,
+      location: null,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+      taskId: t.id,
+      taskCompleted: t.completed,
+    };
+    if (t.targetDate && t.targetDate >= q.startDate && t.targetDate <= q.endDate) {
+      taskEvents.push({
+        ...base,
+        id: t.id,
+        title: t.title,
+        startTime: localDayStartIso(t.targetDate, 'start_time'),
+        endTime: localDayEndIso(t.targetDate, 'end_time'),
+        color: TASK_COLOR,
+        sourceType: 'task',
+      });
+    }
+    if (t.dueDate && t.dueDate >= q.startDate && t.dueDate <= q.endDate) {
+      taskEvents.push({
+        ...base,
+        id: t.id,
+        title: `截止：${t.title}`,
+        startTime: localDayStartIso(t.dueDate, 'start_time'),
+        endTime: localDayEndIso(t.dueDate, 'end_time'),
+        color: TASK_DUE_COLOR,
+        sourceType: 'task_due',
+      });
+    }
+  });
+
   const calendarWithSource: CalendarEventWithSource[] = calendarEvents.map((e) => ({
     ...e,
     sourceType: 'calendar',
   }));
 
-  /* 合并：日历事件在前（全天优先的排序已在库内定好），每日任务追加在后。
-   * 每日任务数量由日期范围天然有界（≤ MAX_RANGE_DAYS 天），不随日历事件的分页 limit 被裁切，
-   * 保证「用户在日历上看到的每日任务」与 /schedule 完全一致。 */
-  return [...calendarWithSource, ...dailyEvents];
+  /* 合并：日历事件在前（全天优先的排序已在库内定好），任务类追加在后。
+   * 任务条目数量由日期范围天然有界（≤ MAX_RANGE_DAYS 天），不随日历事件的分页 limit 被裁切，
+   * 保证「用户在日历上看到的任务」与 /tasks 完全一致。 */
+  return [...calendarWithSource, ...dailyEvents, ...taskEvents];
 }
 
 /* ------------------------------------------------------------------ */

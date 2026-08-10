@@ -155,9 +155,15 @@ function onDrawerEdit(ev: CalendarEvent) {
   openAdd({ event: ev });
 }
 
-/** 点击「日程计划任务」：跳转到 /schedule 并带 date + taskId，由 Schedule 页高亮对应任务 */
+/**
+ * 点击日历里的任务色块 → 跳到任务清单并高亮对应任务。
+ *
+ * 三种来源（daily_task / task / task_due）统一落到 /tasks：旧的 /schedule 已整体
+ * 重定向过去，这里直接写终点，省掉一次多余的跳转闪烁。
+ * date 一并带上，让任务页能把视图切到那一天所属的智能列表。
+ */
 function openDailyTask(payload: { taskId: number; date: string }) {
-  router.push({ path: '/schedule', query: { date: payload.date, taskId: String(payload.taskId) } });
+  router.push({ path: '/tasks', query: { date: payload.date, taskId: String(payload.taskId) } });
 }
 </script>
 

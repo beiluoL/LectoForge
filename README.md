@@ -125,18 +125,19 @@ npm run tauri build
 
 > 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《技术架构与功能手册.md》番茄钟章节。
 
-## 日程计划模块（2026-08-09 新增）
+## 任务清单模块（对标 Things 3，2026-08-10 重构）
 
-解决「今天要做什么」的轻量每日任务模块：**每日任务模板 + 一键生成今日计划 + 批量添加 + 精细重复规则**。
+把「日程计划」与「待办事项」彻底融合为**单一任务管理系统**（对标 Things 3 桌面端）：智能列表（收件箱 / 今天 / 计划 / 某天 / 日志本）+ 自定义清单树（领域→项目→清单）+ 子任务（Checklist）+ 目标日 / 截止日 + 日历联动。
 
-- **路由 `/schedule`**：独立入口（**前缀不加 `/workbench`**，顶栏「日程计划」用 `match:['/schedule']` 独立高亮，避免与「工作台」互相误亮）。
-- **模板系统**：`wb_task_template` 存可复用任务清单（含 `repeatRule`），「把当前任务存为模板」一键沉淀。
-- **一键生成**：从模板 `POST /api/schedule/generate` 幂等生成某天计划（按「模板+日期+内容」去重）。
-- **重复规则**：`daily`（每 N 天）/ `weekly`（每周多选周几）/ `monthly`（每月 X 号）；`scheduleService.shouldGenerateToday` 以模板 `created_at` 为锚点实时推算，用户切到某日期时**按需展开**重复实例（落 `wb_daily_task`，独立勾选不影响其它日期）。
-- **批量添加**：底部 textarea 按行拆分，`POST /api/schedule/batch` 走 better-sqlite3 **同步事务**原子写入。
-- **乐观交互**：勾选完成 / 删除 / 改重复规则均乐观更新 + 失败回滚 + 轻量 toast。
+- **路由 `/tasks`**（**红线：主路由名固定，任何情况不得更名**）：独立入口（`meta:{layout:'c',fullscreen:true}`，顶栏「规划▾」下拉的「任务清单」用 `match:['/tasks','/schedule',...]` 高亮）。旧 `/schedule` 在 router 重定向到 `/tasks` 且 query 透传，外部书签 / 日历深链不丢。
+- **五个智能列表 + 自定义清单树**：`wb_task` 单表承载全部任务（`status` 决定所属智能列表，`list_id` 归属自定义清单，`parent_task_id` 挂子任务）；`wb_task_list` 承载清单树（area/project/list 三类，area 可含子清单）。侧边栏徽标来自 `GET /tasks/counters` 一次聚合。
+- **树在 JS 层拼装**：`GET /tasks` 仅两条 SQL（父任务 + 一条 `IN` 查子任务），Service 层 O(n) 分组挂树，前端**禁止**再自己 filter 组树；`TaskNode.children` 为自引用 `TaskNode[]`（叶节点也保证 `children:[]`），递归组件类型与运行时自洽。
+- **过期上浮 + 当天保留已完成**：每次读列表前把过期未完成的 `upcoming` 批量挪进 `today`；「今天」视图保留当天已完成项（进度条真实可用、撤销不丢目标）。
+- **乐观交互**：勾选 / 删除乐观翻面 + 失败回滚，store ID 固定 `defineStore('tasks')`；新建按当前视图自动归位（在「今天」里建就落在今天）。
+- **日历联动**：任务清单的 `target_date` / `due_date` 进入日历（来源 `task` / `task_due`，配色 `TASK_COLOR` / `TASK_DUE_COLOR`），点击色块跳 `/tasks?date=&taskId=` 高亮定位。
+- **后端端点**：`/api/tasks`（GET 列表 / POST 新建 / `:id` PUT·DELETE / `:id/complete` 勾选 / `counters` / `clear-logbook` = 7）+ `/api/lists`（GET 树 / POST / `:id` PUT·DELETE = 4），三层架构 `routes→controllers→services` 严守边界。
 
-> 后端接口、表结构（`wb_task_template` / `wb_daily_task`）、重复推算详见《技术架构与功能手册.md》§7.17。
+> 表结构（`wb_task` / `wb_task_list`）、状态机、树拼装、过期上浮详见《技术架构与功能手册.md》§7.21。旧 `wb_task_template` / `wb_daily_task`（原「日程计划」）作为迁移来源与日历读取来源保留，不再有独立前端入口。
 
 ## 习惯打卡模块（2026-08-09 新增）
 
@@ -169,7 +170,7 @@ npm run tauri build
 
 类 TickTick 的月 / 周 / 日日历：把任务与事件放进时间网格，支持点选日期新建、点击事件看详情、拖拽无（当前为点选闭环）、按范围拉取避免全量。
 
-- **路由 `/calendar`**：独立入口（**前缀不加 `/workbench`**，顶栏「日历」收进「规划▾」下拉，高亮由父级 `match:['/schedule','/quadrant','/habits','/calendar']` 统一负责，避免与「工作台」互相误亮），`meta: { layout: 'c', fullscreen: true }`。
+- **路由 `/calendar`**：独立入口（**前缀不加 `/workbench`**，顶栏「日历」收进「规划▾」下拉，高亮由父级 `match:['/tasks','/schedule','/quadrant','/habits','/calendar']` 统一负责，避免与「工作台」互相误亮），`meta: { layout: 'c', fullscreen: true }`。
 - **月视图**：固定 42 格 CSS Grid（6×7），非当月补位格浅灰且不可交互，今天高亮环；全天事件显示「📌 全天：XXX」，定时事件显示时刻 + 标题；每格最多 3 条、余下「+N 更多」。
 - **周 / 日视图**：左侧小时刻度（00–23）+ 多日列时间轴，全天事件置顶条、定时事件按「当日可见区间」绝对定位（跨天事件在多列各自截断显示）；点击空白时间格以落点时刻为起点新建。
 - **三态**：加载态（首屏骨架）/ 空态（该区间无事件 + 新建 CTA）/ 数据态，视图只从 `eventsByDate`（按本地日键索引的派生）读取，避免 42 格各自 filter。

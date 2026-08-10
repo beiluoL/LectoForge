@@ -48,15 +48,16 @@
         <div class="px-1 space-y-0.5">
           <div
             v-for="ev in visibleEvents(cell.key)"
-            :key="ev.sourceType === 'daily_task' ? 'dt-' + ev.taskId : ev.id"
+            :key="eventKey(ev)"
             class="event-line truncate rounded px-1 py-[1px] text-[11px] leading-tight cursor-pointer"
             :style="eventLineStyle(ev)"
             :title="ev.title"
             @click.stop="onEventClick(cell.key, ev)"
           >
-            <!-- 日程计划任务：极简样式（灰点 + 左边框），点击跳转 /schedule -->
-            <template v-if="ev.sourceType === 'daily_task'">
-              <span class="ev-dot"></span>{{ ev.title }}
+            <!-- 任务类条目：极简样式（圆点 + 左边框），点击跳转 /tasks -->
+            <template v-if="isTaskSource(ev)">
+              <span class="ev-dot" :style="{ background: ev.color }"></span>
+              <span :class="{ 'line-through opacity-55': ev.taskCompleted === 1 }">{{ ev.title }}</span>
             </template>
             <template v-else-if="ev.isAllDay">📌 {{ ev.title }}</template>
             <template v-else>
@@ -88,7 +89,7 @@ import { storeToRefs } from 'pinia';
 import { useCalendarStore } from '@/store/calendar-store';
 import { buildMonthMatrix, WEEKDAY_LABELS, type DayCell } from '@/lib/calendar';
 import { formatHM } from '@/lib/date';
-import type { CalendarEvent } from '@/api/calendar';
+import { isTaskSource, type CalendarEvent } from '@/api/calendar';
 
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
@@ -138,15 +139,26 @@ function dayNumStyle(cell: DayCell): Record<string, string> {
   };
 }
 
+/**
+ * v-for 的 key。
+ *
+ * 任务类条目的 id 来自 wb_task / wb_daily_task，与 wb_calendar_event 的 id 是
+ * **两套自增序列**，直接用 ev.id 必然撞车（日历事件 3 和任务 3 同一天）。
+ * 而且一条任务可能同时产出 target 与 due 两条，再带上 sourceType 才唯一。
+ */
+function eventKey(ev: CalendarEvent): string {
+  return isTaskSource(ev) ? `${ev.sourceType}-${ev.taskId}` : `cal-${ev.id}`;
+}
+
 /** 事件行样式：
- * - daily_task（日程计划）：柔和灰、左边框 + 点状标记，极简风格，与日历事件明显区分；
+ * - 任务类：以来源色做 12% 柔和底 + 左色边 + 圆点，极简风格，与日历事件明显区分；
  * - 普通事件：全天=实色底白字；定时=浅底 + 左色边。 */
 function eventLineStyle(ev: CalendarEvent): Record<string, string> {
-  if (ev.sourceType === 'daily_task') {
+  if (isTaskSource(ev)) {
     return {
-      background: 'color-mix(in srgb, #B0B0B0 12%, transparent)',
+      background: `color-mix(in srgb, ${ev.color} 12%, transparent)`,
       color: 'var(--kb-foreground)',
-      borderLeft: '2px solid #B0B0B0',
+      borderLeft: `2px solid ${ev.color}`,
     };
   }
   if (ev.isAllDay) {
@@ -159,9 +171,9 @@ function eventLineStyle(ev: CalendarEvent): Record<string, string> {
   };
 }
 
-/** 事件点击分流：每日任务跳 /schedule；普通事件弹详情抽屉 */
+/** 事件点击分流：任务类跳 /tasks；普通事件弹详情抽屉 */
 function onEventClick(dateKey: string, ev: CalendarEvent) {
-  if (ev.sourceType === 'daily_task' && ev.taskId != null) {
+  if (isTaskSource(ev) && ev.taskId != null) {
     emit('selectTask', { taskId: ev.taskId, date: dateKey });
   } else {
     emit('select', ev);

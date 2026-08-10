@@ -230,6 +230,90 @@ export const wbDailyTask = sqliteTable('wb_daily_task', {
   updatedAt: text('updated_at').notNull(),
 });
 
+/* ===== 模块六·二代：任务清单（对标 Things 3）=====
+ * 取代 wb_daily_task「一天一张平铺清单」的旧模型，改为 Things 3 的
+ * 「状态 + 清单 + 层级」三维模型。旧表**保留不删**（日历/统计仍在读），
+ * 数据由 db/index.ts 的 migrateDailyTasksIntoTasks() 一次性搬迁。
+ *
+ * 为什么 status 用单列字符串枚举，而不是 isInbox / isToday 一堆布尔：
+ * - Things 3 的五个「智能列表」（收件箱/今天/计划/随时/某天）在语义上**互斥**，
+ *   一个任务同一时刻只可能待在一个筐里，天然是枚举而非位标记；
+ * - 侧边栏每个入口 = 一次 `WHERE status = ?`，能直接吃 (user_id, status) 索引；
+ *   布尔矩阵则要写成一串 AND/OR 组合，且无法用同一个索引。
+ *
+ * 🔴 status 与 completed 的分工（极易写错，务必分清）：
+ * - completed 是**事实**：这件事做完了没有（0/1）；
+ * - status 是**归属**：它现在应该出现在哪个视图里。
+ *   勾选完成 → completed=1 且 status 落到 'logbook'（日志本），
+ *   取消勾选 → completed=0 且 status 依据 targetDate 回推
+ *   （有今天的日期回 'today'，有未来日期回 'upcoming'，都没有回 'inbox'）。
+ *   这条回推规则唯一收口在 services/taskService.ts 的 deriveStatus()。
+ *
+ * 层级：parentTaskId 自引用（逻辑外键，库级 foreign_keys = OFF），
+ * 只做**一层**子任务（Things 3 的 Checklist 语义），不做无限递归树；
+ * 树的拼装在 JS 层完成（better-sqlite3 是同步 API，递归 CTE 反而更慢更难读）。
+ */
+export const wbTaskList = sqliteTable(
+  'wb_task_list',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    name: text('name').notNull(),
+    /** 'list' 普通清单 | 'project' 项目（带进度条）| 'area' 领域（可容纳子清单） */
+    type: text('type').notNull().default('list'),
+    /** 父清单 id：area 下可挂 list/project；顶层为 NULL */
+    parentId: integer('parent_id'),
+    iconName: text('icon_name').notNull().default('list'),
+    color: text('color').notNull().default('#3B6FE0'),
+    /** 侧边栏手工排序位，越小越靠前 */
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => ({
+    ownerIdx: index('idx_wb_task_list_owner').on(t.userId, t.parentId, t.sortOrder),
+  }),
+);
+
+export const wbTask = sqliteTable(
+  'wb_task',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    title: text('title').notNull(),
+    /** 备注（Things 3 的 Notes），纯文本 */
+    notes: text('notes'),
+    /** 'inbox' | 'today' | 'upcoming' | 'someday' | 'logbook' | 'completed' */
+    status: text('status').notNull().default('inbox'),
+    /** 0 未完成 / 1 已完成 */
+    completed: integer('completed').notNull().default(0),
+    /** 所属清单 id；NULL = 未归档（收件箱） */
+    listId: integer('list_id'),
+    /** 父任务 id；非 NULL 即为子任务（仅一层） */
+    parentTaskId: integer('parent_task_id'),
+    /** 「什么时候做」YYYY-MM-DD 本机自然日；Things 3 的 When */
+    targetDate: text('target_date'),
+    /** 「什么时候到期」YYYY-MM-DD；Things 3 的 Deadline，红色角标 */
+    dueDate: text('due_date'),
+    /** 完成时刻 UTC ISO 串，用于日志本按时间倒序 */
+    completedAt: text('completed_at'),
+    /** 逗号分隔标签串，与 wb_capture / wb_quadrant_task 口径一致 */
+    tags: text('tags'),
+    /** 列表内手工排序位，越小越靠前 */
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => ({
+    /* 侧边栏五个智能列表全是 WHERE user_id = ? AND status = ?，走这条索引 */
+    statusIdx: index('idx_wb_task_status').on(t.userId, t.status, t.sortOrder),
+    /* 清单详情页 WHERE user_id = ? AND list_id = ? */
+    listIdx: index('idx_wb_task_list_ref').on(t.userId, t.listId),
+    /* 日历联查按 target_date 区间扫描 */
+    dateIdx: index('idx_wb_task_target_date').on(t.userId, t.targetDate),
+  }),
+);
+
 // ===== P3-G3：内容向量索引（本地 embedding 存储，相似度在应用层计算）=====
 export const wbEmbedding = sqliteTable('wb_embedding', {
   id: integer('id').primaryKey({ autoIncrement: true }),

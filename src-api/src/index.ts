@@ -26,6 +26,8 @@ import pomodoro from './routes/pomodoro';
 import schedule from './routes/schedule';
 import habits from './routes/habits';
 import quadrant from './routes/quadrant';
+import tasks from './routes/tasks';
+import lists from './routes/lists';
 import calendar from './routes/calendar';
 
 const app = Fastify({ logger: false });
@@ -144,6 +146,15 @@ app.register(pomodoro, { prefix: '/api' });
  * 独立前缀 /api：端点 /schedule/templates 与 /schedule/tasks 系列，
  * 与既有 workbench 契约互不干扰；重复规则按需实时推算，不在启动期预生成。 */
 app.register(schedule, { prefix: '/api' });
+
+/* ===== 任务清单（Things 3 模型：收件箱 / 今天 / 计划 / 随时 / 某天 / 日志本）=====
+ * 独立前缀 /api：端点 /tasks 与 /lists 两组。
+ *
+ * 与上面的 /schedule 是**继任关系**而非并列：/schedule 的「一天一张平铺清单」
+ * 模型已由 /tasks 的「状态 + 清单 + 层级」取代，前端 /schedule 路由整体重定向到
+ * /tasks。旧路由暂留是为了让日历联查与历史统计不断线，待旧数据消化完再摘除。 */
+app.register(tasks, { prefix: '/api' });
+app.register(lists, { prefix: '/api' });
 
 /* ===== 习惯打卡（每日微习惯 + 连续打卡热力图）=====
  * 独立前缀 /api：端点 /habits 系列，与既有 workbench 契约互不干扰。 */

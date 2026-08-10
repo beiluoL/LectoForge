@@ -35,15 +35,15 @@
           <div v-if="allDayCount(cell.key) > 0" class="mt-1 space-y-[2px]">
             <div
               v-for="ev in allDayOf(cell.key)"
-              :key="ev.sourceType === 'daily_task' ? 'dt-' + ev.taskId : ev.id"
+              :key="eventKey(ev)"
               class="truncate rounded px-1 py-[1px] text-[10px] cursor-pointer"
-              :class="ev.sourceType === 'daily_task' ? 'dt-task-line' : 'text-white'"
-              :style="ev.sourceType === 'daily_task' ? dailyTaskLineStyle : { background: ev.color }"
+              :class="[isTaskSource(ev) ? 'dt-task-line' : 'text-white', ev.taskCompleted === 1 ? 'line-through opacity-55' : '']"
+              :style="isTaskSource(ev) ? taskLineStyle(ev) : { background: ev.color }"
               :title="ev.title"
               @click.stop="onEventClick(cell.key, ev)"
             >
-              <template v-if="ev.sourceType === 'daily_task'">
-                <span class="dt-dot"></span>{{ ev.title }}
+              <template v-if="isTaskSource(ev)">
+                <span class="dt-dot" :style="{ background: ev.color }"></span>{{ ev.title }}
               </template>
               <template v-else>📌 {{ ev.title }}</template>
             </div>
@@ -90,7 +90,7 @@
             <!-- 定时事件（绝对定位） -->
             <div
               v-for="pos in timedOf(cell.key)"
-              :key="pos.ev.sourceType === 'daily_task' ? 'dt-' + pos.ev.taskId : pos.ev.id"
+              :key="eventKey(pos.ev)"
               class="absolute left-1 right-1 rounded px-1.5 py-[1px] text-[11px] overflow-hidden cursor-pointer shadow-sm"
               :style="timedStyle(pos)"
               :title="pos.ev.title"
@@ -135,7 +135,7 @@ import dayjs from 'dayjs';
 import { useCalendarStore } from '@/store/calendar-store';
 import { buildCells, type DayCell } from '@/lib/calendar';
 import { formatHM } from '@/lib/date';
-import type { CalendarEvent } from '@/api/calendar';
+import { isTaskSource, type CalendarEvent } from '@/api/calendar';
 
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
@@ -190,14 +190,13 @@ function dayHeaderStyle(cell: DayCell): Record<string, string> {
 }
 
 function timedStyle(pos: TimedPos): Record<string, string> {
-  // 每日任务不会以定时形态出现（全是全天），这里仅作防御性分支
-  if (pos.ev.sourceType === 'daily_task') {
+  // 任务类来源通常是全天形态，这里仅作防御性分支：万一以定时形态出现，
+  // 也用其来源色（柔和底 + 左条），与月视图的渲染口径一致。
+  if (isTaskSource(pos.ev)) {
     return {
       top: pos.top + 'px',
       height: pos.height + 'px',
-      background: 'color-mix(in srgb, #B0B0B0 14%, transparent)',
-      color: 'var(--kb-foreground)',
-      borderLeft: '3px solid #B0B0B0',
+      ...taskLineStyle(pos.ev),
     };
   }
   return {
@@ -207,20 +206,27 @@ function timedStyle(pos: TimedPos): Record<string, string> {
   };
 }
 
-/** 每日任务的极简条样式（灰色，与日历事件区分） */
-const dailyTaskLineStyle: Record<string, string> = {
-  background: 'color-mix(in srgb, #B0B0B0 12%, transparent)',
-  color: 'var(--kb-foreground)',
-  borderLeft: '2px solid #B0B0B0',
-};
+/** 任务类来源（daily_task / task / task_due）的极简条样式：用来源色柔和化，与普通事件区分 */
+function taskLineStyle(ev: CalendarEvent): Record<string, string> {
+  return {
+    background: `color-mix(in srgb, ${ev.color} 14%, transparent)`,
+    color: 'var(--kb-foreground)',
+    borderLeft: `3px solid ${ev.color}`,
+  };
+}
 
-/** 事件点击分流：每日任务跳 /schedule；普通事件弹详情抽屉 */
+/** 事件点击分流：任务类来源（daily_task / task / task_due）跳 /tasks；普通事件弹详情抽屉 */
 function onEventClick(dateKey: string, ev: CalendarEvent) {
-  if (ev.sourceType === 'daily_task' && ev.taskId != null) {
+  if (isTaskSource(ev) && ev.taskId != null) {
     emit('selectTask', { taskId: ev.taskId, date: dateKey });
   } else {
     emit('select', ev);
   }
+}
+
+/** 日历事件唯一 key：任务类用「来源+任务 id」（去重且跨天稳定），普通事件用 id */
+function eventKey(ev: CalendarEvent): string {
+  return isTaskSource(ev) ? `${ev.sourceType}-${ev.taskId}` : `cal-${ev.id}`;
 }
 
 /** 点击时间格空白处：用落点 y 推算起始时刻（按 30 分钟吸附），向上抛给 index 打开新建 */

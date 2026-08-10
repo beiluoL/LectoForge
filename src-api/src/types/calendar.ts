@@ -61,9 +61,21 @@ export interface ListCalendarEventQuery extends PageQuery {
  * 既不用改其它用到 CalendarEventRow 的地方，又能让前端按 sourceType 安全分流。
  */
 export interface CalendarEventWithSource extends CalendarEventRow {
-  sourceType: 'calendar' | 'daily_task';
-  /** 仅 sourceType==='daily_task' 时存在：对应 wb_daily_task 的主键 */
+  /**
+   * - 'calendar'   普通日历事件（wb_calendar_event）
+   * - 'daily_task' 旧「日程计划」每日任务（wb_daily_task），过渡期保留
+   * - 'task'       任务清单的「什么时候做」（wb_task.target_date）
+   * - 'task_due'   任务清单的「截止日」（wb_task.due_date），红色角标
+   *
+   * 'task' 与 'task_due' 刻意分成两种来源而不是一条带两个日期的记录：
+   * 同一条任务「周一开始做、周五截止」在日历上就该出现在两格里，
+   * 合成一条跨天色块会让人误以为这五天都被占满。
+   */
+  sourceType: 'calendar' | 'daily_task' | 'task' | 'task_due';
+  /** 仅任务类来源存在：daily_task 指向 wb_daily_task.id，task/task_due 指向 wb_task.id */
   taskId?: number;
+  /** 仅 sourceType==='task' | 'task_due'：任务是否已完成，前端据此加删除线 */
+  taskCompleted?: number;
 }
 
 export interface CalendarEventCreateInput {

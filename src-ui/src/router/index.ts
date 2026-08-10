@@ -92,13 +92,26 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
-    // 日程计划 / 每日任务：解决「今天要做什么」。
-    // 路径刻意挂在 /schedule 下（前缀不加 /workbench），与 /inbox、/library、/mindmap 同理，
-    // 避免顶栏 isActive 用 startsWith 时被「工作台」误吞高亮；高亮走独立 matches('/schedule')。
-    path: '/schedule',
-    name: 'Schedule',
-    component: () => import('@/views/Schedule/index.vue'),
+    /* 任务清单（对标 Things 3）：收件箱 / 今天 / 计划 / 随时 / 某天 / 日志本 + 自定义清单。
+     *
+     * 🔴 主路由固定为 /tasks，任何情况下不得更名——深链、日历跳转、命令面板
+     *    以及旧 /schedule 的重定向全部指向它。
+     *
+     * 与 /quadrant 的分工：任务清单回答「有哪些事、什么时候做」，
+     * 四象限回答「先做哪个」。两者共用不了一张表，也共用不了一个页面。 */
+    path: '/tasks',
+    name: 'Tasks',
+    component: () => import('@/views/Tasks/index.vue'),
     meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    /* 旧「日程计划」整体让位给任务清单。
+     *
+     * 保留这条重定向而不是直接删路由：外部深链、用户书签、日历里的历史跳转
+     * 都还写着 /schedule，删掉会让它们统统撞上兜底路由掉回工作台，
+     * 用户只会觉得「点了没反应」。query 一并透传，日历带过来的 ?date= 不会丢。 */
+    path: '/schedule',
+    redirect: (to) => ({ path: '/tasks', query: to.query }),
   },
   {
     // 番茄钟历史统计：vue-chartjs 柱状图 + 三张总结卡。
