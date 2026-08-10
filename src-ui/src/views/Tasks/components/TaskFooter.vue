@@ -14,7 +14,7 @@
     <input
       ref="input"
       v-model="draft"
-      class="flex-1 border-0 bg-transparent p-0 text-[length:var(--kb-fs-body-sm)] text-[var(--kb-foreground)] outline-none placeholder:text-[var(--kb-muted-foreground)]"
+      class="flex-1 appearance-none border-0 bg-transparent p-0 text-[length:var(--kb-fs-body-sm)] text-[var(--kb-foreground)] outline-none shadow-none focus:shadow-none focus:ring-0 placeholder:text-[var(--kb-muted-foreground)]"
       :placeholder="placeholder"
       :disabled="store.submitting"
       @keyup.enter="submit"

@@ -11,9 +11,10 @@
         :key="s.key"
         type="button"
         class="side-item"
-        :class="[{ active: store.currentView === s.key }, 'pl-4']"
+        :class="[{ active: store.currentView === s.key }, 'd0']"
         @click="store.selectView(s.key)"
       >
+        <span class="side-selbar" :class="{ on: store.currentView === s.key }" aria-hidden="true"></span>
         <Icon :name="s.icon" size="sm" class="side-icon shrink-0" />
         <span class="flex-1 truncate text-left">{{ s.label }}</span>
         <span v-if="counterOf(s.key)" class="side-count">{{ counterOf(s.key) }}</span>
@@ -33,6 +34,7 @@
         :class="[{ active: store.currentView === `list:${row.list.id}` }, depthClass(row.depth)]"
         @click="store.selectView(`list:${row.list.id}`)"
       >
+        <span class="side-selbar" :class="{ on: store.currentView === `list:${row.list.id}` }" aria-hidden="true"></span>
         <Icon
           :name="iconFor(row.list)"
           size="xs"
@@ -55,7 +57,8 @@
           @blur="confirmAddList"
         />
       </div>
-      <button v-else type="button" class="side-add pl-4" @click="startAddList">
+      <button v-else type="button" class="side-add d0" @click="startAddList">
+        <span class="side-selbar" aria-hidden="true"></span>
         <Icon name="plus" size="xs" />
         <span>新建清单</span>
       </button>
@@ -113,10 +116,13 @@ function iconFor(list: TaskList): string {
   return 'list';
 }
 
-/** 树状缩进：用 Tailwind 的 pl-* 工具类按 depth 递增，保证严格树形层级（不依赖内联 paddingLeft） */
-const depthPl = ['pl-4', 'pl-8', 'pl-12', 'pl-16', 'pl-20'];
+/** 树状缩进：用 scoped 深度类（d0..d4）按 depth 递增，保证严格树形层级。
+ * ⚠️ 不能用 Tailwind 的 pl-*：.side-item 的 scoped padding 简写优先级高于 pl-* 工具类，
+ *    会把左内距压成 0，导致选中蓝条直接贴住图标（旧 bug）。这里改用 CSS 变量 --indent，
+ *    深度类只设变量、.side-item 读取变量，绕开简写优先级冲突。 */
+const depthClasses = ['d0', 'd1', 'd2', 'd3', 'd4'];
 function depthClass(d: number): string {
-  return depthPl[Math.min(Math.max(d, 0), depthPl.length - 1)];
+  return depthClasses[Math.min(Math.max(d, 0), depthClasses.length - 1)];
 }
 
 /* ---------------- 新建清单 ---------------- */
@@ -157,8 +163,10 @@ function cancelAddList() {
   align-items: center;
   gap: 9px;
   width: 100%;
-  /* 左内边距交给 Tailwind 的 pl-* 工具类控制树状缩进；这里只管上下与右内边距 */
-  padding: 7px 8px 7px 0;
+  /* 上下与右内距固定；左内距交给 --indent 变量（由 d0..d4 深度类设置），
+     避免 Tailwind pl-* 被本 scoped 简写覆盖。基准 4px + 指示条(3px) + gap(9px) ≈ 图标在 32px 处，
+     与分组标题对齐。 */
+  padding: 7px 8px 7px var(--indent, 4px);
   border-radius: var(--kb-radius-md);
   font-size: var(--kb-fs-body-sm);
   font-weight: 500;
@@ -166,17 +174,35 @@ function cancelAddList() {
   cursor: pointer;
   transition: background 0.14s ease, color 0.14s ease;
 }
+/* 树状缩进深度类：只设 --indent 变量，不直接写 padding-left（后者会被 .side-item 简写覆盖） */
+.d0 { --indent: 4px; }
+.d1 { --indent: 20px; }
+.d2 { --indent: 36px; }
+.d3 { --indent: 52px; }
+.d4 { --indent: 68px; }
 .side-item:hover {
   background: var(--kb-muted);
 }
-/* 选中态（Things 3）：极柔和主色底（5%）+ 主色字 + 3px 实色左边框 + 字重微提。
-   左边框用 inset box-shadow 而非 border-left，零布局抖动——真 border 会让整行右移 3px，
-   与未选中项的图标基线错开，产生「跳动」。 */
+/* 选中态（Things 3）：极柔和主色底（5%）+ 主色字 + 字重微提。
+   左侧 3px 指示条改用独立 .side-selbar 元素（固定宽度、透明占位），
+   与图标间靠 flex gap 自然拉开间距，不再用 inset box-shadow（那条会把蓝条贴到图标上、压住左内距）。 */
 .side-item.active {
   background: color-mix(in srgb, var(--kb-primary) 5%, transparent);
   color: var(--kb-primary);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 0 var(--kb-primary);
+}
+/* 选中指示条：常驻占位（transparent）避免 active 切换时图标左右抖动；
+   仅 .on 时填主色，3px 宽 + 圆角小药丸，高度固定不与整行等高。 */
+.side-selbar {
+  flex: none;
+  width: 3px;
+  height: 18px;
+  border-radius: 9999px;
+  background: transparent;
+  transition: background 0.14s ease;
+}
+.side-selbar.on {
+  background: var(--kb-primary);
 }
 /* 选中项 hover 不被中性灰盖掉，保持主色调性 */
 .side-item.active:hover {
@@ -216,7 +242,7 @@ function cancelAddList() {
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 7px 8px 7px 0;
+  padding: 7px 8px 7px var(--indent, 4px);
   margin-top: 2px;
   border-radius: var(--kb-radius-md);
   font-size: var(--kb-fs-body-sm);
