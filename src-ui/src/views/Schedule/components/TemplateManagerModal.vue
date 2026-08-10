@@ -2,21 +2,21 @@
   <Teleport to="body">
     <Transition name="sch-fade">
       <div v-if="open" class="sch-mask" @click.self="close">
-        <div class="sch-drawer" role="dialog" aria-modal="true" aria-label="模板管理">
-          <header class="wb-drawer-head">
-            <div>
+        <div class="sch-modal" role="dialog" aria-modal="true" aria-label="模板管理">
+          <header class="sch-modal-head">
+            <div class="sch-modal-titles">
               <span class="wb-eyebrow sch-eyebrow">
                 <Icon name="layout-template" :size="12" />
                 每日任务模板
               </span>
-              <h3 class="wb-drawer-title">模板管理</h3>
+              <span class="sch-modal-title">模板管理</span>
             </div>
-            <button class="qcm-close" @click="close">
+            <button class="qcm-close" title="关闭" @click="close">
               <Icon name="x" :size="15" />
             </button>
           </header>
 
-          <div class="wb-drawer-body">
+          <div class="sch-modal-body">
             <!-- 保存当前任务为模板 -->
             <div class="sch-save">
               <div class="wb-field">
@@ -138,13 +138,84 @@ watch(
 </script>
 
 <style scoped>
+/* 遮罩：全屏固定 + 居中（原先漏写在 index.vue 的 scoped 里，子组件收不到，导致裸块挂在页面底部） */
+.sch-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--kb-space-5);
+  background: color-mix(in srgb, var(--kb-foreground) 45%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* 居中卡片弹窗（与「生成计划」弹窗同款视觉） */
+.sch-modal {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--kb-radius-lg);
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.sch-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--kb-space-3) var(--kb-space-4);
+  border-bottom: 1px solid var(--kb-border);
+}
+.sch-modal-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sch-modal-title {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--kb-foreground);
+}
+.sch-modal-body {
+  padding: var(--kb-space-3) var(--kb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--kb-space-3);
+  max-height: 64vh;
+  overflow-y: auto;
+}
+
+/* 关闭按钮 */
+.qcm-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.qcm-close:hover {
+  background: var(--kb-muted);
+  color: var(--kb-foreground);
+}
+
 .sch-eyebrow {
   margin-bottom: 4px;
 }
-.sch-drawer {
-  width: 520px;
-  max-width: 94vw;
-}
+
+/* 保存为模板 */
 .sch-save {
   padding: 12px 14px;
   border-radius: var(--kb-radius-md);
@@ -164,6 +235,7 @@ watch(
   color: var(--kb-muted-foreground);
 }
 
+/* 模板列表 */
 .sch-tpl-list {
   list-style: none;
   margin: 0;
@@ -235,6 +307,7 @@ watch(
   color: var(--kb-muted-foreground);
 }
 
+/* 入场淡入（与 index.vue 的生成弹窗同源，但必须在本组件内定义，scoped 不泄漏） */
 .sch-fade-enter-active,
 .sch-fade-leave-active {
   transition: opacity 0.18s ease;
