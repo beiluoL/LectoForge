@@ -326,10 +326,13 @@ html.has-global-bg .kb-region-content {
 }
 
 html {
-  /* 无边框 + transparent:true 的窗口下，html 必须自带底色。
-   * body 平时是有背景的，但 `html.has-global-bg body` 会把它置成 transparent；
-   * 那一刻若 html 也没底色，窗口就会真的透出桌面（透明窗口不是「白底」，是「没有底」）。 */
-  background-color: var(--kb-background);
+  /* 无边框 + transparent:true 的窗口下，html/body 必须**透明**。
+   * 外壳 .kb-app-shell 用 clip-path: inset(0 round 20px) 裁成 20px 圆角卡片，
+   * 被裁掉的四个角需要一路透到透明窗口（露出桌面）才看得到圆角；
+   * 若 html/body 还铺不透明同色底，透明角底下仍是同色，圆角就被「补平」消失（旧 bug）。
+   * 唯一不透明面是外壳自身。global-bg 壁纸模式靠 z-index:-1 的背景层兜底，与透明不冲突。
+   * 启动遮罩 #lf-boot 自带底色（见下方规则），故 Vue 挂载前的极短瞬间不会透明闪屏。 */
+  background-color: transparent;
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -360,19 +363,22 @@ samp {
 
 body {
   min-height: 100vh;
-  background-color: var(--color-background);
+  /* 透明：与 html 同理，让外壳圆角外的区域透到桌面。颜色/字体由令牌兜底。 */
+  background-color: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  background-image:
-    radial-gradient(circle at 20% 20%, rgba(59, 111, 224, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(59, 111, 224, 0.02) 0%, transparent 50%);
-  background-size: 100% 100%;
-  background-attachment: fixed;
 }
 
 #app {
   min-height: 100vh;
   font-family: var(--font-sans);
+}
+
+/* 启动遮罩：style.css 接管前 body 由 index.html 内联样式兜成 #F7F8FA；
+ * 接管后 body 改为透明（透明窗口的圆角要靠它透出桌面），此处给遮罩自身补底色，
+ * 避免 Vue 挂载前的极短瞬间「正在启动」文字浮在透明窗口上。 */
+#lf-boot {
+  background-color: var(--kb-background);
 }
 
 /* =====================================================================

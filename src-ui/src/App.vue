@@ -23,14 +23,14 @@
     <div
       v-else
       data-tauri-drag-region="deep"
-      class="lf-standalone-titlebar fixed inset-x-0 top-0 z-50 flex h-10 w-full items-center pl-5"
+      class="lf-standalone-titlebar fixed inset-x-0 top-0 z-50 flex h-10 w-full items-center pl-5 rounded-t-[20px]"
     >
       <WindowControls />
     </div>
     <!-- fill 路由（仅任务清单 /tasks）：fixed 钉满顶栏下方，撑满高度、内部自管滚动，
          消除透明窗口底部间隙；fixed 脱离文档流，完全不影响其他页面的原生滚动 -->
     <main v-if="route.meta.fill" class="relative">
-      <div class="fixed top-14 left-0 right-0 bottom-0 overflow-hidden">
+      <div class="fixed top-14 left-0 right-0 bottom-0 overflow-hidden rounded-b-[20px]">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>

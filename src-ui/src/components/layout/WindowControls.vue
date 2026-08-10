@@ -10,14 +10,14 @@
        - 注意：脚本还会把 <button> 当天然拖拽阻断点，但显式 ="false" 是双保险、也更可读。 -->
   <div
     v-if="native"
-    class="lf-traffic flex items-center gap-2 pl-4"
+    class="lf-traffic group flex items-center gap-2 pl-4"
     data-tauri-drag-region
     role="group"
     aria-label="窗口控制"
   >
     <button
       type="button"
-      class="lf-light lf-close group w-3.5 h-3.5 rounded-full border border-[#e0443e]"
+      class="lf-light lf-close w-3.5 h-3.5 rounded-full border border-[#e0443e]"
       title="关闭"
       aria-label="关闭窗口"
       data-tauri-drag-region="false"
@@ -25,13 +25,13 @@
     >
       <Icon
         name="x"
-        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
+        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
       />
     </button>
 
     <button
       type="button"
-      class="lf-light lf-min group w-3.5 h-3.5 rounded-full border border-[#dca22e]"
+      class="lf-light lf-min w-3.5 h-3.5 rounded-full border border-[#dca22e]"
       title="最小化"
       aria-label="最小化窗口"
       data-tauri-drag-region="false"
@@ -39,13 +39,13 @@
     >
       <Icon
         name="minus"
-        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
+        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
       />
     </button>
 
     <button
       type="button"
-      class="lf-light lf-max group w-3.5 h-3.5 rounded-full border border-[#1f9e2e]"
+      class="lf-light lf-max w-3.5 h-3.5 rounded-full border border-[#1f9e2e]"
       title="最大化 / 还原"
       aria-label="最大化或还原窗口"
       data-tauri-drag-region="false"
@@ -53,7 +53,7 @@
     >
       <Icon
         name="maximize"
-        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
+        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
       />
     </button>
   </div>
@@ -118,21 +118,10 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
 
 <style scoped>
 .lf-traffic {
-  /* 拖拽区里的一块「点击 + 拖动」混合区，光标保持默认箭头 */
+  /* 拖拽区里的一块「点击 + 拖动」混合区，光标保持默认箭头。
+     ⚠️ 不再给整组加悬停高亮胶囊：用户明确要求「纯圆点 + 区域悬停浮现图标」，
+     不要亮色响应区。group 已上移到此容器（见模板），图标靠 group-hover 整组联动。 */
   cursor: default;
-  /* 整组悬停高亮：把三颗灯包进一颗极淡的圆角「胶囊」，鼠标移到红黄绿区域即整条亮起，
-     还原 macOS 原生交通灯区的精致反馈。用 token 派生的 6% 前景色 —— 深浅主题下都自然，
-     且刻意不走 Tailwind 的 dark: 变体（项目铁律：明暗一律走 --kb-* token + color-mix）。
-     注意只补上/右/下内距，左侧留给 Tailwind 的 pl-4（16px 窗口边距），不可覆盖。 */
-  padding-top: 3px;
-  padding-right: 8px;
-  padding-bottom: 3px;
-  border-radius: 8px;
-  transition: background-color 0.15s ease;
-}
-
-.lf-traffic:hover {
-  background-color: color-mix(in srgb, var(--kb-foreground) 6%, transparent);
 }
 
 .lf-light {
@@ -155,8 +144,8 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
 .lf-light:hover { filter: brightness(0.9); }
 .lf-light:active { filter: brightness(0.78); }
 
-/* 字形（× − ⤢）：默认隐藏，悬停 / 键盘聚焦该颗灯时才浮现（per-button，不是整组一起亮，
-   那是不少仿制品的破绽）。颜色纯黑、矢量渲染，Retina 上始终锐利。 */
+/* 字形（× − ⤢）：默认隐藏（纯圆点）；鼠标移到红黄绿整组（父容器 .lf-traffic.group）
+   或键盘聚焦任一灯时，三颗图标同时浮现。颜色纯黑、矢量渲染，Retina 上始终锐利。 */
 .lf-glyph {
   width: 10px;
   height: 10px;
