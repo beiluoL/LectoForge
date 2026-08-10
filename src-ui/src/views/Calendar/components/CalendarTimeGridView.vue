@@ -1,59 +1,82 @@
 <template>
   <div class="flex flex-col h-full min-h-0">
     <!-- 顶部：星期/日期表头 + 全天事件条 -->
-    <div class="flex border-b sticky top-0 z-10" :style="{ borderColor: 'var(--kb-border)', background: 'var(--kb-card)' }">
+    <div
+      class="flex border-b shrink-0"
+      :style="{ borderColor: 'var(--kb-border)', background: 'var(--kb-card)' }"
+    >
       <!-- 左侧时间轴占位 -->
-      <div class="shrink-0 border-r" :style="{ width: GUTTER + 'px', borderColor: 'var(--kb-border)' }"></div>
+      <div
+        class="shrink-0 border-r"
+        :style="{ width: GUTTER + 'px', borderColor: 'var(--kb-border)' }"
+      ></div>
 
       <div class="flex flex-1">
         <div
           v-for="cell in cells"
           :key="cell.key"
-          class="flex-1 min-w-[110px] border-r p-2"
+          class="flex-1 min-w-[100px] border-r py-1.5 px-1"
           :class="cell.isToday ? 'is-today-col' : ''"
           :style="dayHeaderStyle(cell)"
         >
-          <div class="text-xs" :style="{ color: 'var(--kb-muted-foreground)' }">{{ cell.weekdayLabel }}</div>
-          <div class="text-base font-semibold" :style="{ color: 'var(--kb-foreground)' }">{{ cell.dayNum }}</div>
+          <div class="text-center">
+            <div class="text-[10px]" :style="{ color: 'var(--kb-muted-foreground)' }">
+              {{ cell.weekdayLabel }}
+            </div>
+            <div
+              class="inline-flex items-center justify-center w-6 h-6 mt-0.5 rounded-full text-sm font-semibold tabular-nums"
+              :style="cell.isToday ? { background: 'var(--kb-primary)', color: '#fff' } : { color: 'var(--kb-foreground)' }"
+            >
+              {{ cell.dayNum }}
+            </div>
+          </div>
 
-          <!-- 全天事件 -->
-          <div class="mt-1 space-y-0.5">
+          <!-- 全天事件：按需渲染，没有时占 0 高度 -->
+          <div v-if="allDayCount(cell.key) > 0" class="mt-1 space-y-[2px]">
             <div
               v-for="ev in allDayOf(cell.key)"
               :key="ev.sourceType === 'daily_task' ? 'dt-' + ev.taskId : ev.id"
-              class="truncate rounded px-1 py-0.5 text-[11px] cursor-pointer"
+              class="truncate rounded px-1 py-[1px] text-[10px] cursor-pointer"
               :class="ev.sourceType === 'daily_task' ? 'dt-task-line' : 'text-white'"
               :style="ev.sourceType === 'daily_task' ? dailyTaskLineStyle : { background: ev.color }"
               :title="ev.title"
               @click.stop="onEventClick(cell.key, ev)"
-            ><template v-if="ev.sourceType === 'daily_task'"><span class="dt-dot"></span>{{ ev.title }}</template><template v-else>📌 {{ ev.title }}</template></div>
+            >
+              <template v-if="ev.sourceType === 'daily_task'">
+                <span class="dt-dot"></span>{{ ev.title }}
+              </template>
+              <template v-else>📌 {{ ev.title }}</template>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 主体：时间轴 + 日列 -->
-    <div class="flex-1 overflow-y-auto min-h-0">
+    <div class="flex-1 overflow-y-auto min-h-0 relative">
       <div class="flex">
         <!-- 左侧小时刻度 -->
-        <div class="shrink-0 border-r" :style="{ width: GUTTER + 'px', borderColor: 'var(--kb-border)' }">
+        <div
+          class="shrink-0 border-r"
+          :style="{ width: GUTTER + 'px', borderColor: 'var(--kb-border)' }"
+        >
           <div
             v-for="h in 24"
             :key="h"
             class="relative text-right pr-2 text-[10px]"
             :style="{ height: HOUR_H + 'px', color: 'var(--kb-muted-foreground)' }"
           >
-            <span v-if="h > 1" class="absolute -top-2 right-2">{{ String(h - 1).padStart(2, '0') }}:00</span>
+            <span v-if="h > 1" class="absolute -top-2 right-2 tabular-nums">{{ String(h - 1).padStart(2, '0') }}:00</span>
           </div>
         </div>
 
         <!-- 日列区 -->
-        <div class="flex flex-1">
+        <div class="flex flex-1 relative">
           <div
             v-for="cell in cells"
             :key="cell.key"
-            class="relative flex-1 min-w-[110px] border-r"
-            :style="{ borderColor: 'var(--kb-border)', height: totalH + 'px' }"
+            class="relative flex-1 min-w-[100px] border-r"
+            :style="{ borderColor: 'var(--kb-border)', height: totalH + 'px', background: cell.isToday ? 'color-mix(in srgb, var(--kb-primary) 3%, transparent)' : '' }"
             @click="onColumnClick(cell, $event)"
           >
             <!-- 24 条小时网格线 -->
@@ -61,20 +84,34 @@
               v-for="h in 24"
               :key="h"
               class="absolute left-0 right-0 border-t pointer-events-none"
-              :style="{ top: (h - 1) * HOUR_H + 'px', borderColor: 'var(--kb-border)', opacity: h === 1 ? 0 : 0.6 }"
+              :style="{ top: (h - 1) * HOUR_H + 'px', borderColor: 'var(--kb-border)', opacity: h === 1 ? 0 : 0.45 }"
             ></div>
 
             <!-- 定时事件（绝对定位） -->
             <div
               v-for="pos in timedOf(cell.key)"
               :key="pos.ev.sourceType === 'daily_task' ? 'dt-' + pos.ev.taskId : pos.ev.id"
-              class="absolute left-1 right-1 rounded px-1.5 py-0.5 text-[11px] overflow-hidden cursor-pointer shadow-sm"
+              class="absolute left-1 right-1 rounded px-1.5 py-[1px] text-[11px] overflow-hidden cursor-pointer shadow-sm"
               :style="timedStyle(pos)"
               :title="pos.ev.title"
               @click.stop="onEventClick(cell.key, pos.ev)"
             >
               <div class="font-medium truncate" style="color:#fff">{{ pos.ev.title }}</div>
-              <div class="opacity-90 truncate" style="color:#fff">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
+              <div class="opacity-90 truncate text-[10px]" style="color:#fff">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
+            </div>
+          </div>
+
+          <!-- 当前时间红线：跨列悬浮，仅在当前视图包含今天时显示 -->
+          <div
+            v-if="currentTimeVisible"
+            class="pointer-events-none absolute left-0 right-0 z-10"
+            :style="{ top: currentTimeTop + 'px' }"
+          >
+            <div class="relative w-full h-px" :style="{ background: 'var(--kb-destructive)' }">
+              <span
+                class="absolute -left-[5px] -top-[2.5px] w-[5px] h-[5px] rounded-full"
+                :style="{ background: 'var(--kb-destructive)' }"
+              ></span>
             </div>
           </div>
         </div>
@@ -86,11 +123,13 @@
 <script setup lang="ts">
 // 周 / 日 共用的时间轴视图。
 // - 左侧固定小时刻度（00:00–23:00），右侧每列一天；日视图只有 1 列、周视图 7 列。
-// - 全天事件渲染在顶部条；定时事件按「当日可见区间」绝对定位到对应像素（跨天事件会在多列各自截断显示）。
+// - 全天事件渲染在顶部条，无全天事件时表头高度自动收缩。
+// - 定时事件按「当日可见区间」绝对定位到对应像素（跨天事件会在多列各自截断显示）。
+// - 新增当前时间红线，帮助快速定位「现在」。
 // - 点击空白时间格 → 以落点时刻为起点新建事件（emit add，携带 dateKey + 起始 HH:mm）。
 //
 // 性能：事件分组只读 store.eventsByDate（按日索引派生），不重复遍历 events 数组。
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import dayjs from 'dayjs';
 import { useCalendarStore } from '@/store/calendar-store';
@@ -107,8 +146,8 @@ const emit = defineEmits<{
 const store = useCalendarStore();
 const { currentDate, viewMode, eventsByDate } = storeToRefs(store);
 
-const HOUR_H = 44; // 每小时像素高
-const GUTTER = 52; // 左侧时间轴宽度
+const HOUR_H = 40; // 每小时像素高（紧凑）
+const GUTTER = 48; // 左侧时间轴宽度
 const totalH = 24 * HOUR_H;
 
 const cells = computed<DayCell[]>(() => buildCells(currentDate.value, viewMode.value));
@@ -119,6 +158,10 @@ function dayEvents(key: string): CalendarEvent[] {
 function allDayOf(key: string): CalendarEvent[] {
   return dayEvents(key).filter((e) => e.isAllDay === 1);
 }
+function allDayCount(key: string): number {
+  return allDayOf(key).length;
+}
+
 interface TimedPos {
   ev: CalendarEvent;
   top: number;
@@ -142,8 +185,8 @@ function timedOf(key: string): TimedPos[] {
 
 function dayHeaderStyle(cell: DayCell): Record<string, string> {
   return cell.isToday
-    ? { background: 'color-mix(in srgb, var(--kb-primary) 10%, transparent)' }
-    : {};
+    ? { background: 'color-mix(in srgb, var(--kb-primary) 8%, transparent)', borderColor: 'var(--kb-border)' }
+    : { borderColor: 'var(--kb-border)' };
 }
 
 function timedStyle(pos: TimedPos): Record<string, string> {
@@ -166,9 +209,9 @@ function timedStyle(pos: TimedPos): Record<string, string> {
 
 /** 每日任务的极简条样式（灰色，与日历事件区分） */
 const dailyTaskLineStyle: Record<string, string> = {
-  background: 'color-mix(in srgb, #B0B0B0 14%, transparent)',
+  background: 'color-mix(in srgb, #B0B0B0 12%, transparent)',
   color: 'var(--kb-foreground)',
-  borderLeft: '3px solid #B0B0B0',
+  borderLeft: '2px solid #B0B0B0',
 };
 
 /** 事件点击分流：每日任务跳 /schedule；普通事件弹详情抽屉 */
@@ -190,6 +233,27 @@ function onColumnClick(cell: DayCell, ev: MouseEvent) {
   const mm = String(minute % 60).padStart(2, '0');
   emit('add', { dateKey: cell.key, time: `${hh}:${mm}` });
 }
+
+/* ---------------- 当前时间红线 ---------------- */
+const nowMinute = ref(dayjs().diff(dayjs().startOf('day'), 'minute'));
+let timeTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  timeTimer = setInterval(() => {
+    nowMinute.value = dayjs().diff(dayjs().startOf('day'), 'minute');
+  }, 60000);
+});
+onUnmounted(() => {
+  if (timeTimer) clearInterval(timeTimer);
+});
+
+const todayKeyStr = computed(() => dayjs().format('YYYY-MM-DD'));
+const currentTimeVisible = computed(() => {
+  return cells.value.some((c) => c.key === todayKeyStr.value);
+});
+const currentTimeTop = computed(() => {
+  return (nowMinute.value / 1440) * totalH;
+});
 </script>
 
 <style scoped>
@@ -200,12 +264,11 @@ function onColumnClick(cell: DayCell, ev: MouseEvent) {
 }
 .dt-dot {
   display: inline-block;
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 999px;
   background: #b0b0b0;
   margin-right: 4px;
   flex: none;
 }
 </style>
-

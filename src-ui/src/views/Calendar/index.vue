@@ -3,7 +3,7 @@
     <CalendarHeader @add="openAdd()" />
 
     <!-- 主体：三态（加载 / 空 / 数据） -->
-    <div class="relative flex-1 min-h-0">
+    <div class="relative flex-1 min-h-0 flex flex-col">
       <!-- 加载态：首屏无数据时的骨架 -->
       <div v-if="state === 'loading'" class="absolute inset-0 flex flex-col">
         <div class="grid grid-cols-7 grid-rows-6 h-full">
@@ -13,41 +13,48 @@
         </div>
       </div>
 
-      <!-- 空态：当前视图区间无事件 -->
-      <div v-else-if="state === 'empty'" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+      <!-- 数据态 / 空态：都渲染底层网格，空态时顶部叠加 compact 提示 -->
+      <template v-else>
+        <!-- 空态：紧凑提示条，不覆盖整屏，保留日历网格骨架可见 -->
         <div
-          class="w-16 h-16 rounded-2xl flex items-center justify-center"
-          :style="{ background: 'var(--kb-muted)' }"
+          v-if="state === 'empty'"
+          class="shrink-0 px-3 py-2 border-b"
+          :style="{ borderColor: 'var(--kb-border)' }"
         >
-          <Icon name="calendar" size="2xl" :style="{ color: 'var(--kb-muted-foreground)' }" />
+          <div
+            class="flex items-center gap-3 rounded-lg px-3 py-2"
+            :style="{ background: 'color-mix(in srgb, var(--kb-primary) 5%, transparent)' }"
+          >
+            <Icon name="calendar" size="md" :style="{ color: 'var(--kb-primary)' }" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium">暂无日程</p>
+              <p class="text-xs truncate" :style="{ color: 'var(--kb-muted-foreground)' }">
+                点击日期或右上角「新建」添加事件
+              </p>
+            </div>
+            <button type="button" class="kb-btn kb-btn-primary kb-btn-sm" @click="openAdd()">
+              <Icon name="plus" size="xs" />
+              <span>新建</span>
+            </button>
+          </div>
         </div>
-        <div>
-          <p class="font-medium">这段时间还没有安排</p>
-          <p class="text-sm mt-1" :style="{ color: 'var(--kb-muted-foreground)' }">
-            点击任意日期或右上角「新建事件」开始规划你的日程
-          </p>
-        </div>
-        <button type="button" class="kb-btn kb-btn-primary" @click="openAdd()">
-          <Icon name="plus" size="sm" />
-          <span>新建事件</span>
-        </button>
-      </div>
 
-      <!-- 数据态 -->
-      <div v-else class="absolute inset-0">
-        <CalendarMonthView
-          v-if="store.viewMode === 'month'"
-          @select="openDetail"
-          @add="(d) => openAdd({ dateKey: d })"
-          @select-task="openDailyTask"
-        />
-        <CalendarTimeGridView
-          v-else
-          @select="openDetail"
-          @add="(p) => openAdd(p)"
-          @select-task="openDailyTask"
-        />
-      </div>
+        <!-- 视图：月 / 周 / 日 -->
+        <div class="flex-1 min-h-0">
+          <CalendarMonthView
+            v-if="store.viewMode === 'month'"
+            @select="openDetail"
+            @add="(d) => openAdd({ dateKey: d })"
+            @select-task="openDailyTask"
+          />
+          <CalendarTimeGridView
+            v-else
+            @select="openDetail"
+            @add="(p) => openAdd(p)"
+            @select-task="openDailyTask"
+          />
+        </div>
+      </template>
     </div>
 
     <!-- 新建 / 编辑弹窗 -->
@@ -75,6 +82,8 @@
 // 日历模块主入口（路由 /calendar）。
 // 职责：持有弹窗/抽屉的开合状态，把子组件的「新建/选择」事件翻译成 store 调用，
 // 并按 store.loading / events.length 呈现 加载态 / 空态 / 数据态 三态。
+// 空态不再用 absolute inset-0 全屏居中，而是顶部 compact 提示条 + 保留底层日历网格，
+// 避免 TickTick 式日历在无事件时中间一大片空白。
 // 视图数据全部来自 useCalendarStore（storeToRefs 解构），本组件不持有任何业务状态。
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';

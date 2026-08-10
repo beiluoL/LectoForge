@@ -1,23 +1,46 @@
 <template>
-  <header class="flex flex-wrap items-center gap-3 px-5 py-3 border-b" :style="{ borderColor: 'var(--kb-border)' }">
-    <!-- 左：当前区间标题 -->
-    <h1 class="text-lg font-semibold mr-2" :style="{ color: 'var(--kb-foreground)' }">{{ title }}</h1>
+  <header
+    class="flex items-center justify-between gap-3 px-4 h-12 shrink-0 border-b"
+    :style="{ borderColor: 'var(--kb-border)', background: 'var(--kb-card)' }"
+  >
+    <!-- 左：标题 + 今天 + 翻页 -->
+    <div class="flex items-center gap-2">
+      <h1 class="text-[15px] font-semibold tabular-nums" :style="{ color: 'var(--kb-foreground)' }">
+        {{ title }}
+      </h1>
 
-    <!-- 中：翻页 + 今天 -->
-    <div class="flex items-center gap-1">
-      <button type="button" class="wb-icon-btn" title="上一周期" @click="store.shift(-1)">
-        <Icon name="chevron-left" size="md" />
+      <button
+        type="button"
+        class="kb-btn kb-btn-sm ml-1"
+        @click="store.goToday()"
+      >
+        今天
       </button>
-      <button type="button" class="kb-btn kb-btn-sm" @click="store.goToday()">今天</button>
-      <button type="button" class="wb-icon-btn" title="下一周期" @click="store.shift(1)">
-        <Icon name="chevron-right" size="md" />
-      </button>
+
+      <div class="flex items-center">
+        <button
+          type="button"
+          class="cal-nav-btn"
+          title="上一周期"
+          @click="store.shift(-1)"
+        >
+          <Icon name="chevron-left" size="sm" />
+        </button>
+        <button
+          type="button"
+          class="cal-nav-btn"
+          title="下一周期"
+          @click="store.shift(1)"
+        >
+          <Icon name="chevron-right" size="sm" />
+        </button>
+      </div>
     </div>
 
     <!-- 右：视图模式切换 + 新建 -->
-    <div class="flex items-center gap-2 ml-auto">
+    <div class="flex items-center gap-2">
       <div
-        class="inline-flex items-center rounded-lg p-0.5"
+        class="inline-flex items-center rounded-md p-0.5"
         :style="{ background: 'var(--kb-muted)' }"
         role="tablist"
         aria-label="视图模式"
@@ -26,10 +49,10 @@
           v-for="m in modes"
           :key="m.value"
           type="button"
-          class="px-3 py-1 rounded-md text-sm font-medium transition-colors"
+          class="px-2.5 py-1 rounded-[5px] text-xs font-medium transition-all"
           :class="store.viewMode === m.value ? 'is-active' : ''"
           :style="store.viewMode === m.value
-            ? { background: 'var(--kb-card)', color: 'var(--kb-primary)', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }
+            ? { background: 'var(--kb-card)', color: 'var(--kb-primary)', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
             : { color: 'var(--kb-muted-foreground)' }"
           @click="store.setViewMode(m.value)"
         >
@@ -39,16 +62,16 @@
 
       <button type="button" class="kb-btn kb-btn-primary" @click="$emit('add')">
         <Icon name="plus" size="sm" />
-        <span>新建事件</span>
+        <span>新建</span>
       </button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-// 日历顶部操作栏：区间标题 + 翻页/今天 + 视图模式切换 + 新建按钮。
-// 视图状态全部来自 useCalendarStore（storeToRefs 解构响应式字段），
-// 翻页/切模式直接调用 store action；「新建」通过 emit 上浮给 index.vue 打开弹窗。
+// 日历顶部操作栏（TickTick 风格）：紧凑单行 48px，不 wrap。
+// 标题 + 今天 + 翻页居左；视图分段控件 + 新建居右。
+// 所有视图状态来自 useCalendarStore；「新建」通过 emit 上浮给 index.vue。
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import dayjs from 'dayjs';
@@ -80,3 +103,20 @@ const title = computed(() => {
   return `${fmt(first)} - ${fmt(last)}`;
 });
 </script>
+
+<style scoped>
+.cal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--kb-radius-sm);
+  color: var(--kb-muted-foreground);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cal-nav-btn:hover {
+  background: var(--kb-muted);
+  color: var(--kb-foreground);
+}
+</style>

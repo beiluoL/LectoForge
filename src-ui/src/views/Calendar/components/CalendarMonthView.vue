@@ -1,44 +1,55 @@
 <template>
   <div class="flex flex-col h-full">
-    <!-- 星期表头（周一打头，与 lib/calendar WEEK_START 同步） -->
-    <div class="grid grid-cols-7 border-b" :style="{ borderColor: 'var(--kb-border)' }">
+    <!-- 星期表头：紧凑，与网格左边缘严格对齐 -->
+    <div
+      class="grid grid-cols-7 shrink-0 border-b"
+      :style="{ borderColor: 'var(--kb-border)', background: 'var(--kb-card)' }"
+    >
       <div
         v-for="w in weekdayLabels"
         :key="w"
-        class="py-2 text-center text-xs font-medium"
+        class="py-1.5 text-center text-[11px] font-medium"
         :style="{ color: 'var(--kb-muted-foreground)' }"
-      >{{ w }}</div>
+      >
+        {{ w }}
+      </div>
     </div>
 
     <!-- 42 格月网格：固定 6 行，翻月高度不跳动 -->
-    <div class="grid grid-cols-7 grid-rows-6 flex-1 min-h-0">
+    <!-- 父容器负责上/左边框，子格负责下/右边框，避免边框重叠导致 2px -->
+    <div
+      class="grid grid-cols-7 grid-rows-6 flex-1 min-h-0 border-t border-l"
+      :style="{ borderColor: 'var(--kb-border)' }"
+    >
       <button
         v-for="cell in cells"
         :key="cell.key"
         type="button"
-        class="group relative text-left border-b border-r p-1.5 overflow-hidden transition-colors"
-        :class="cell.inMonth ? '' : 'is-out'"
+        class="group relative text-left border-b border-r overflow-hidden transition-colors focus:outline-none"
+        :class="cell.inMonth ? 'is-in-month' : 'is-out'"
         :style="cellStyle(cell)"
         @click="onCellClick(cell)"
       >
-        <!-- 日期数字：今天高亮环 -->
-        <div class="flex items-center gap-1 mb-0.5">
+        <!-- 日期数字：今天用实心小圆点高亮 -->
+        <div class="flex items-center gap-1 px-1.5 pt-1 pb-0.5">
           <span
-            class="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full text-sm"
+            class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-semibold tabular-nums"
             :class="cell.isToday ? 'is-today' : ''"
             :style="dayNumStyle(cell)"
-          >{{ cell.dayNum }}</span>
+          >
+            {{ cell.dayNum }}
+          </span>
           <span v-if="!cell.inMonth" class="text-[10px]" :style="{ color: 'var(--kb-muted-foreground)' }">
             {{ cell.monthNum }}月
           </span>
         </div>
 
-        <!-- 当日事件列表（最多 3 条，余下 +N） -->
-        <div class="space-y-0.5">
+        <!-- 当日事件列表（最多 4 条，余下 +N） -->
+        <div class="px-1 space-y-0.5">
           <div
             v-for="ev in visibleEvents(cell.key)"
             :key="ev.sourceType === 'daily_task' ? 'dt-' + ev.taskId : ev.id"
-            class="event-line truncate rounded px-1 py-0.5 text-[11px] leading-tight cursor-pointer"
+            class="event-line truncate rounded px-1 py-[1px] text-[11px] leading-tight cursor-pointer"
             :style="eventLineStyle(ev)"
             :title="ev.title"
             @click.stop="onEventClick(cell.key, ev)"
@@ -54,10 +65,12 @@
           </div>
           <div
             v-if="overflow(cell.key) > 0"
-            class="text-[10px] px-1 cursor-pointer"
+            class="text-[10px] px-1 cursor-pointer hover:underline"
             :style="{ color: 'var(--kb-muted-foreground)' }"
             @click.stop="emit('add', cell.key)"
-          >+{{ overflow(cell.key) }} 更多</div>
+          >
+            +{{ overflow(cell.key) }} 更多
+          </div>
         </div>
       </button>
     </div>
@@ -87,7 +100,7 @@ const store = useCalendarStore();
 const { currentDate, eventsByDate } = storeToRefs(store);
 
 const weekdayLabels = WEEKDAY_LABELS;
-const MAX_VISIBLE = 3;
+const MAX_VISIBLE = 4;
 
 const cells = computed<DayCell[]>(() => buildMonthMatrix(currentDate.value));
 
@@ -103,11 +116,14 @@ function overflow(key: string): number {
 
 function cellStyle(cell: DayCell): Record<string, string> {
   const bg = !cell.inMonth
-    ? 'var(--kb-muted)'
+    ? 'var(--kb-background)'
     : cell.isWeekend
-    ? 'color-mix(in srgb, var(--kb-card) 92%, var(--kb-muted))'
+    ? 'color-mix(in srgb, var(--kb-card) 96%, var(--kb-muted))'
     : 'var(--kb-card)';
-  return { background: bg, borderColor: 'var(--kb-border)' };
+  return {
+    background: bg,
+    borderColor: 'var(--kb-border)',
+  };
 }
 
 function dayNumStyle(cell: DayCell): Record<string, string> {
@@ -115,7 +131,6 @@ function dayNumStyle(cell: DayCell): Record<string, string> {
     return {
       background: 'var(--kb-primary)',
       color: '#fff',
-      fontWeight: '600',
     };
   }
   return {
@@ -129,18 +144,18 @@ function dayNumStyle(cell: DayCell): Record<string, string> {
 function eventLineStyle(ev: CalendarEvent): Record<string, string> {
   if (ev.sourceType === 'daily_task') {
     return {
-      background: 'color-mix(in srgb, #B0B0B0 14%, transparent)',
+      background: 'color-mix(in srgb, #B0B0B0 12%, transparent)',
       color: 'var(--kb-foreground)',
-      borderLeft: '3px solid #B0B0B0',
+      borderLeft: '2px solid #B0B0B0',
     };
   }
   if (ev.isAllDay) {
     return { background: ev.color, color: '#fff' };
   }
   return {
-    background: `color-mix(in srgb, ${ev.color} 14%, transparent)`,
+    background: `color-mix(in srgb, ${ev.color} 12%, transparent)`,
     color: 'var(--kb-foreground)',
-    borderLeft: `3px solid ${ev.color}`,
+    borderLeft: `2px solid ${ev.color}`,
   };
 }
 
@@ -163,15 +178,22 @@ function onCellClick(cell: DayCell) {
 </script>
 
 <style scoped>
+/* hover：当月格悬停时轻微加深，补位格不响应 */
+.is-in-month:hover {
+  background: color-mix(in srgb, var(--kb-muted) 35%, var(--kb-card)) !important;
+}
+.is-out:hover {
+  background: color-mix(in srgb, var(--kb-border) 25%, var(--kb-background)) !important;
+}
+
 /* 日程计划任务前面的小灰点 */
 .ev-dot {
   display: inline-block;
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 999px;
   background: #b0b0b0;
   margin-right: 4px;
   vertical-align: middle;
 }
 </style>
-
