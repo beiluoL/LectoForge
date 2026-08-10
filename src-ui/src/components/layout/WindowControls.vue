@@ -1,56 +1,60 @@
 <template>
-  <!-- 自绘 macOS 交通灯（2026-08-10 无边框沉浸式窗口改造）
+  <!-- 自绘 macOS 交通灯（2026-08-10 无边框沉浸式窗口改造，2026-08-10 精细化打磨）
        窗口开了 decorations:false，系统红黄绿随原生标题栏一起没了，这里把它补回来。
 
-       为什么整组和每颗灯都写 data-tauri-drag-region="false"：
-       外层顶栏是拖拽区，Tauri 注入的 drag 脚本会在 mousedown 时判断事件目标是否属于拖拽区，
-       命中就调 start_dragging，此时点击事件不再派发给按钮 —— 表现为「按钮点不动」。
-       标成 false 等于在这一小块区域里把拖拽让位给点击。 -->
+       拖拽区语义（Tauri 2.11 注入脚本）：
+       - 外层容器标裸 `data-tauri-drag-region` → 它是可拖拽区。左侧 pl-4 留白与三颗灯之间的
+         gap 都属于这块区域，按住即可拖动窗口（父级 header 的 "deep" 也会兜底覆盖到这里）。
+       - 三颗灯本身标 `data-tauri-drag-region="false"` → 命中即「让位给点击」，不会误触发拖拽，
+         从而 close/minimize/maximize 点得动。
+       - 注意：脚本还会把 <button> 当天然拖拽阻断点，但显式 ="false" 是双保险、也更可读。 -->
   <div
     v-if="native"
-    class="lf-traffic flex items-center gap-2"
-    :class="{ 'is-blurred': !focused }"
-    data-tauri-drag-region="false"
+    class="lf-traffic flex items-center gap-2 pl-4"
+    data-tauri-drag-region
     role="group"
     aria-label="窗口控制"
   >
     <button
       type="button"
-      class="lf-light lf-close w-3 h-3 rounded-full"
+      class="lf-light lf-close group w-3.5 h-3.5 rounded-full border border-[#e0443e]"
       title="关闭"
       aria-label="关闭窗口"
       data-tauri-drag-region="false"
       @click="run('close')"
     >
-      <svg viewBox="0 0 12 12" aria-hidden="true">
-        <path d="M3.6 3.6l4.8 4.8M8.4 3.6l-4.8 4.8" />
-      </svg>
+      <Icon
+        name="x"
+        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
+      />
     </button>
 
     <button
       type="button"
-      class="lf-light lf-min w-3 h-3 rounded-full"
+      class="lf-light lf-min group w-3.5 h-3.5 rounded-full border border-[#dca22e]"
       title="最小化"
       aria-label="最小化窗口"
       data-tauri-drag-region="false"
       @click="run('minimize')"
     >
-      <svg viewBox="0 0 12 12" aria-hidden="true">
-        <path d="M3 6h6" />
-      </svg>
+      <Icon
+        name="minus"
+        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
+      />
     </button>
 
     <button
       type="button"
-      class="lf-light lf-max w-3 h-3 rounded-full"
+      class="lf-light lf-max group w-3.5 h-3.5 rounded-full border border-[#1f9e2e]"
       title="最大化 / 还原"
       aria-label="最大化或还原窗口"
       data-tauri-drag-region="false"
       @click="run('toggleMaximize')"
     >
-      <svg viewBox="0 0 12 12" aria-hidden="true">
-        <path d="M6 3v6M3 6h6" />
-      </svg>
+      <Icon
+        name="plus"
+        class="lf-glyph w-2.5 h-2.5 text-black opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none"
+      />
     </button>
   </div>
 </template>
@@ -68,6 +72,9 @@ import { onMounted, onUnmounted, ref } from 'vue';
 // 顶层静态导入：build 模式页面由 8787 侧车静态托管，动态 import @tauri-apps/api/* 的 chunk
 // 会静默失败（项目既有约定，见 App.vue / pomodoroStore 注释）。
 import { getCurrentWindow } from '@tauri-apps/api/window';
+// 项目统一图标封装（lucide 包装器）：name="x"/"minus"/"plus" 即渲染对应矢量字形，
+// 比手写 SVG / HTML 实体在 Retina 上更清晰，也契合项目「禁止 dark: 变体、走 token」的约定。
+import Icon from '@/components/ui/Icon.vue';
 
 /** 浏览器预览态（npm run dev 直接开 5173 看页面）下没有 Tauri 宿主，整组隐藏而不是渲染出一排点不动的假灯。 */
 const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -111,7 +118,7 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
 
 <style scoped>
 .lf-traffic {
-  /* 拖拽区里的一块「点击孤岛」，光标保持默认箭头，别让它看起来像可拖动的手柄 */
+  /* 拖拽区里的一块「点击 + 拖动」混合区，光标保持默认箭头 */
   cursor: default;
 }
 
@@ -121,38 +128,34 @@ async function run(action: 'close' | 'minimize' | 'toggleMaximize') {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: none;
   /* 灯珠内缘一圈极淡描边：纯色圆点在浅色顶栏上会显得发飘，原生灯是有轮廓的 */
-  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 14%);
   cursor: default;
-  transition: background-color 0.15s ease, filter 0.15s ease;
+  transition: background-color 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
 }
 
 .lf-close { background-color: #ff5f57; }
 .lf-min { background-color: #febc2e; }
 .lf-max { background-color: #28c840; }
 
-.lf-light:hover { filter: brightness(0.92); }
+/* 悬停 / 按下时整颗灯「变深」：用 filter:brightness 而非 /80 透明度——窗口是 transparent 的，
+   降透明度只会让灯更透（在毛玻璃顶栏上反而显亮），brightness 才是真正的压暗，贴近 macOS 手感。 */
+.lf-light:hover { filter: brightness(0.9); }
 .lf-light:active { filter: brightness(0.78); }
 
-/* 字形（× − ＋）：整组 hover 时三个一起浮现，与 macOS 一致；
-   单独 hover 只亮一颗是常见的仿制品破绽。 */
-.lf-light svg {
-  width: 8px;
-  height: 8px;
-  fill: none;
-  stroke: rgb(0 0 0 / 58%);
-  stroke-width: 1.4;
-  stroke-linecap: round;
-  opacity: 0;
-  transition: opacity 0.12s ease;
+/* 字形（× − ＋）：默认隐藏，悬停 / 键盘聚焦该颗灯时才浮现（per-button，不是整组一起亮，
+   那是不少仿制品的破绽）。颜色纯黑、矢量渲染，Retina 上始终锐利。 */
+.lf-glyph {
+  width: 10px;
+  height: 10px;
+  color: #000;
 }
-.lf-traffic:hover .lf-light svg { opacity: 1; }
 
 /* 失焦：褪成中性灰点。用 --kb-* token 派生，深浅色主题下都不会突兀
-   （项目铁律：明暗一律走 token + color-mix，禁用 Tailwind 的 dark: 变体）。 */
+   （项目铁律：明暗一律走 token + color-mix，禁用 Tailwind 的 dark: 变体）。
+   同时把可选的有色描边一并透明化——原生失焦灰点本就没有彩色边。 */
 .lf-traffic.is-blurred .lf-light {
   background-color: color-mix(in srgb, var(--kb-muted-foreground) 38%, transparent);
+  border-color: transparent;
 }
 /* 失焦窗口上悬停仍会亮回彩色 —— 这也是原生行为 */
 .lf-traffic.is-blurred:hover .lf-close { background-color: #ff5f57; }
