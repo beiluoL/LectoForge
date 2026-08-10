@@ -2,22 +2,25 @@
   <!-- 与 Web 端 CLayout（route.meta.layout === 'c'）结构一致：
        顶部 56px 固定导航 + pt-14 内容区；工作台页为 fullscreen，取消 max-w-7xl 居中限制。
        番茄钟已回归顶栏内嵌胶囊（TimerCapsule），不再有 pomodoro_popup 透明弹窗窗口。 -->
-  <div class="kb-app-shell flex flex-col h-screen overflow-hidden" :style="{ background: 'var(--kb-background)' }">
+  <div class="kb-app-shell flex flex-col h-screen" :style="{ background: 'var(--kb-background)' }">
     <DesktopTopNav v-if="!route.meta.standalone" />
-    <main class="flex-1 min-h-0 overflow-hidden relative">
-      <template v-if="route.meta.standalone">
+    <!-- fullscreen 路由（如 /tasks）：flex-1 撑满剩余空间 + overflow-hidden 让内部自管理滚动 -->
+    <main v-if="route.meta.fullscreen" class="flex-1 min-h-0 overflow-hidden relative">
+      <div class="w-full h-full">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
-      </template>
-      <template v-else-if="route.meta.fullscreen">
-        <div class="w-full h-full">
-          <router-view v-slot="{ Component }">
-            <component :is="Component" :key="route.path" />
-          </router-view>
-        </div>
-      </template>
-      <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 py-6 h-full overflow-y-auto">
+      </div>
+    </main>
+    <!-- standalone 全屏页（引导/设置）：无顶栏，直接渲染 -->
+    <template v-else-if="route.meta.standalone">
+      <router-view v-slot="{ Component }">
+        <component :is="Component" :key="route.path" />
+      </router-view>
+    </template>
+    <!-- 普通页面（收集箱/工作台/笔记等）：pt-14 让开顶栏 + 可滚动 -->
+    <main v-else class="flex-1 min-h-0 pt-14 overflow-y-auto">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <router-view v-slot="{ Component }">
           <component :is="Component" :key="route.path" />
         </router-view>
