@@ -326,10 +326,6 @@ html.has-global-bg .kb-region-content {
 }
 
 html {
-  margin: 0;
-  padding: 0;
-  width: 100vw;
-  height: 100vh;
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
@@ -359,11 +355,8 @@ samp {
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100vh;
-  background-color: var(--kb-background);
+  min-height: 100vh;
+  background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   background-image:
@@ -374,10 +367,7 @@ body {
 }
 
 #app {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   font-family: var(--font-sans);
 }
 
