@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * OCR 扫描弹窗：来源 = 拍照（CameraCaptureModal）或 选图（文件选择器）。
- * 拿到图片后走 ocrClient.recognizeText（tesseract.js 主 / macOS Vision 兜底），
+ * OCR 扫描弹窗：来源 = 截图（capture_screenshot 命令，系统交互式框选）或 选图（文件选择器）。
+ * 拿到图片后走 ocrClient.recognizeText（tesseract.js 主，中文优先，完全离线），
  * 结果进入可编辑文本框（OCR 常有错字，先让人在确认前修正），确认后回传文本。
- * 对齐移动端 §7.16 的「拍照 / 选图」双入口。
+ * 对齐移动端 §7.16 的「截图 / 选图」双入口。
  */
 import { ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
-import CameraCaptureModal from './CameraCaptureModal.vue';
 import { recognizeText } from '@/lib/ocr/ocrClient';
+import { captureScreenshot } from '@/lib/screenshot';
 
 const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{
@@ -16,7 +16,6 @@ const emit = defineEmits<{
   confirmed: [text: string];
 }>();
 
-const showCamera = ref(false);
 const busy = ref(false);
 const error = ref('');
 const text = ref('');
@@ -24,7 +23,6 @@ const step = ref<'pick' | 'result'>('pick');
 const fileInput = ref<HTMLInputElement | null>(null);
 
 function close() {
-  showCamera.value = false;
   busy.value = false;
   text.value = '';
   error.value = '';
@@ -53,9 +51,21 @@ function onFilePicked(e: Event) {
   if (file) void runOcr(file);
 }
 
-function onCameraCaptured(blob: Blob) {
-  showCamera.value = false;
-  void runOcr(blob);
+/** 截图识别：拉起系统交互式框选 → base64 PNG → OCR */
+async function startScreenshot() {
+  busy.value = true;
+  error.value = '';
+  try {
+    const blob = await captureScreenshot();
+    if (!blob) {
+      busy.value = false;
+      return; // 用户取消，静默回到选择
+    }
+    await runOcr(blob);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '截图失败';
+    busy.value = false;
+  }
 }
 
 function confirm() {
@@ -81,17 +91,18 @@ function retake() {
 
       <!-- 选择来源 -->
       <div v-if="step === 'pick'" class="ocr-pick">
-        <button class="ocr-src" :disabled="busy" @click="showCamera = true">
-          <Icon name="camera" :size="20" />
-          <span>拍照</span>
+        <button class="ocr-src" :disabled="busy" @click="startScreenshot">
+          <Icon name="screenshot" :size="20" />
+          <span>截图识别</span>
         </button>
         <button class="ocr-src" :disabled="busy" @click="fileInput?.click()">
           <Icon name="image" :size="20" />
           <span>从图片选择</span>
         </button>
         <input ref="fileInput" type="file" accept="image/*" class="hidden-file-input" @change="onFilePicked" />
-        <p v-if="error" class="ocr-error">{{ error }}</p>
-        <p class="ocr-tip">识别在本地离线完成，图片不会上传到任何服务器。</p>
+        <p v-if="busy" class="ocr-tip">正在截图…请在屏幕上框选要识别的区域（ESC 取消）</p>
+        <p v-else-if="error" class="ocr-error">{{ error }}</p>
+        <p v-else class="ocr-tip">识别在本地离线完成，图片不会上传到任何服务器。</p>
       </div>
 
       <!-- 识别结果（可编辑） -->
@@ -109,8 +120,6 @@ function retake() {
         </template>
       </div>
     </div>
-
-    <CameraCaptureModal v-model="showCamera" @captured="onCameraCaptured" />
   </div>
 </template>
 

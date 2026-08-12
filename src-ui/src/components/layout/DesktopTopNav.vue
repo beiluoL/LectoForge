@@ -385,6 +385,23 @@ const navItems: NavItem[] = [
   // 思维导图沿用 share-2：lucide 没有 mindmap 这个图标名，写了会 fallback 成空 SVG。
   { kind: 'leaf', key: 'mindmap', path: '/mindmap', label: '思维导图', icon: 'share-2', collapse: true },
 
+  /* ---- 离线模拟面试（本地语音通话 + 题库）----
+   * 父级下拉：两个入口（面试通话 / 题库管理）同属「模拟面试」域。
+   * 无独立 /interview 之外的父路由，高亮靠 match 覆盖两个子路径。 */
+  {
+    kind: 'group',
+    key: 'interview',
+    label: '模拟面试',
+    icon: 'mic',
+    match: ['/interview', '/interview-bank'],
+    dividerBefore: true,
+    collapse: true,
+    children: [
+      { path: '/interview', label: '面试通话', icon: 'mic' },
+      { path: '/interview-bank', label: '题库管理', icon: 'database' },
+    ],
+  },
+
   /* ---- 规划（合并项）：日程计划 / 四象限 / 习惯打卡 三个旧入口收拢于此 ----
    * 无 path = 纯下拉容器，router/index.ts 无需（也不应）为 /plan 建路由。
    * 高亮完全靠 match，进入任一子页面父级都保持点亮。 */
@@ -396,7 +413,6 @@ const navItems: NavItem[] = [
     /* /schedule 仍留在 match 里：它已重定向到 /tasks，但重定向发生在导航守卫之后、
      * 期间 route.path 可能短暂等于 /schedule，留着它能避免顶栏在跳转瞬间闪一下熄灭。 */
     match: ['/tasks', '/schedule', '/quadrant', '/habits', '/calendar'],
-    dividerBefore: true,
     collapse: true,
     children: [
       { path: '/tasks', label: '任务清单', icon: 'list-checks' },

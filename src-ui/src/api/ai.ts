@@ -30,6 +30,10 @@ export interface AiConfigVO {
   embeddingsModel?: string
   embeddingsConfigured?: boolean
   embeddingPresets?: AiProviderPreset[]
+  /** 本地 Whisper 语音识别地址（离线面试用，可选） */
+  whisperUrl?: string
+  /** 本地 Whisper 模型名（可选） */
+  whisperModel?: string
 }
 
 export interface AiConfigPayload {
@@ -46,6 +50,10 @@ export interface AiConfigPayload {
   /** 留空 = 保持原值；传 null = 清空已保存的 Embeddings Key */
   embeddingsApiKey?: string | null
   embeddingsModel?: string
+  /** 本地 Whisper 语音识别地址（离线面试，可选） */
+  whisperUrl?: string
+  /** 本地 Whisper 模型名（可选） */
+  whisperModel?: string
 }
 
 export interface AiStatusVO {

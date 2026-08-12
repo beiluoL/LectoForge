@@ -4,14 +4,14 @@
 
 > 代码仓库：GitHub [`beiluoL/LectoForge`](https://github.com/beiluoL/LectoForge) ｜ Gitee [`beiluol/lecto-forge`](https://gitee.com/beiluol/lecto-forge)
 >
-> 完整技术架构与功能说明见仓库根目录《技术架构与功能手册.md》。
+> 完整技术架构与功能说明见仓库根目录《桌面端技术架构与功能手册.md》。
 
 ## 技术选型（均为各维度最推荐方案）
 
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 149 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《技术架构与功能手册.md》§7.20） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 149 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《桌面端技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《桌面端技术架构与功能手册.md》§7.20） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -25,7 +25,7 @@
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
 │   ├── src/routes/      # 薄路由 25 模块 / 522 行：只绑定「路径 → Controller」，无任何 SQL
-│   │                    # 17 张表对应 163 个端点（以《技术架构与功能手册.md》§4.1 汇总表为准：学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve + 2026-08-09 新增四象限 /api/quadrant 6 个 + 同日新增日历视图 /api/calendar 4 个 + 2026-08-10 任务清单 /api/tasks 7 个 与 /api/lists 4 个、数据备份 /api/backup 3 个）
+│   │                    # 17 张表对应 163 个端点（以《桌面端技术架构与功能手册.md》§4.1 汇总表为准：学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve + 2026-08-09 新增四象限 /api/quadrant 6 个 + 同日新增日历视图 /api/calendar 4 个 + 2026-08-10 任务清单 /api/tasks 7 个 与 /api/lists 4 个、数据备份 /api/backup 3 个）
 │   ├── src/controllers/ # 控制层 25 模块 / 1959 行：解析请求、调 Service、决定 HTTP 状态码
 │   ├── src/services/    # 服务层 33 模块 / 7570 行：Drizzle 查询、文件 IO、axios 外呼
 │   │   ├── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
@@ -50,7 +50,7 @@ desktopApp/
 - 响应信封由 `index.ts` 的 `onSend` 钩子唯一负责，Controller 直接 `return` 纯数据即可，不要手写 `{ code: 200, data }`。
 - better-sqlite3 是同步的：`db.transaction((tx) => {...})` 回调**不得写成 async**，否则事务会在首个 `await` 处提前提交。
 
-详细的层职责表、AI 模块的 `{ code, message, aiCode }` 例外契约见《技术架构与功能手册.md》§2.3.1。
+详细的层职责表、AI 模块的 `{ code, message, aiCode }` 例外契约见《桌面端技术架构与功能手册.md》§2.3.1。
 
 ## 快速开始（开发，无需 Rust）
 
@@ -106,7 +106,7 @@ npm run tauri build
 - 同一文档三视图：**极简大纲**（Tab/Shift+Tab 缩进）/ **markmap 导图**（SVG 导出）/ **vue-flow 流程图**（5 种形状、双击编辑）。
 - 支持 **AI 生成**思维导图（未配 Key 时返回 mock，优雅降级）。
 
-> 两模块的前后端接口、关键技术取舍详见《技术架构与功能手册.md》§7.10 / §7.11。
+> 两模块的前后端接口、关键技术取舍详见《桌面端技术架构与功能手册.md》§7.10 / §7.11。
 
 ## 番茄钟模块（2026-08-07 新增）
 
@@ -125,7 +125,7 @@ npm run tauri build
   - 顶栏「番茄钟」导航项回归普通路由跳转 `/pomodoro`；App 菜单「番茄钟」项 = 前置主窗口 + `emit("navigate", "/pomodoro")`。
 - **复习页集成**：`/review` 顶部嵌入番茄钟状态条（阶段 + 剩余时间 + 暂停 / 继续），专注刷题中不被打断。
 
-> 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《技术架构与功能手册.md》番茄钟章节。
+> 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《桌面端技术架构与功能手册.md》番茄钟章节。
 
 ## 任务清单模块（对标 Things 3，2026-08-10 重构）
 
@@ -139,7 +139,7 @@ npm run tauri build
 - **日历联动**：任务清单的 `target_date` / `due_date` 进入日历（来源 `task` / `task_due`，配色 `TASK_COLOR` / `TASK_DUE_COLOR`），点击色块跳 `/tasks?date=&taskId=` 高亮定位。
 - **后端端点**：`/api/tasks`（GET 列表 / POST 新建 / `:id` PUT·DELETE / `:id/complete` 勾选 / `counters` / `clear-logbook` = 7）+ `/api/lists`（GET 树 / POST / `:id` PUT·DELETE = 4），三层架构 `routes→controllers→services` 严守边界。
 
-> 表结构（`wb_task` / `wb_task_list`）、状态机、树拼装、过期上浮详见《技术架构与功能手册.md》§7.21。旧 `wb_task_template` / `wb_daily_task`（原「日程计划」）作为迁移来源与日历读取来源保留，不再有独立前端入口。
+> 表结构（`wb_task` / `wb_task_list`）、状态机、树拼装、过期上浮详见《桌面端技术架构与功能手册.md》§7.21。旧 `wb_task_template` / `wb_daily_task`（原「日程计划」）作为迁移来源与日历读取来源保留，不再有独立前端入口。
 
 ## 习惯打卡模块（2026-08-09 新增）
 
@@ -153,7 +153,7 @@ npm run tauri build
 - **N+1 防御（后端）**：`GET /api/habits` 用单条 `LEFT JOIN wb_habit_log` 算 `todayStatus`，另一条聚合查询在内存按 habit 分组算 `streak`——全程仅 2 条 SQL，绝不随习惯数线性增长。
 - **事务级联**：`DELETE /api/habits/:id` 用 better-sqlite3 同步事务级联删除该习惯全部打卡记录。
 
-> 后端接口、表结构（`wb_habit` / `wb_habit_log`）、统计与热力图计算详见《技术架构与功能手册.md》§7.18。
+> 后端接口、表结构（`wb_habit` / `wb_habit_log`）、统计与热力图计算详见《桌面端技术架构与功能手册.md》§7.18。
 
 ## 四象限任务模块（2026-08-09 新增）
 
@@ -166,7 +166,7 @@ npm run tauri build
 - **乐观交互**：新建 / 更新 / 勾选 / 删除 / 移动 / 清空已完成均乐观更新 + 失败回滚 + 轻量 toast，store ID 固定 `defineStore('quadrant')`。
 - **列表性能红线（后端）**：`GET /api/quadrant/tasks` **单次 SQL** 取出全量（按 `completed → sort_order → created_at` 排序），在 Service 层 `groupTasks()` 单趟 O(n) 分桶成 `urgent_important` / `not_urgent_important` / `urgent_not_important` / `not_urgent_not_important` 四个下划线键——前端**严禁循环 filter**，直接消费四分组；字段连字符 `quadrant` 与响应下划线键的映射在 Service `QUADRANT_KEYS` 与 Store `GROUP_OF` 收口。
 
-> 后端接口、表结构（`wb_quadrant_task`）、分组与映射逻辑详见《技术架构与功能手册.md》§7.19。
+> 后端接口、表结构（`wb_quadrant_task`）、分组与映射逻辑详见《桌面端技术架构与功能手册.md》§7.19。
 
 ## 日历视图模块（2026-08-09 新增）
 
@@ -179,7 +179,7 @@ npm run tauri build
 - **🔴 性能红线（后端）**：`GET /api/calendar/events` **必须**带 `start_date` / `end_date` 范围参数，不提供任何「拉全量」形态；范围查询用「区间重叠」命中（非「开始时间落在范围内」），跨月长事件在两侧月份都出现。
 - **乐观交互**：新建成功后重拉当前视图；更新 / 删除乐观更新 + 失败回滚 + 轻量 toast，store ID 固定 `defineStore('calendar')`。
 
-> 后端接口、表结构（`wb_calendar_event`）、范围查询与 UTC ISO 时间口径详见《技术架构与功能手册.md》§7.20。
+> 后端接口、表结构（`wb_calendar_event`）、范围查询与 UTC ISO 时间口径详见《桌面端技术架构与功能手册.md》§7.20。
 
 ## 数据备份模块（2026-08-10 新增）
 
@@ -193,7 +193,7 @@ npm run tauri build
 - **后端端点（3 个）**：`POST /api/backup`、`GET /api/backup/schedule`、`PUT /api/backup/schedule`；计划落 `<dataDir>/backup-config.json`。
 - **权限**：新增 `tauri-plugin-fs`（scope 限 `$APPDATA`/`$APPCONFIG`/`$HOME`）+ 5 条自定义命令 ACL；「打开目录」复用 `tauri-plugin-shell` 的 `command("open")`。
 
-> ⚠️ 打包前务必确认 `tauri.conf.json` resources 含 `"../src-api/backup.js": "api/backup.js"`，且 `archiver` 已随 `scripts/prepare-bin.sh` 进 `.prod-modules/node_modules`。详见《技术架构与功能手册.md》§7.22 / §9.2.1。
+> ⚠️ 打包前务必确认 `tauri.conf.json` resources 含 `"../src-api/backup.js": "api/backup.js"`，且 `archiver` 已随 `scripts/prepare-bin.sh` 进 `.prod-modules/node_modules`。详见《桌面端技术架构与功能手册.md》§7.22 / §9.2.1。
 
 ## v1.1.0 新增能力（本次更新）
 
@@ -210,7 +210,7 @@ npm run tauri build
 
 ## v1.2.0 新增能力（康奈尔笔记生态增强）
 
-在康奈尔三栏编辑 / 自动保存 / 划词工具栏之上，补齐 **5 大跨模块联动 + AI 赋能**（详见《技术架构与功能手册.md》§7.3.1）：
+在康奈尔三栏编辑 / 自动保存 / 划词工具栏之上，补齐 **5 大跨模块联动 + AI 赋能**（详见《桌面端技术架构与功能手册.md》§7.3.1）：
 
 - **① 沉浸阅读 & 反向引用**：`⛶ 全屏阅读` 隐藏 chrome 只留 Markdown 渲染；`[[笔记标题]]` 双链 + `GET /api/workbench/notes/backlinks/:id` 反向引用面板。
 - **② AI 续写 & 自测题**：`POST /api/ai/note/extend` 浮动对比窗（新段落插入 / 光标处追加）；自测题 `POST /api/ai/note/flashcards` 支持 `choice` / `fill` / `mixed` 题型。
@@ -220,7 +220,7 @@ npm run tauri build
 
 > 新增 / 扩展后端端点共 **6 个**（`backlinks` / `tags` / `resolve` / `note/extend` / `note/flashcards` 增强 / `note/generate-mindmap`，及 `GET /notes` 的 `tag` / `mastery_lte` / `has_summary` 参数）。
 
-> 详细接口、表结构、启动链路见《技术架构与功能手册.md》 §4.4 / §6.6 / §7.12–§7.15 / §9.4。
+> 详细接口、表结构、启动链路见《桌面端技术架构与功能手册.md》 §4.4 / §6.6 / §7.12–§7.15 / §9.4。
 
 ## 原生能力（Tauri，macOS）
 

@@ -198,6 +198,52 @@
       </div>
     </section>
 
+    <!-- ============ 卡片 2b：本地模型（离线模拟面试） ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="cpu" :size="18" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">本地模型（离线模拟面试）</h2>
+          <p class="lf-card-desc">配置本地 LLM 与 Whisper 语音识别，实现完全离线的模拟面试 / 语音通话。</p>
+        </div>
+        <span class="lf-status" :class="form.provider === 'local' ? 'is-ok' : 'is-off'">
+          <i class="lf-status-dot"></i>{{ form.provider === 'local' ? '本地模型' : '云端模型' }}
+        </span>
+      </div>
+
+      <div class="lf-grid2">
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">本地 LLM 网关地址</label>
+          <input
+            v-model="form.localLlmUrl"
+            class="kb-input"
+            placeholder="http://localhost:11434/v1"
+            spellcheck="false"
+            @input="onLocalLlmUrlInput"
+          />
+          <p class="lf-field-hint">填入后会自动把服务商切到「本地（local）」，面试改用本机 Ollama / LM Studio 推理。</p>
+        </div>
+
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">本地 Whisper 识别地址</label>
+          <input v-model="form.whisperUrl" class="kb-input" placeholder="http://127.0.0.1:8080" spellcheck="false" />
+          <p class="lf-field-hint">whisper.cpp / whisper-server 的 OpenAI 兼容地址，用于离线语音转写。</p>
+        </div>
+
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">Whisper 模型名</label>
+          <input v-model="form.whisperModel" class="kb-input" placeholder="ggml-base" spellcheck="false" />
+        </div>
+      </div>
+
+      <div class="lf-actions">
+        <button class="kb-btn kb-btn-primary" :disabled="saving" @click="saveAll">
+          <Icon :name="saving ? 'loader' : 'save'" :size="16" :class="saving ? 'lf-spin' : ''" />
+          保存本地模型设置
+        </button>
+      </div>
+    </section>
+
     <!-- ============ 卡片 3：AI 能力清单 ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
@@ -383,6 +429,10 @@ const form = reactive({
   embeddingsBaseUrl: '',
   embeddingsApiKey: '',
   embeddingsModel: '',
+  // 本地模型（离线模拟面试）：localLlmUrl 与上方 baseUrl 二选一，填了即切 local provider
+  localLlmUrl: '',
+  whisperUrl: '',
+  whisperModel: '',
 })
 
 /** AI 能力清单（原 AiSettings.vue 迁移，图标均为 lucide 合法名，经 <Icon> 渲染） */
@@ -456,6 +506,10 @@ function snapshot(): string {
     embeddingsProvider: form.embeddingsProvider,
     embeddingsBaseUrl: form.embeddingsBaseUrl.trim(),
     embeddingsModel: form.embeddingsModel.trim(),
+    // 本地模型
+    localLlmUrl: form.localLlmUrl.trim(),
+    whisperUrl: form.whisperUrl.trim(),
+    whisperModel: form.whisperModel.trim(),
     // Key 只看「是否填了新值」，明文不进快照
     keyTouched: !!form.apiKey.trim(),
     embedKeyTouched: !!form.embeddingsApiKey.trim(),
@@ -484,6 +538,18 @@ function applyEmbeddingPreset() {
   form.embeddingsModel = p.model
 }
 
+/**
+ * 本地 LLM 网关地址输入：一旦用户填写（且非空），即把服务商切到 local，
+ * 并把该地址同步到 form.baseUrl，使后续「保存」走本地推理（Ollama / LM Studio）。
+ */
+function onLocalLlmUrlInput() {
+  const url = form.localLlmUrl.trim()
+  if (url) {
+    form.provider = 'local'
+    form.baseUrl = url
+  }
+}
+
 /** 用后端返回的完整配置视图回填表单（apiKey 字段留空，避免明文残留） */
 function syncAiForm(cfg: AiConfigVO) {
   saved.apiKeyMask = cfg.apiKeyMask || ''
@@ -498,6 +564,10 @@ function syncAiForm(cfg: AiConfigVO) {
   form.embeddingsApiKey = ''
   form.embeddingsModel = cfg.embeddingsModel || ''
   form.timeoutSec = Math.round(cfg.timeoutMs / 1000)
+  // 本地模型：provider 为 local 时把网关地址回填到专用字段；whisper 直接回填
+  form.localLlmUrl = cfg.provider === 'local' ? cfg.baseUrl : ''
+  form.whisperUrl = cfg.whisperUrl || ''
+  form.whisperModel = cfg.whisperModel || ''
 }
 
 onMounted(async () => {
@@ -603,6 +673,8 @@ async function saveAll() {
       embeddingsBaseUrl: form.embeddingsBaseUrl.trim(),
       embeddingsApiKey: form.embeddingsApiKey.trim() || undefined,
       embeddingsModel: form.embeddingsModel.trim(),
+      whisperUrl: form.whisperUrl.trim() || undefined,
+      whisperModel: form.whisperModel.trim() || undefined,
     })
     presets.value = cfg.presets || presets.value
     embedPresets.value = cfg.embeddingPresets || embedPresets.value

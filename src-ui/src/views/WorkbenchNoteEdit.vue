@@ -237,12 +237,12 @@
                 <Icon name="x" :size="14" />
               </button>
               <span class="rte-divider"></span>
-              <!-- 媒体 / 离线智能输入组：插入图片、拍照、语音转文字、OCR 扫描 -->
+              <!-- 媒体 / 离线智能输入组：插入图片、截图、语音转文字、OCR 扫描 -->
               <button class="rte-btn" title="插入图片" :disabled="mediaBusy" @click="pickAndInsertImage">
                 <Icon name="image" :size="14" />
               </button>
-              <button class="rte-btn" title="拍照" :disabled="mediaBusy" @click="openCamera">
-                <Icon name="camera" :size="14" />
+              <button class="rte-btn" title="截图" :disabled="mediaBusy" @click="startScreenshot">
+                <Icon name="screenshot" :size="14" />
               </button>
               <button class="rte-btn" title="语音转文字" :disabled="mediaBusy" @click="startVoiceInput">
                 <Icon :name="voiceBusy ? 'loader' : 'mic'" :size="14" :class="{ 'ai-spin': voiceBusy }" />
@@ -586,8 +586,7 @@
       </transition>
     </Teleport>
 
-    <!-- 拍照 / OCR 弹窗（离线本地） -->
-    <CameraCaptureModal v-model="showCameraModal" @captured="onCameraCaptured" />
+    <!-- OCR 弹窗（离线本地） -->
     <OcrModal v-model="showOcrModal" @confirmed="onOcrText" />
   </div>
 </template>
@@ -845,16 +844,15 @@ function toggleHighlight() {
 }
 
 /* ==================== 媒体 / 离线智能输入 ====================
- * 拍照 / 选图 / 附件 / 离线语音转文字 / 离线 OCR 扫描。
+ * 截图 / 选图 / 附件 / 离线语音转文字 / 离线 OCR 扫描。
  * 对齐移动端 §7.13.1 / §7.15 / §7.16，全部本地离线完成。 */
 import { useSpeechToText } from '@/composables/useSpeechToText'
-import CameraCaptureModal from '@/components/media/CameraCaptureModal.vue'
 import OcrModal from '@/components/media/OcrModal.vue'
-import { uploadAttachment, imageHtmlTag } from '@/lib/media'
+import { captureScreenshot } from '@/lib/screenshot'
+// 注：拍照(CameraCaptureModal) 已下线，统一改为系统截图 captureScreenshot()
 
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const mediaBusy = ref(false)
-const showCameraModal = ref(false)
 const showOcrModal = ref(false)
 const ocrBusy = computed(() => showOcrModal.value)
 
@@ -905,18 +903,20 @@ async function onImagePicked(e: Event) {
   }
 }
 
-/** 拍照 → 上传 → 内联 <img> */
-function openCamera() {
-  showCameraModal.value = true
-}
-async function onCameraCaptured(blob: Blob) {
+/** 截图 → 上传 → 内联 <img> */
+async function startScreenshot() {
   mediaBusy.value = true
   try {
-    const res = await uploadAttachment(blob, `camera-${Date.now()}.png`)
-    insertHtmlAtCursor(imageHtmlTag(res.url, 'camera'))
-    notify('照片已插入', 'success')
+    const blob = await captureScreenshot()
+    if (!blob) {
+      mediaBusy.value = false
+      return // 用户取消
+    }
+    const res = await uploadAttachment(blob, `screenshot-${Date.now()}.png`)
+    insertHtmlAtCursor(imageHtmlTag(res.url, 'screenshot'))
+    notify('截图已插入', 'success')
   } catch (err) {
-    notify('拍照插入失败：' + (err instanceof Error ? err.message : ''), 'error')
+    notify('截图插入失败：' + (err instanceof Error ? err.message : ''), 'error')
   } finally {
     mediaBusy.value = false
   }

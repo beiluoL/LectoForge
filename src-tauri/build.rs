@@ -11,6 +11,7 @@ fn main() {
                 "trigger_notification",
                 "restart_sidecar",
                 "select_directory",
+                "capture_screenshot",
                 "check_for_update",
                 "open_external_url",
                 "quit_app",

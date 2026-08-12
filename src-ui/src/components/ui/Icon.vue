@@ -1390,6 +1390,15 @@
       <line x1="3" y1="21" x2="10" y2="14" />
     </template>
 
+    <!-- 截图：四角取景框 + 中心快门圆（lucide 本版无 Screenshot，手绘补齐） -->
+    <template v-else-if="name === 'screenshot'">
+      <path d="M4 7V5a2 2 0 0 1 2-2h2" />
+      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+      <path d="M20 17v2a2 2 0 0 1-2 2h-2" />
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+      <circle cx="12" cy="12" r="3" />
+    </template>
+
     <!-- 咖啡杯 2（长休，带茶包） -->
     <template v-else-if="name === 'coffee-2'">
       <path d="M17 8h1a4 4 0 1 1 0 8h-1" />

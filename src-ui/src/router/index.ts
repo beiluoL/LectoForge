@@ -197,6 +197,20 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 离线模拟面试 / 语音通话：全屏沉浸式，顶栏保留（非 standalone）。
+    path: '/interview',
+    name: 'Interview',
+    component: () => import('@/views/Interview.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    // 面试题库管理：导入面经（MD/PDF）+ 从复习卡/笔记汇入 + 列表。
+    path: '/interview-bank',
+    name: 'InterviewBank',
+    component: () => import('@/views/InterviewBank.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     // 旧 AI 配置中心已合并进统一设置页 /settings（2026-08-08 重构），
     // 这里保留重定向兜住历史链接与外部书签，避免 404。
     path: '/settings/ai',

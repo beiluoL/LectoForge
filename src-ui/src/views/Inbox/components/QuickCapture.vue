@@ -186,15 +186,15 @@
           @change="onFilePicked"
         />
 
-        <!-- 拍照：webview 摄像头抓帧 → 作为图片附件 -->
+        <!-- 截图：系统交互式框选 → 作为图片附件 -->
         <button
           class="kb-btn kb-btn-sm"
           type="button"
           :disabled="uploading"
-          title="拍照"
-          @click="showCamera = true"
+          title="截图"
+          @click="startScreenshot"
         >
-          <Icon name="camera" :size="12" /> 拍照
+          <Icon name="screenshot" :size="12" /> 截图
         </button>
 
         <!-- OCR 扫描：拍照 / 选图 → 离线识别文字 → 插入正文 -->
@@ -239,8 +239,7 @@
       </div>
     </div>
 
-    <!-- 拍照 / OCR 弹窗 -->
-    <CameraCaptureModal v-model="showCamera" @captured="onCameraCaptured" />
+    <!-- OCR 弹窗 -->
     <OcrModal v-model="showOcr" @confirmed="onOcrConfirmed" />
   </section>
 </template>
@@ -269,8 +268,8 @@ import Icon from '@/components/ui/Icon.vue';
 import { useInboxStore } from '@/store/inbox-store';
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
 import { useSpeechToText } from '@/composables/useSpeechToText';
-import CameraCaptureModal from '@/components/media/CameraCaptureModal.vue';
 import OcrModal from '@/components/media/OcrModal.vue';
+import { captureScreenshot } from '@/lib/screenshot';
 import { notify, getApiError } from '@/utils/toast';
 import { fromNow } from '@/lib/date';
 import type { ClipResult, InboxType, UploadResult } from '@/api/inbox';
@@ -310,8 +309,7 @@ const attachments = ref<Attachment[]>([]);
 const { recording, elapsedText, start: startRec, stop: stopRec, cancel: cancelRec, error: recError } =
   useVoiceRecorder();
 
-/* 离线媒体能力：拍照 / OCR 扫描 / 语音转写（均本地完成，不依赖云端） */
-const showCamera = ref(false);
+/* 离线媒体能力：截图 / OCR 扫描 / 语音转写（均本地完成，不依赖云端） */
 const showOcr = ref(false);
 const stt = useSpeechToText({
   onResult: (t) => {
@@ -489,11 +487,13 @@ function discardRecord() {
  * 拍照 / OCR 扫描 / 语音转写（离线，对齐移动端 §7.13.1 / §7.15 / §7.16）
  * ======================================================================== */
 
-/** 拍照弹窗抓到的帧：当作图片附件上传并落入附件条 */
-async function onCameraCaptured(blob: Blob) {
-  const file = new File([blob], `camera-${Date.now()}.png`, { type: 'image/png' });
+/** 截图 → 作为图片附件上传并落入附件条 */
+async function startScreenshot() {
+  const blob = await captureScreenshot();
+  if (!blob) return; // 用户取消
+  const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' });
   await uploadFiles([file]);
-  notify('照片已添加为附件', 'success');
+  notify('截图已添加为附件', 'success');
 }
 
 /** OCR 扫描确认后的文字：追加进正文文本框（用户可继续编辑） */

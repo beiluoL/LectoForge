@@ -30,6 +30,7 @@
     "allow-trigger-notification",
     "allow-restart-sidecar",
     "allow-select-directory",
+    "allow-capture-screenshot",
     "allow-check-for-update",
     "allow-open-external-url",
     "allow-quit-app",

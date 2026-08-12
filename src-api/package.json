@@ -20,7 +20,8 @@
     "drizzle-orm": "^0.33.0",
     "fastest-levenshtein": "^1.0.16",
     "fastify": "^4.28.1",
-    "iconv-lite": "^0.7.3"
+    "iconv-lite": "^0.7.3",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",

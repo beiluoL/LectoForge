@@ -21,7 +21,7 @@ function tokenize(text: string): Set<string> {
 }
 
 /** 比对原文与默写，命中原文关键词比例 × 100（0~100）。 */
-function scoreRecall(source: string, recall: string): number {
+export function scoreRecall(source: string, recall: string): number {
   if (!source || !source.trim()) return 0;
   const sourceWords = tokenize(source);
   if (sourceWords.size === 0) return 0;

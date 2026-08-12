@@ -441,3 +441,29 @@ export const wbCalendarEvent = sqliteTable(
     rangeIdx: index('idx_wb_calendar_event_range').on(t.userId, t.startTime),
   }),
 );
+
+/* ===== 模块十：模拟面试题库（离线语音面试/通话的素材层）=====
+ * 统一题库：手动导入面经（Markdown/PDF）+ 复用 wb_review_card（问答卡）与 wb_note（康奈尔笔记）。
+ * 答案评分复用 recallService 的关键词命中率逻辑（scoreRecall）。
+ *
+ * createdAt 用 INTEGER（epoch 毫秒）而非 ISO 串：题库条目按 idx 顺序 + 时间排序即可，
+ * 不需要跨时区对齐，整数比较比字符串更快也更直观；idx 为手动/导入序位（NULL 表示未排序）。
+ */
+export const wbQaBank = sqliteTable('wb_qa_bank', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  question: text('question').notNull(),
+  referenceAnswer: text('reference_answer').notNull().default(''),
+  /** 评分要点（可选，供面试官/用户复盘），存 JSON 数组或纯文本，NULL 表示无 */
+  scoringPoints: text('scoring_points'),
+  /** 来源类型：import（手动/面经导入）| review_card（复习卡）| note（康奈尔笔记） */
+  sourceType: text('source_type').notNull().default('import'),
+  /** 来源行 id：review_card → wb_review_card.id，note → wb_note.id；手动导入为 NULL */
+  sourceId: integer('source_id'),
+  /** 逗号分隔标签串，与 wb_capture / wb_note 口径一致 */
+  tags: text('tags'),
+  /** 难度 1~5，默认 1 */
+  difficulty: integer('difficulty').notNull().default(1),
+  createdAt: integer('created_at').notNull(),
+  /** 排序位，越小越靠前；NULL 表示按入库时间 */
+  idx: integer('idx'),
+});

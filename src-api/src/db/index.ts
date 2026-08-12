@@ -337,6 +337,20 @@ CREATE TABLE IF NOT EXISTS wb_task (
 CREATE INDEX IF NOT EXISTS idx_wb_task_status ON wb_task (user_id, status, sort_order);
 CREATE INDEX IF NOT EXISTS idx_wb_task_list_ref ON wb_task (user_id, list_id);
 CREATE INDEX IF NOT EXISTS idx_wb_task_target_date ON wb_task (user_id, target_date);
+/* ===== 模拟面试题库 ===== */
+CREATE TABLE IF NOT EXISTS wb_qa_bank (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question TEXT NOT NULL,
+  reference_answer TEXT NOT NULL DEFAULT '',
+  scoring_points TEXT,
+  source_type TEXT NOT NULL DEFAULT 'import',
+  source_id INTEGER,
+  tags TEXT,
+  difficulty INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  idx INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_wb_qa_bank_source ON wb_qa_bank (source_type);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====

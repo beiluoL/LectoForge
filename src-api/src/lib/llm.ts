@@ -16,7 +16,7 @@ import { getAiConfigPath } from './paths';
  */
 
 /** 支持的服务商预设 */
-export type LlmProvider = 'deepseek' | 'openai' | 'custom';
+export type LlmProvider = 'deepseek' | 'openai' | 'custom' | 'local';
 
 export interface LlmConfig {
   /** 总开关，关闭后所有 AI 端点直接返回未启用 */
@@ -47,6 +47,9 @@ export const PROVIDER_PRESETS: Record<LlmProvider, { label: string; baseUrl: str
   deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
   openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   custom: { label: '自定义（OpenAI 兼容）', baseUrl: '', model: '' },
+  // 本地推理（Ollama / LM Studio）：走 OpenAI 兼容端点，常无 API Key，model 由用户在设置页填写。
+  // Phase 2 仅需在「AI 设置」把 provider 切到 local 即可离线运行，业务代码零改动。
+  local: { label: '本地(Ollama)', baseUrl: 'http://localhost:11434/v1', model: '' },
 };
 
 /** 向量化服务商预设（与聊天服务解耦，可独立配置） */
@@ -54,6 +57,8 @@ export const EMBEDDING_PRESETS: Record<string, { label: string; baseUrl: string;
   siliconflow: { label: 'SiliconFlow (BAAI/bge-m3)', baseUrl: 'https://api.siliconflow.cn/v1', model: 'BAAI/bge-m3' },
   openai: { label: 'OpenAI (text-embedding-3-small)', baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' },
   custom: { label: '自定义（OpenAI 兼容）', baseUrl: '', model: '' },
+  // 本地向量化（Ollama nomic-embed-text）：Phase 2 语义选题用，当前仅占位。
+  local: { label: 'Ollama nomic-embed-text', baseUrl: 'http://localhost:11434/v1', model: 'nomic-embed-text' },
 };
 
 /** 文件名常量已收敛到 lib/paths.getAiConfigPath()，此处仅保留注释便于检索：ai-config.json */
@@ -216,7 +221,11 @@ export function publicConfig(cfg = readConfig()) {
 
 /** AI 是否可用（开关打开 + Key/地址/模型齐备） */
 export function isReady(cfg = readConfig()): boolean {
-  return cfg.enabled && !!cfg.apiKey && !!cfg.baseUrl && !!cfg.model;
+  if (!cfg.enabled) return false;
+  if (!cfg.baseUrl || !cfg.model) return false;
+  // 本地模型（Ollama/LM Studio）常无 API Key：只要 baseUrl 存在即视为就绪。
+  if (cfg.provider === 'local' && !!cfg.baseUrl) return true;
+  return !!cfg.apiKey;
 }
 
 /** 向量化是否可用（与聊天服务独立判断） */
@@ -238,7 +247,12 @@ export function readEmbeddingConfig(cfg = readConfig()): EmbeddingConfig {
 /** 校验可用性，不可用直接抛 LlmError（供路由层统一 catch） */
 export function assertReady(cfg = readConfig()): LlmConfig {
   if (!cfg.enabled) throw new LlmError('AI_DISABLED', 'AI 功能已关闭，可在「AI 设置」中开启', 409);
-  if (!cfg.apiKey || !cfg.baseUrl || !cfg.model) {
+  // 本地模型（Ollama/LM Studio）常无 API Key：只要 baseUrl 存在即跳过 Key 校验。
+  const localNoKey = cfg.provider === 'local' && !!cfg.baseUrl;
+  if (!cfg.baseUrl || !cfg.model) {
+    throw new LlmError('AI_NOT_CONFIGURED', '尚未配置 AI 服务，请先前往「AI 设置」填写地址与模型', 409);
+  }
+  if (!localNoKey && !cfg.apiKey) {
     throw new LlmError('AI_NOT_CONFIGURED', '尚未配置 AI 服务，请先前往「AI 设置」填写 API Key', 409);
   }
   return cfg;
@@ -320,6 +334,100 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
       promptTokens: data?.usage?.prompt_tokens,
       completionTokens: data?.usage?.completion_tokens,
     };
+  } catch (e: any) {
+    if (e instanceof LlmError) throw e;
+    if (e?.name === 'AbortError') {
+      throw new LlmError('AI_TIMEOUT', `AI 请求超时（${timeoutMs}ms），请检查网络或调大超时时间`, 504);
+    }
+    throw new LlmError('AI_UPSTREAM_ERROR', `AI 请求失败：${e?.message || e}`, 502);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * 流式对话：与 chat() 同拼装，但 stream:true，逐块读取 SSE 增量并以 async generator 吐出文本片段。
+ * 调用方（如面试编排）可边收边合成语音，营造「流式通话」感。chat() 保持不变。
+ */
+export async function* chatStream(
+  messages: ChatMessage[],
+  options: ChatOptions = {},
+): AsyncGenerator<string, void, unknown> {
+  const cfg = assertReady(options.config ?? readConfig());
+  const timeoutMs = options.timeoutMs ?? cfg.timeoutMs;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const body: Record<string, unknown> = {
+      model: cfg.model,
+      messages,
+      temperature: options.temperature ?? cfg.temperature,
+      stream: true,
+    };
+    if (options.maxTokens) body.max_tokens = options.maxTokens;
+    if (options.json) body.response_format = { type: 'json_object' };
+
+    const resp = await fetch(joinUrl(cfg.baseUrl, '/chat/completions'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${cfg.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new LlmError(
+        'AI_UPSTREAM_ERROR',
+        `AI 服务返回 ${resp.status}${text ? `：${text.slice(0, 300)}` : ''}`,
+        502,
+      );
+    }
+    if (!resp.body) return;
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // 按行切分 OpenAI 流式协议：每行形如 "data: {...}" 或 "data: [DONE]"
+      let nl: number;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line || !line.startsWith('data:')) continue;
+        const payload = line.slice('data:'.length).trim();
+        if (payload === '[DONE]') return;
+        try {
+          const json = JSON.parse(payload) as any;
+          const delta = json?.choices?.[0]?.delta?.content;
+          if (typeof delta === 'string' && delta) yield delta;
+        } catch {
+          // 跳过非 JSON 的 keepalive / 注释行（如 ": keep-alive"）
+        }
+      }
+    }
+    // 冲刷残留缓冲中可能存在的最后一行（无尾随换行）
+    if (buffer.trim()) {
+      const line = buffer.trim();
+      if (line.startsWith('data:')) {
+        const payload = line.slice('data:'.length).trim();
+        if (payload && payload !== '[DONE]') {
+          try {
+            const json = JSON.parse(payload) as any;
+            const delta = json?.choices?.[0]?.delta?.content;
+            if (typeof delta === 'string' && delta) yield delta;
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
   } catch (e: any) {
     if (e instanceof LlmError) throw e;
     if (e?.name === 'AbortError') {

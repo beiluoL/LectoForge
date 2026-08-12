@@ -960,7 +960,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, trigger_notification, open_external_url, quit_app, update_tray_title, take_pending_deep_link, create_backup, set_backup_schedule, get_backup_schedule, open_backup_folder, list_backups])
+        .invoke_handler(tauri::generate_handler![check_for_update, restart_sidecar, select_directory, capture_screenshot, trigger_notification, open_external_url, quit_app, update_tray_title, take_pending_deep_link, create_backup, set_backup_schedule, get_backup_schedule, open_backup_folder, list_backups])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
@@ -1206,6 +1206,90 @@ async fn select_directory(app: tauri::AppHandle) -> Result<String, String> {
         Some(folder) => Ok(folder.to_string()),
         None => Err("用户取消了选择".to_string()),
     }
+}
+
+/// 供前端调用的「截图」命令：实现离线 OCR 的「截图识别」来源。
+///
+/// 调用 macOS 内置的 /usr/sbin/screencapture 进行交互式矩形框选（用户拖拽选区域），
+/// 截图写入临时 PNG，读取后 base64 回传给前端，走 tesseract.js 离线识别。
+///
+/// 注意：
+/// - 截图前先 hide 主窗口，避免透明窗口被框选进来；完成后 show + unminimize + set_focus 还原。
+/// - 用户按 ESC 取消时 screencapture 以非 0 退出且不生成文件 → 返回 Err("cancelled")，
+///   前端据此静默回到来源选择，不当作错误提示。
+/// - 首次使用需 macOS「屏幕录制」授权；未授权时命令失败，错误信息会提示去系统设置开启。
+#[tauri::command]
+fn capture_screenshot(app: tauri::AppHandle) -> Result<String, String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        return Err("截图功能仅支持 macOS".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // 截图期间隐藏主窗口，避免被框选进来
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.hide();
+        }
+
+        let tmp =
+            std::env::temp_dir().join(format!("lectoforge_shot_{}.png", std::process::id()));
+        let tmp_str = tmp.to_str().unwrap_or("/tmp/lectoforge_shot.png");
+
+        let status = std::process::Command::new("/usr/sbin/screencapture")
+            .args(["-i", "-r", tmp_str])
+            .status();
+
+        // 无论成功或取消都先还原窗口
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.unminimize();
+            let _ = w.set_focus();
+        }
+
+        match status {
+            Ok(s) if s.success() => {}
+            _ => return Err("cancelled".to_string()),
+        }
+
+        let bytes = std::fs::read(&tmp)
+            .map_err(|_| "截图未生成，可能已取消或无权访问屏幕（请检查「屏幕录制」授权）".to_string())?;
+        let _ = std::fs::remove_file(&tmp);
+        Ok(encode_base64(&bytes))
+    }
+}
+
+/// 极简 base64 编码（标准字母表 + '=' 填充），仅用于把截图 PNG 回传前端，
+/// 避免为这一处需求引入额外的 cargo 依赖。
+fn encode_base64(data: &[u8]) -> String {
+    const CHARS: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    let mut i = 0;
+    while i + 2 < data.len() {
+        let n = (u32::from(data[i]) << 16) | (u32::from(data[i + 1]) << 8) | u32::from(data[i + 2]);
+        out.push(CHARS[((n >> 18) & 63) as usize] as char);
+        out.push(CHARS[((n >> 12) & 63) as usize] as char);
+        out.push(CHARS[((n >> 6) & 63) as usize] as char);
+        out.push(CHARS[(n & 63) as usize] as char);
+        i += 3;
+    }
+    let rem = data.len() - i;
+    if rem == 1 {
+        let n = u32::from(data[i]) << 16;
+        out.push(CHARS[((n >> 18) & 63) as usize] as char);
+        out.push(CHARS[((n >> 12) & 63) as usize] as char);
+        out.push('=');
+        out.push('=');
+    } else if rem == 2 {
+        let n = (u32::from(data[i]) << 16) | (u32::from(data[i + 1]) << 8);
+        out.push(CHARS[((n >> 18) & 63) as usize] as char);
+        out.push(CHARS[((n >> 12) & 63) as usize] as char);
+        out.push(CHARS[((n >> 6) & 63) as usize] as char);
+        out.push('=');
+    }
+    out
 }
 
 /// 供前端调用的「原生通知」命令：计时阶段结束时由番茄钟 store 直接 invoke 触发
