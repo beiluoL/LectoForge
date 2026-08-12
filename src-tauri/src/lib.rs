@@ -780,7 +780,9 @@ pub fn run() {
                     web_dir,
                     data_dir,
                     // Tauri 的 resource_dir() 即 .app 内 Contents/Resources，模型随包落在 <resources>/models
-                    resources_dir: resource_dir,
+                    // 注意：下方 792 行 WhisperSidecar::resolve(&resource_dir) 仍需借用原始值，
+                    // 故此处 clone 一份，避免把 resource_dir 整体 move 走导致后续借用失效。
+                    resources_dir: resource_dir.clone(),
                     port,
                     log_file,
                 };
