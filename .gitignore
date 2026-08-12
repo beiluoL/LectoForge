@@ -34,6 +34,9 @@ src-tauri/gen/
 # 本地日志
 *.log
 
+# 离线模型资源（由 scripts/fetch-models.sh 拉取，体积大不入库；随 Tauri 打包进 .app）
+resources/models/
+
 # 重构契约快照（本地回归证据，不入库）
 .refactor-baseline/
 

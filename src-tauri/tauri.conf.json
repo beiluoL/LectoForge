@@ -28,7 +28,8 @@
       "../src-api/dist": "api",
       "../src-api/backup.js": "api/backup.js",
       "../src-api/.prod-modules/node_modules": "api/node_modules",
-      "../src-api/package.json": "api/package.json"
+      "../src-api/package.json": "api/package.json",
+      "../resources/models": "models"
     },
     "externalBin": ["../binaries/server"]
   },

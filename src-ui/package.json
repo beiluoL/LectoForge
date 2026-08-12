@@ -31,6 +31,7 @@
     "markmap-view": "^0.18.12",
     "pinia": "^4.0.2",
     "pinia-plugin-persistedstate": "^4.7.1",
+    "tesseract.js": "^5.1.1",
     "vue": "^3.4.38",
     "vue-chartjs": "^5.3.4",
     "vue-router": "^4.4.3"

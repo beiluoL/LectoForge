@@ -39,6 +39,9 @@ const DIR_MINDMAPS = 'mindmaps';
 const DIR_UPLOADS = 'uploads';
 const DIR_LOGS = 'logs';
 
+/** 离线模型资源目录（tesseract / whisper）的环境变量名，由 Rust 宿主注入 */
+export const RESOURCES_DIR_ENV = 'LECTOFORGE_RESOURCES_DIR';
+
 // ===================== 内部工具 =====================
 
 /** 读取 `--flag value` 形式的命令行参数 */
@@ -193,6 +196,23 @@ export function getUploadsDir(): string {
 /** 运行日志目录：<dataDir>/logs/ */
 export function getLogsDir(): string {
   return dataSubDir(DIR_LOGS);
+}
+
+/**
+ * 离线模型资源目录（tesseract 的 wasm/worker/语言包 + whisper 的 wasm/模型）。
+ *
+ * 打包后由 Rust 宿主通过 `LECTOFORGE_RESOURCES_DIR` 注入 `.app` 内 Resources 目录，
+ * 模型文件随之位于 `<RESOURCES_DIR>/models`，本函数返回该绝对路径。
+ * 开发期（未注入环境变量）回退到项目根 `resources/models`，与 tauri.conf.json
+ * 的 `bundle.resources` 映射同源，便于本地 `npm run dev:all` 直接取到模型。
+ */
+export function getModelsDir(): string {
+  const fromEnv = process.env[RESOURCES_DIR_ENV];
+  if (fromEnv && fromEnv.trim()) {
+    return path.join(path.resolve(fromEnv.trim()), 'models');
+  }
+  // 开发期：项目根 resources/models（__dirname 在 tsx 下为 src-api/src/lib，上溯三级到项目根）
+  return path.resolve(__dirname, '..', '..', '..', 'resources', 'models');
 }
 
 // ===================== 其它启动参数 =====================

@@ -48,6 +48,9 @@ static API_PORT: std::sync::atomic::AtomicU16 =
 /// 注入给 Node 侧车的数据目录环境变量名（与 src-api/src/lib/paths.ts 的 DATA_DIR_ENV 一致）
 #[cfg(not(debug_assertions))]
 const DATA_DIR_ENV: &str = "LECTOFORGE_DATA_DIR";
+/// 注入给 Node 侧车的离线模型资源目录环境变量名（与 paths.ts 的 RESOURCES_DIR_ENV 一致）
+#[cfg(not(debug_assertions))]
+const RESOURCES_DIR_ENV: &str = "LECTOFORGE_RESOURCES_DIR";
 /// 产品更名前（KnowFlow）的旧 bundle identifier。
 ///
 /// AppData 目录名 = bundle identifier，改名后系统解析到的是一个全新的空目录，
@@ -102,6 +105,8 @@ struct SidecarSpec {
     web_dir: PathBuf,
     /// 可写数据目录 ~/Library/Application Support/<identifier>
     data_dir: PathBuf,
+    /// 离线模型资源目录 Contents/Resources（tesseract / whisper 的 wasm / 语言包 / 模型）
+    resources_dir: PathBuf,
     /// 宿主协商好的固定端口
     port: u16,
     /// 侧车日志文件 <data_dir>/logs/sidecar.log
@@ -144,6 +149,8 @@ impl SidecarManager {
             .arg("--data-dir")
             .arg(&self.spec.data_dir)
             .env(DATA_DIR_ENV, &self.spec.data_dir)
+            // 离线模型资源目录：前端经 /models/* 同源拉取 tesseract / whisper 资产
+            .env(RESOURCES_DIR_ENV, &self.spec.resources_dir)
             .env("LECTOFORGE_PORT", self.spec.port.to_string())
             .env("NODE_ENV", "production")
             // 工作目录设成可写的数据目录：万一有库按相对路径落盘，也不会写进只读的 .app
@@ -321,6 +328,151 @@ impl SidecarManager {
         }
         eprintln!("[lectoforge] 侧车未响应 SIGTERM，强制结束 pid={pid}");
         signal_process(pid, true);
+    }
+}
+
+// =============================================================================
+// 本地 Whisper 语音识别侧车（离线 STT）
+//
+// 模拟面试功能把用户的语音先经前端 MediaRecorder 录成音频，POST 到后端
+// whisperSttService，由后端转发给本地 whisper-server(:8080) 做离线语音转文字。
+// 这里负责在生产构建里把 whisper-server 作为独立进程拉起并监督。
+//
+// ⚠️ 构建安全：whisper-server 二进制【不】进 externalBin（体积大、开发者机器未必有），
+//    因此二进制或模型缺失时**静默跳过**——不崩溃、不影响主窗口与后端。用户需自行放置
+//    二进制+模型（见 scripts/run-whisper.sh），或配置环境变量 WHISPER_BIN/WHISPER_MODEL。
+// =============================================================================
+
+#[cfg(not(debug_assertions))]
+struct WhisperSidecar {
+    bin: PathBuf,
+    model: PathBuf,
+    port: u16,
+    threads: u16,
+    log_file: PathBuf,
+    pid: Arc<Mutex<Option<u32>>>,
+    stopping: Arc<AtomicBool>,
+}
+
+#[cfg(not(debug_assertions))]
+impl WhisperSidecar {
+    /// 解析 whisper-server 二进制与模型路径；任一缺失返回 None（调用方静默跳过）。
+    fn resolve(resource_dir: &Path) -> Option<Self> {
+        let bin = if let Ok(p) = std::env::var("WHISPER_BIN") {
+            PathBuf::from(p)
+        } else {
+            // 随包落在 Contents/Resources/models/whisper-server（scripts/fetch-models.sh 负责下载）
+            resource_dir.join("models").join("whisper-server")
+        };
+        if !bin.exists() {
+            eprintln!(
+                "[lectoforge] 未找到 whisper-server 二进制（{}），跳过本地 STT 侧车；\
+                 面试语音识别需手动启动 whisper-server 或改用系统语音识别。",
+                bin.display()
+            );
+            return None;
+        }
+        let model = if let Ok(p) = std::env::var("WHISPER_MODEL") {
+            PathBuf::from(p)
+        } else {
+            resource_dir.join("models").join("ggml-base.bin")
+        };
+        if !model.exists() {
+            eprintln!(
+                "[lectoforge] 未找到 whisper 模型（{}），跳过本地 STT 侧车。",
+                model.display()
+            );
+            return None;
+        }
+        let data_dir = std::env::var("LECTOFORGE_DATA_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| resource_dir.to_path_buf());
+        let log_dir = data_dir.join("logs");
+        let _ = std::fs::create_dir_all(&log_dir);
+        let threads = std::thread::available_parallelism()
+            .map(|n| n.get() as u16)
+            .unwrap_or(8);
+        Some(Self {
+            bin,
+            model,
+            port: 8080,
+            threads,
+            log_file: log_dir.join("whisper.log"),
+            pid: Arc::new(Mutex::new(None)),
+            stopping: Arc::new(AtomicBool::new(false)),
+        })
+    }
+
+    fn spawn_process(&self) -> std::io::Result<Child> {
+        let mut cmd = Command::new(&self.bin);
+        cmd.arg("-m")
+            .arg(&self.model)
+            .arg("--port")
+            .arg(self.port.to_string())
+            .arg("-t")
+            .arg(self.threads.to_string())
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = cmd.spawn()?;
+        if let Some(out) = child.stdout.take() {
+            pipe_logs(out, "whisper-out", self.log_file.clone());
+        }
+        if let Some(err) = child.stderr.take() {
+            pipe_logs(err, "whisper-err", self.log_file.clone());
+        }
+        Ok(child)
+    }
+
+    /// 监督线程：拉起 → 阻塞 wait → 异常退出则退避重启（复用 SidecarManager 的退避工具）。
+    fn supervise(self: &Arc<Self>) {
+        let this = Arc::clone(self);
+        std::thread::spawn(move || {
+            let mut delay = RESTART_BASE_DELAY;
+            loop {
+                if this.stopping.load(Ordering::SeqCst) {
+                    break;
+                }
+                let mut child = match this.spawn_process() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("[lectoforge] whisper-server 启动失败: {e}");
+                        sleep(delay);
+                        delay = next_delay(delay);
+                        continue;
+                    }
+                };
+                let pid = child.id();
+                *this.pid.lock().unwrap() = Some(pid);
+                println!(
+                    "[lectoforge] whisper-server 已启动 pid={pid} port={}",
+                    this.port
+                );
+                let status = child.wait();
+                *this.pid.lock().unwrap() = None;
+                if this.stopping.load(Ordering::SeqCst) {
+                    break;
+                }
+                let abnormal = match &status {
+                    Ok(st) => !st.success(),
+                    Err(_) => true,
+                };
+                if !abnormal {
+                    println!("[lectoforge] whisper-server 正常退出，不再重启");
+                    break;
+                }
+                eprintln!("[lectoforge] whisper-server 异常退出，{:?} 后重启", delay);
+                sleep(delay);
+                delay = next_delay(delay);
+            }
+        });
+    }
+
+    fn shutdown(&self) {
+        self.stopping.store(true, Ordering::SeqCst);
+        if let Some(pid) = *self.pid.lock().unwrap() {
+            signal_process(pid, false);
+        }
     }
 }
 
@@ -627,12 +779,21 @@ pub fn run() {
                     entry: api_index,
                     web_dir,
                     data_dir,
+                    // Tauri 的 resource_dir() 即 .app 内 Contents/Resources，模型随包落在 <resources>/models
+                    resources_dir: resource_dir,
                     port,
                     log_file,
                 };
                 let manager = Arc::new(SidecarManager::new(app.handle().clone(), spec));
                 manager.supervise();
                 app.manage(Arc::clone(&manager));
+
+                // 本地 Whisper STT 侧车（离线语音转文字）：二进制/模型缺失时自动跳过，不影响主流程
+                if let Some(ws) = WhisperSidecar::resolve(&resource_dir) {
+                    let ws = Arc::new(ws);
+                    ws.supervise();
+                    app.manage(Arc::clone(&ws));
+                }
 
                 // 阻塞等待后端就绪后再建窗口，确保窗口加载时后端已在监听，避免出现空白/错误页
                 if !wait_for_backend(port) {
@@ -836,6 +997,9 @@ pub fn run() {
             #[cfg(not(debug_assertions))]
             if matches!(event, tauri::RunEvent::Exit) {
                 if let Some(mgr) = app_handle.try_state::<Arc<SidecarManager>>() {
+                    mgr.shutdown();
+                }
+                if let Some(mgr) = app_handle.try_state::<Arc<WhisperSidecar>>() {
                     mgr.shutdown();
                 }
             }

@@ -4,7 +4,7 @@ import staticPlugin from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolvePort, resolveWebDir, resolveDataDir, getUploadsDir, isLaunchedByHost } from './lib/paths';
+import { resolvePort, resolveWebDir, resolveDataDir, getUploadsDir, getModelsDir, isLaunchedByHost } from './lib/paths';
 import captures from './routes/captures';
 import notes from './routes/notes';
 import reviews from './routes/reviews';
@@ -30,6 +30,8 @@ import tasks from './routes/tasks';
 import lists from './routes/lists';
 import calendar from './routes/calendar';
 import backup from './routes/backup';
+import interview from './routes/interview';
+import qaBank from './routes/qaBank';
 
 const app = Fastify({ logger: false });
 
@@ -173,6 +175,15 @@ app.register(quadrant, { prefix: '/api' });
  * 唯一的读接口强制携带 start_date / end_date，不提供全量拉取形态。 */
 app.register(calendar, { prefix: '/api' });
 
+/* ===== 模拟面试 / 语音通话（离线 STT + LLM 编排，逐轮 SSE）=====
+ * 独立前缀 /api：端点 /interview/transcribe（录音转写）、/interview/start、/interview/answer（SSE）。
+ * 与既有 workbench 契约互不干扰；SSE 由控制器直接接管 reply.raw，绕过统一 JSON 信封。 */
+app.register(interview, { prefix: '/api' });
+
+/* ===== 模拟面试题库（手动面经 + 复习卡 + 康奈尔笔记统一题库层）=====
+ * 独立前缀 /api：端点 /qa-bank 系列。 */
+app.register(qaBank, { prefix: '/api' });
+
 /* ===== 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）=====
  * 独立前缀 /api：端点 /backup（立即备份）、/backup/schedule（GET/PUT 计划）。
  * 实际打包由 Node 侧车用 child_process 拉起 backup.js（archiver）完成。 */
@@ -229,6 +240,21 @@ app.register(staticPlugin, {
   maxAge: '7d',
 });
 
+/* ===== 同源托管离线模型资源（tesseract / whisper 的 wasm / worker / 语言包 / 模型）=====
+ * 打包后由 Rust 宿主通过 LECTOFORGE_RESOURCES_DIR 注入资源目录，开发期回退项目根
+ * resources/models（见 lib/paths.ts 的 getModelsDir）。前端以 /models/tesseract/... 与
+ * /models/whisper/... 同源拉取，零 CORS、零外网依赖，满足「离线」诉求。
+ * 必须先于 webDir 注册，否则根通配会吃掉 /models/*。 */
+const modelsDir = getModelsDir();
+if (fs.existsSync(modelsDir)) {
+  app.register(staticPlugin, {
+    root: modelsDir,
+    prefix: '/models/',
+    decorateReply: false,
+    maxAge: '30d',
+  });
+}
+
 // ===== 同源托管前端构建产物（生产由 Tauri 传入 --web-dir）=====
 const webDir = resolveWebDir();
 if (webDir && fs.existsSync(webDir)) {
@@ -259,6 +285,11 @@ if (webDir && fs.existsSync(webDir)) {
      * 若回落成 index.html，<audio> 会静默播不出声、下载下来是一坨 HTML。 */
     if (pathname.startsWith('/uploads/')) {
       return reply.code(404).type('text/plain').send(`upload not found: ${pathname}`);
+    }
+    /* 离线模型缺失时如实 404（.wasm/.gz/.traineddata 不在 ASSET_EXT 白名单），
+     * 否则会回落成 index.html，前端 fetch 拿到 HTML 当成模型解析直接崩。 */
+    if (pathname.startsWith('/models/')) {
+      return reply.code(404).type('text/plain').send(`model not found: ${pathname}`);
     }
     if (ASSET_EXT.test(pathname)) {
       return reply.code(404).type('text/plain').send(`asset not found: ${pathname}`);

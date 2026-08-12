@@ -88,6 +88,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://127.0.0.1:8787',
       '/uploads': 'http://127.0.0.1:8787',
+      /* 离线模型资源（tesseract / whisper 的 wasm / worker / 语言包 / 模型）。
+       * 开发期 Node 侧车从项目根 resources/models 同源托管，dev 下由 vite 转发。 */
+      '/models': 'http://127.0.0.1:8787',
     },
   },
 

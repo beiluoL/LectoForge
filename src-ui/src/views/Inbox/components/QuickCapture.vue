@@ -186,6 +186,44 @@
           @change="onFilePicked"
         />
 
+        <!-- 拍照：webview 摄像头抓帧 → 作为图片附件 -->
+        <button
+          class="kb-btn kb-btn-sm"
+          type="button"
+          :disabled="uploading"
+          title="拍照"
+          @click="showCamera = true"
+        >
+          <Icon name="camera" :size="12" /> 拍照
+        </button>
+
+        <!-- OCR 扫描：拍照 / 选图 → 离线识别文字 → 插入正文 -->
+        <button
+          class="kb-btn kb-btn-sm"
+          type="button"
+          title="OCR 扫描文字（离线识别）"
+          @click="showOcr = true"
+        >
+          <Icon name="scan" :size="12" /> 扫描
+        </button>
+
+        <!-- 语音转写：录音 → 离线 whisper 转写 → 插入正文 -->
+        <button
+          class="kb-btn kb-btn-sm"
+          type="button"
+          :disabled="stt.transcribing.value"
+          :class="{ 'is-rec': stt.recording.value }"
+          :title="stt.recording.value ? '停止并转写' : '语音转文字'"
+          @click="toggleStt"
+        >
+          <Icon
+            :name="stt.transcribing.value ? 'loader' : stt.recording.value ? 'square' : 'mic'"
+            :size="12"
+            :class="{ 'qc-spin': stt.transcribing.value }"
+          />
+          {{ stt.transcribing.value ? '转写中' : stt.recording.value ? stt.elapsedText.value : '语音转写' }}
+        </button>
+
         <button class="kb-btn kb-btn-sm" type="button" title="摘录模式" @click="openExcerpt">
           <Icon name="highlighter" :size="12" /> 摘录
         </button>
@@ -200,6 +238,10 @@
         </button>
       </div>
     </div>
+
+    <!-- 拍照 / OCR 弹窗 -->
+    <CameraCaptureModal v-model="showCamera" @captured="onCameraCaptured" />
+    <OcrModal v-model="showOcr" @confirmed="onOcrConfirmed" />
   </section>
 </template>
 
@@ -226,6 +268,9 @@ import { storeToRefs } from 'pinia';
 import Icon from '@/components/ui/Icon.vue';
 import { useInboxStore } from '@/store/inbox-store';
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
+import { useSpeechToText } from '@/composables/useSpeechToText';
+import CameraCaptureModal from '@/components/media/CameraCaptureModal.vue';
+import OcrModal from '@/components/media/OcrModal.vue';
 import { notify, getApiError } from '@/utils/toast';
 import { fromNow } from '@/lib/date';
 import type { ClipResult, InboxType, UploadResult } from '@/api/inbox';
@@ -264,6 +309,17 @@ const attachments = ref<Attachment[]>([]);
 /** 录音器（麦克风释放、格式探测、时长统计都在 composable 里） */
 const { recording, elapsedText, start: startRec, stop: stopRec, cancel: cancelRec, error: recError } =
   useVoiceRecorder();
+
+/* 离线媒体能力：拍照 / OCR 扫描 / 语音转写（均本地完成，不依赖云端） */
+const showCamera = ref(false);
+const showOcr = ref(false);
+const stt = useSpeechToText({
+  onResult: (t) => {
+    text.value = text.value ? `${text.value}\n${t}` : t;
+    notify('语音已转写为文字', 'success');
+  },
+  onError: (m) => notify(m, 'error'),
+});
 
 /** 剪藏结果与可编辑标题 */
 const clip = ref<ClipResult | null>(null);
@@ -427,6 +483,32 @@ async function toggleRecord() {
 function discardRecord() {
   cancelRec();
   notify('已放弃这段录音', 'info');
+}
+
+/* ===========================================================================
+ * 拍照 / OCR 扫描 / 语音转写（离线，对齐移动端 §7.13.1 / §7.15 / §7.16）
+ * ======================================================================== */
+
+/** 拍照弹窗抓到的帧：当作图片附件上传并落入附件条 */
+async function onCameraCaptured(blob: Blob) {
+  const file = new File([blob], `camera-${Date.now()}.png`, { type: 'image/png' });
+  await uploadFiles([file]);
+  notify('照片已添加为附件', 'success');
+}
+
+/** OCR 扫描确认后的文字：追加进正文文本框（用户可继续编辑） */
+function onOcrConfirmed(t: string) {
+  text.value = text.value ? `${text.value}\n${t}` : t;
+}
+
+/** 语音转写开关：未录音则开始，录音中则停止并本地转写回填正文 */
+async function toggleStt() {
+  if (stt.recording.value) {
+    await stt.stopAndTranscribe();
+  } else {
+    const ok = await stt.start();
+    if (!ok) notify(stt.error.value || '无法开始录音', 'error');
+  }
 }
 
 /* ===========================================================================

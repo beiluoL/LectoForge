@@ -258,12 +258,17 @@ md.inline.ruler.before('image', 'obsidian', obsidianRule)
  * 标准 Markdown 图片 ![](src) 的本地文件改写：
  * 把相对 / 绝对（库内）路径改写为同源资源 URL，使本地图片也能正常加载；
  * 外链(http/https)、data:、blob: 保持原样。
+ *
+ * ⚠️ 白名单扩展：收集箱 / 笔记里的**用户上传资产**以 `/uploads/...` 形式内联
+ * （拍照 / 选图 / 附件），离线 OCR 产出的预览图也可能走 `/models/...`。
+ * 这些路径已由侧车同源托管（见 src-api/src/index.ts 的 /uploads 与 /models 静态路由），
+ * 必须原样放行，否则会被误改写成 /api/library/asset?path=... 导致 404。
  */
 const defaultImageRule = md.renderer.rules.image
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
   const src = String(token.attrGet('src') ?? '')
-  if (!/^(https?:|data:|blob:)/i.test(src)) {
+  if (!/^(https?:|data:|blob:|file:|(\/uploads\/)|(\/models\/))/i.test(src)) {
     const noteId: string = ((env as RenderEnv | undefined)?.noteId as string) || ''
     const rel = resolveLocalPath(noteId, src)
     token.attrSet('src', assetUrl(rel))
