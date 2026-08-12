@@ -9,12 +9,13 @@
 # 前置：
 #   1) 编译/下载 whisper.cpp 的 whisper-server 可执行文件，命名 whisper-server 放到 PATH 或本脚本同目录。
 #      - 源码：https://github.com/ggerganov/whisper.cpp  （make whisper-server）
-#   2) 下载一个 ggml 模型，例如 ggml-base.bin（约 140MB）：
-#      https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-base.bin
+#   2) 下载一个 ggml 量化模型，例如 ggml-base-q5_1.bin（约 57MB，默认档位）：
+#      https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
+#      （生产环境改为运行时在「设置→本地模型」按需下载到用户目录，不随包内置。）
 #
 # 用法：
-#   bash scripts/run-whisper.sh                       # 用默认模型 models/ggml-base.bin
-#   WHISPER_MODEL=/path/ggml-small.bin bash scripts/run-whisper.sh
+#   bash scripts/run-whisper.sh                       # 用默认模型 models/whisper/ggml-base-q5_1.bin
+#   WHISPER_MODEL=/path/ggml-small-q5_1.bin bash scripts/run-whisper.sh
 #   WHISPER_BIN=/opt/whisper-server PORT=8080 bash scripts/run-whisper.sh
 # =============================================================================
 set -euo pipefail
@@ -25,7 +26,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BIN="${WHISPER_BIN:-${WHISPER_BIN:-$(command -v whisper-server || true)}}"
 PORT="${PORT:-8080}"
 THREADS="${THREADS:-$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)}"
-MODEL="${WHISPER_MODEL:-$ROOT_DIR/resources/models/ggml-base.bin}"
+MODEL="${WHISPER_MODEL:-$ROOT_DIR/resources/models/whisper/ggml-base-q5_1.bin}"
 
 if [[ -z "$BIN" || ! -x "$BIN" ]]; then
   echo "[run-whisper] 未找到 whisper-server 可执行文件。" >&2
@@ -36,7 +37,7 @@ fi
 
 if [[ ! -f "$MODEL" ]]; then
   echo "[run-whisper] 未找到 whisper 模型: $MODEL" >&2
-  echo "  请下载 ggml-base.bin 放到该路径，或用 WHISPER_MODEL=/path/xx.bin 指定。" >&2
+  echo "  请下载 ggml-base-q5_1.bin 放到该路径，或用 WHISPER_MODEL=/path/xx.bin 指定。" >&2
   exit 1
 fi
 

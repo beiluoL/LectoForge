@@ -1,28 +1,32 @@
 #!/usr/bin/env bash
 # =============================================================================
-# LectoForge 离线模型资源拉取脚本
+# LectoForge 离线模型资源准备脚本
 #
-# 用途：把「拍照/图片/OCR/语音转文字」所需的离线模型与运行文件下载到
-#       resources/models/，随 Tauri 打包进 .app（tauri.conf.json 的 bundle.resources
-#       已映射 ../resources/models -> Resources/models）。
+# 用途：准备「拍照/图片/OCR/语音转文字」所需的离线资源。
+#   - tesseract.js 运行文件 + 语言包：直接下载，随包内置（resources/models/tesseract/）。
+#   - whisper-server 原生 STT 二进制：macOS 无官方预编译包，必须从 whisper.cpp 源码
+#     构建，产物放到 resources/models/whisper-server，随 Tauri 打包并被签名（运行期
+#     包内签名二进制不受 Gatekeeper 隔离，规避 macOS arm64 静默 SIGKILL）。
+#   - whisper 模型权重（ggml-*.bin）：【运行时按需下载】到用户可写 dataDir，不随包
+#     内置（见设计文档《离线语音模型加载与运行时方案.md》）。本脚本不再预下载模型。
+#   - whisper.wasm（WASM 兜底路径）：需本地用 emscripten 构建，见下。
 #
 # 设计原则：
-#   - 全部本地离线运行，不依赖任何云 API / CDN（运行期零外网）。
-#   - 模型文件体积大（合计约 100~200MB），**不进 git**（见 .gitignore 的
-#     resources/models/），改由本脚本在构建前拉取。CI / 新机器执行一次即可。
-#   - tesseract.js 运行文件与语言包、whisper ggml 模型均来自稳定官方源；
-#     whisper.wasm 为 whisper.cpp 的 emscripten 构建产物，需本地构建（见下）。
+#   - 应用运行期零外网依赖（模型已下载后完全离线）。
+#   - 模型权重体积大（30~180MB），不进 git（见 .gitignore 的 resources/models/）。
+#   - 任何单步失败都不阻断其它步骤（best-effort），并给出明确提示。
 #
 # 用法：
-#   bash scripts/fetch-models.sh            # 拉取全部
-#   WHISPER_WASM_URL=https://... bash scripts/fetch-models.sh   # 自定义 wasm 源
+#   bash scripts/fetch-models.sh                 # 准备 tesseract + 检查 whisper 资源
+#   WHISPER_BUILD=1 bash scripts/fetch-models.sh # 额外尝试从源码构建 whisper-server
 # =============================================================================
-set -euo pipefail
+set -uo pipefail   # 注意：不用 -e，单步失败不中断整脚本（避免一处 404 导致后续全停）
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODELS="$ROOT/resources/models"
 TES="$MODELS/tesseract"
 WSP="$MODELS/whisper"
+WSB="$MODELS/whisper-server"   # 原生 STT 二进制（由 whisper.cpp 源码构建）
 mkdir -p "$TES" "$WSP"
 
 # 断点续传 + 失败时保留已有文件（已经下载过的不再重复拉，节省时间）
@@ -33,10 +37,42 @@ dl() {
     return 0
   fi
   echo "  ↓ $url"
-  curl -fSL --retry 3 --retry-delay 2 -o "$out" "$url" || {
+  if curl -fSL --retry 3 --retry-delay 2 -o "$out" "$url"; then
+    return 0
+  else
     echo "  [警告] 下载失败: $url（可手动放置到 $out）"
     return 1
+  fi
+}
+
+# 构建 whisper-server 原生二进制（macOS 无官方预编译包，必须从源码构建）
+build_whisper_server() {
+  echo "==> [whisper] 尝试从源码构建 whisper-server（需要 git + cmake + 编译器）"
+  if ! command -v cmake >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+    echo "  [跳过] 未检测到 cmake/git，跳过自动构建。"
+    echo "        请手动构建 whisper.cpp 的 whisper-server 并放到: $WSB"
+    return 0
+  fi
+  local src="$MODELS/whisper.cpp"
+  if [[ ! -d "$src" ]]; then
+    git clone --depth 1 https://github.com/ggml-org/whisper.cpp "$src" || {
+      echo "  [警告] 克隆 whisper.cpp 失败，跳过构建。";
+      return 0;
+    }
+  fi
+  ( cd "$src" && cmake -B build -DWHISPER_SERVER=ON && cmake --build build -j"$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" ) || {
+    echo "  [警告] 构建 whisper-server 失败，请手动构建。";
+    return 0;
   }
+  local built
+  built="$(find "$src/build" -name 'whisper-server' -type f 2>/dev/null | head -1)"
+  if [[ -n "$built" ]]; then
+    cp "$built" "$WSB"
+    echo "  ✓ whisper-server 已构建并放置到: $WSB"
+  else
+    echo "  [警告] 未找到构建产物 whisper-server，请手动构建。"
+  fi
+  return 0
 }
 
 echo "==> [1/3] tesseract.js 运行文件（worker + wasm core）"
@@ -50,14 +86,24 @@ echo "==> [2/3] tesseract 语言包（chi_sim 简体中文 + eng 英文）"
 dl "https://github.com/naptha/tessdata_fast/raw/master/chi_sim.traineddata.gz" "$TES/chi_sim.traineddata.gz"
 dl "https://github.com/naptha/tessdata_fast/raw/master/eng.traineddata.gz"    "$TES/eng.traineddata.gz"
 
-echo "==> [3/3] whisper 模型（ggml 量化，中文推荐 base / small）"
-# ggerganov 官方在 HuggingFace 托管 ggml 系列模型，链接稳定。
-# base-q5_0 ≈ 75MB（快、够用）；若中文识别要求更高，改用 ggml-small-q5_0.bin（≈ 150MB）。
-dl "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_0.bin" "$WSP/ggml-base-q5_0.bin"
+echo "==> [3/3] whisper 原生 STT 资源"
+if [[ -s "$WSB" ]]; then
+  echo "  · whisper-server 已存在，跳过构建: $WSB"
+else
+  if [[ -n "${WHISPER_BUILD:-}" ]]; then
+    build_whisper_server
+  else
+    echo "  [提示] whisper-server 未就绪（原生 STT 需要它）。"
+    echo "        手动构建：克隆 whisper.cpp → cmake -DWHISPER_SERVER=ON → 把 whisper-server 放到"
+    echo "        $WSB"
+    echo "        或运行：WHISPER_BUILD=1 bash scripts/fetch-models.sh"
+    echo "        （模型权重改为运行时在「设置 → 本地模型」中按需下载，不再由本脚本拉取。）"
+  fi
+fi
 
-echo "==> whisper wasm（whisper.cpp emscripten 构建）"
+echo "==> whisper wasm（WASM 兜底路径，whisper.cpp emscripten 构建）"
 # whisper.wasm 是构建产物，官方不提供稳定下载链接，需本地用 emscripten 构建：
-#   git clone https://github.com/ggerganov/whisper.cpp
+#   git clone https://github.com/ggml-org/whisper.cpp
 #   cd whisper.cpp && emmake make -C examples/whisper.wasm
 # 构建产物 examples/whisper.wasm/whisper.wasm 与 whisper.js 复制到 $WSP 即可。
 # 若你已有可下载镜像，可设环境变量覆盖：WHISPER_WASM_URL / WHISPER_JS_URL
@@ -68,7 +114,7 @@ if [[ -n "${WHISPER_JS_URL:-}" ]]; then
   dl "$WHISPER_JS_URL" "$WSP/whisper.js"
 fi
 if [[ ! -s "$WSP/whisper.wasm" ]]; then
-  echo "  [提示] whisper.wasm 尚未就绪。语音转文字功能需它才能运行，请按上面"
+  echo "  [提示] whisper.wasm 尚未就绪。WASM 兜底路径需它才能运行，请按上面"
   echo "        说明用 emscripten 构建 whisper.cpp 的 examples/whisper.wasm，并把"
   echo "        whisper.wasm 与 whisper.js 放到: $WSP"
   echo "        （OCR 与拍照/附件上传不依赖它，可独立使用。）"
@@ -76,5 +122,6 @@ fi
 
 echo ""
 echo "✅ 模型目录就绪: $MODELS"
-echo "   tesseract: $(ls -lh "$TES" | wc -l | tr -d ' ') 个文件"
-echo "   whisper:   $(ls -lh "$WSP" | wc -l | tr -d ' ') 个文件（whisper.wasm 缺失则语音功能暂不可用）"
+echo "   tesseract: $(ls -lh "$TES" 2>/dev/null | wc -l | tr -d ' ') 个文件"
+echo "   whisper:   $(ls -lh "$WSP" 2>/dev/null | wc -l | tr -d ' ') 个文件"
+echo "   · whisper 模型权重（ggml-*.bin）由「设置→本地模型」运行时按需下载到用户目录。"

@@ -236,6 +236,85 @@
         </div>
       </div>
 
+      <div class="lf-divider"></div>
+
+      <div class="lf-subhead">
+        <Icon name="audio-lines" :size="16" />
+        <span>语音识别模型（按需下载，不随安装包内置）</span>
+      </div>
+      <p class="lf-field-hint lf-mb-2">
+        首次使用某模型需联网下载（约 30–180MB），下载后完全离线运行。运行方式可选「原生 whisper-server」（二进制已随包内置）或「前端 WASM」。
+      </p>
+
+      <div class="lf-field lf-span-2">
+        <label class="kb-label">运行方式</label>
+        <div class="lf-radio-row">
+          <label class="lf-radio" :class="{ 'is-active': speechCfg.runtime === 'native' }">
+            <input type="radio" value="native" v-model="speechCfg.runtime" />
+            <span>原生 whisper-server（推荐，更快更准）</span>
+          </label>
+          <label class="lf-radio" :class="{ 'is-active': speechCfg.runtime === 'wasm' }">
+            <input type="radio" value="wasm" v-model="speechCfg.runtime" />
+            <span>前端 WASM（兜底，需 whisper.wasm）</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="lf-field lf-span-2">
+        <label class="kb-label">模型列表</label>
+        <ul class="lf-model-list">
+          <li v-for="m in speechModels" :key="m.id" class="lf-model-item">
+            <div class="lf-model-main">
+              <div class="lf-model-name">
+                {{ m.label }}
+                <span v-if="m.default" class="lf-tag">默认推荐</span>
+              </div>
+              <div class="lf-model-meta">{{ m.sizeMB }} MB · {{ m.note }}</div>
+            </div>
+            <div class="lf-model-ctrl">
+              <span v-if="m.status === 'downloaded'" class="lf-badge is-ok">已下载</span>
+              <span v-else-if="m.status === 'downloading'" class="lf-badge is-busy">下载中 {{ downloadProgress[m.id] || 0 }}%</span>
+              <span v-else class="lf-badge is-off">未下载</span>
+
+              <button
+                v-if="m.status === 'available'"
+                class="kb-btn kb-btn-sm kb-btn-primary"
+                :disabled="speechBusy"
+                @click="startDownload(m.id)"
+              >下载</button>
+              <button
+                v-else-if="m.status === 'downloading'"
+                class="kb-btn kb-btn-sm"
+                @click="removeModel(m.id)"
+              >取消</button>
+              <button
+                v-else
+                class="kb-btn kb-btn-sm kb-btn-ghost"
+                @click="removeModel(m.id)"
+              >删除</button>
+            </div>
+            <div v-if="m.status === 'downloading'" class="lf-progress">
+              <div class="lf-progress-bar" :style="{ width: (downloadProgress[m.id] || 0) + '%' }"></div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="lf-field lf-span-2">
+        <label class="kb-label">默认模型档位</label>
+        <select v-model="speechCfg.selectedModelId" class="kb-input">
+          <option v-for="m in speechModels" :key="m.id" :value="m.id">{{ m.label }}（{{ m.sizeMB }}MB）</option>
+        </select>
+        <p class="lf-field-hint">语音转写 / 模拟面试默认使用的模型；可在各入口临时切换。</p>
+      </div>
+
+      <div class="lf-actions">
+        <button class="kb-btn kb-btn-primary" :disabled="speechSaving" @click="saveSpeechSettings">
+          <Icon :name="speechSaving ? 'loader' : 'save'" :size="16" :class="speechSaving ? 'lf-spin' : ''" />
+          保存语音识别设置
+        </button>
+      </div>
+
       <div class="lf-actions">
         <button class="kb-btn kb-btn-primary" :disabled="saving" @click="saveAll">
           <Icon :name="saving ? 'loader' : 'save'" :size="16" :class="saving ? 'lf-spin' : ''" />
@@ -383,6 +462,15 @@ import {
   type AiProviderPreset,
   type AiPingResult,
 } from '@/api/ai'
+import {
+  getSpeechModels,
+  getSpeechConfig,
+  saveSpeechConfig,
+  deleteSpeechModel,
+  downloadSpeechModel,
+  type SpeechModelEntry,
+  type SpeechConfig,
+} from '@/api/speechModels'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -402,6 +490,72 @@ const pickingBackup = ref(false)
 const backupBusy = ref(false)
 const backupMsg = ref<{ ok: boolean; text: string } | null>(null)
 const backupList = ref<Array<{ name: string; size: number; modifiedAt: number }>>([])
+
+// ============ 离线语音模型（运行时 + 模型下载）============
+// 与上方 AI 配置（whisperUrl/whisperModel）解耦：本段管理「下载哪些模型权重、
+// 用原生还是 WASM 运行、默认档位」，经独立端点 /api/models/* 落盘 speech-config.json。
+const speechModels = ref<SpeechModelEntry[]>([])
+const speechCfg = reactive<SpeechConfig>({ runtime: 'native', selectedModelId: 'base-q5_1', updatedAt: '' })
+const speechBusy = ref(false) // 是否正在下载（禁用其它下载按钮）
+const speechSaving = ref(false)
+const downloadProgress = reactive<Record<string, number>>({})
+
+async function loadSpeech() {
+  try {
+    const [models, cfg] = await Promise.all([getSpeechModels(), getSpeechConfig()])
+    speechModels.value = models
+    speechCfg.runtime = cfg.runtime
+    speechCfg.selectedModelId = cfg.selectedModelId
+    speechCfg.updatedAt = cfg.updatedAt
+  } catch (e) {
+    notify(getApiError(e, '读取语音模型列表失败'), 'error')
+  }
+}
+
+async function startDownload(id: string) {
+  if (speechBusy.value) return
+  speechBusy.value = true
+  downloadProgress[id] = 0
+  try {
+    await downloadSpeechModel(id, (evt) => {
+      if (evt.type === 'progress') downloadProgress[id] = evt.pct || 0
+    })
+    notify('模型下载完成，可离线使用', 'success')
+  } catch (e) {
+    notify(getApiError(e, '模型下载失败'), 'error')
+  } finally {
+    speechBusy.value = false
+    downloadProgress[id] = 0
+    await loadSpeech() // 刷新列表状态
+  }
+}
+
+async function removeModel(id: string) {
+  try {
+    await deleteSpeechModel(id)
+    notify('已删除模型文件', 'success')
+  } catch (e) {
+    notify(getApiError(e, '删除失败'), 'error')
+  }
+  await loadSpeech()
+}
+
+async function saveSpeechSettings() {
+  if (speechSaving.value) return
+  speechSaving.value = true
+  try {
+    const cfg = await saveSpeechConfig({
+      runtime: speechCfg.runtime,
+      selectedModelId: speechCfg.selectedModelId,
+    })
+    speechCfg.updatedAt = cfg.updatedAt
+    notify('语音识别设置已保存', 'success')
+  } catch (e) {
+    notify(getApiError(e, '保存失败'), 'error')
+  } finally {
+    speechSaving.value = false
+  }
+}
 
 const presets = ref<AiProviderPreset[]>([])
 const embedPresets = ref<AiProviderPreset[]>([])
@@ -596,6 +750,8 @@ onMounted(async () => {
   }
   // 数据备份计划（不计入「未保存改动」基线）
   await loadBackupSettings()
+  // 离线语音模型列表 / 配置（独立端点，不计入上方 AI 配置基线）
+  await loadSpeech()
   // 全部载入完成后才立基线，否则回填过程会被误判成「用户改动」
   baseline.value = snapshot()
 })
@@ -981,4 +1137,29 @@ function formatTime(secs: number): string {
   .lf-span-2 { grid-column: span 1; }
   .lf-cap-grid { grid-template-columns: 1fr; }
 }
+
+/* ============ 离线语音模型管理 ============ */
+.lf-divider { height: 1px; background: var(--kb-border); margin: .35rem 0 .25rem; }
+.lf-subhead { display: flex; align-items: center; gap: .4rem; font-size: var(--kb-fs-h4, 1rem); font-weight: 600; color: var(--kb-foreground); }
+.lf-subhead :deep(svg) { color: var(--kb-primary); }
+.lf-mb-2 { margin-bottom: .75rem; }
+
+.lf-radio-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.lf-radio { display: inline-flex; align-items: center; gap: .45rem; padding: .4rem .7rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md, 10px); cursor: pointer; font-size: var(--kb-fs-body-sm, .8125rem); color: var(--kb-foreground); transition: border-color .15s, background .15s; }
+.lf-radio.is-active { border-color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 10%, transparent); }
+.lf-radio input { accent-color: var(--kb-primary); }
+
+.lf-model-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.lf-model-item { display: grid; grid-template-columns: 1fr auto; gap: .35rem .75rem; align-items: center; padding: .6rem .75rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md, 10px); background: var(--kb-muted); }
+.lf-model-name { font-size: var(--kb-fs-body, .875rem); font-weight: 600; color: var(--kb-foreground); display: flex; align-items: center; gap: .4rem; }
+.lf-tag { font-size: var(--kb-fs-caption, .7rem); font-weight: 500; padding: .05rem .4rem; border-radius: 999px; background: color-mix(in srgb, var(--kb-primary) 16%, transparent); color: var(--kb-primary); }
+.lf-model-meta { font-size: var(--kb-fs-caption, .75rem); color: var(--kb-muted-foreground); margin-top: .1rem; }
+.lf-model-ctrl { display: flex; align-items: center; gap: .5rem; }
+.lf-model-ctrl .lf-badge { white-space: nowrap; }
+.lf-badge.is-ok { color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 14%, transparent); }
+.lf-badge.is-busy { color: var(--kb-warning); background: color-mix(in srgb, var(--kb-warning) 14%, transparent); }
+.lf-badge.is-off { color: var(--kb-muted-foreground); }
+
+.lf-progress { grid-column: 1 / -1; height: 6px; border-radius: 999px; background: var(--kb-border); overflow: hidden; }
+.lf-progress-bar { height: 100%; background: var(--kb-primary); border-radius: 999px; transition: width .2s ease; }
 </style>

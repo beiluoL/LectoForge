@@ -372,21 +372,37 @@ impl WhisperSidecar {
             );
             return None;
         }
+        // 可写数据目录（模型运行时下载到这里）；优先于只读 .app Resources。
+        let data_dir = std::env::var("LECTOFORGE_DATA_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| resource_dir.to_path_buf());
+        // 模型默认档位 ggml-base-q5_1（与前端下载器、whisperClient 一致）。
+        // 运行时下载到 dataDir/models/whisper/（可写，优先）；
+        // 兜底 .app Resources/models/whisper/（随包内置，需开发者手动放置）。
         let model = if let Ok(p) = std::env::var("WHISPER_MODEL") {
             PathBuf::from(p)
         } else {
-            resource_dir.join("models").join("ggml-base.bin")
+            let in_data = data_dir
+                .join("models")
+                .join("whisper")
+                .join("ggml-base-q5_1.bin");
+            if in_data.exists() {
+                in_data
+            } else {
+                resource_dir
+                    .join("models")
+                    .join("whisper")
+                    .join("ggml-base-q5_1.bin")
+            }
         };
         if !model.exists() {
             eprintln!(
-                "[lectoforge] 未找到 whisper 模型（{}），跳过本地 STT 侧车。",
+                "[lectoforge] 未找到 whisper 模型（{}），跳过本地 STT 侧车。\
+                 可在「设置→本地模型」按需下载，或手动放置模型到上述路径。",
                 model.display()
             );
             return None;
         }
-        let data_dir = std::env::var("LECTOFORGE_DATA_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| resource_dir.to_path_buf());
         let log_dir = data_dir.join("logs");
         let _ = std::fs::create_dir_all(&log_dir);
         let threads = std::thread::available_parallelism()

@@ -4,7 +4,7 @@ import staticPlugin from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolvePort, resolveWebDir, resolveDataDir, getUploadsDir, getModelsDir, isLaunchedByHost } from './lib/paths';
+import { resolvePort, resolveWebDir, resolveDataDir, getUploadsDir, getModelsDir, dataSubDir, isLaunchedByHost } from './lib/paths';
 import captures from './routes/captures';
 import notes from './routes/notes';
 import reviews from './routes/reviews';
@@ -32,6 +32,7 @@ import calendar from './routes/calendar';
 import backup from './routes/backup';
 import interview from './routes/interview';
 import qaBank from './routes/qaBank';
+import models from './routes/models';
 
 const app = Fastify({ logger: false });
 
@@ -183,6 +184,7 @@ app.register(interview, { prefix: '/api' });
 /* ===== 模拟面试题库（手动面经 + 复习卡 + 康奈尔笔记统一题库层）=====
  * 独立前缀 /api：端点 /qa-bank 系列。 */
 app.register(qaBank, { prefix: '/api' });
+app.register(models, { prefix: '/api' });
 
 /* ===== 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）=====
  * 独立前缀 /api：端点 /backup（立即备份）、/backup/schedule（GET/PUT 计划）。
@@ -241,19 +243,22 @@ app.register(staticPlugin, {
 });
 
 /* ===== 同源托管离线模型资源（tesseract / whisper 的 wasm / worker / 语言包 / 模型）=====
- * 打包后由 Rust 宿主通过 LECTOFORGE_RESOURCES_DIR 注入资源目录，开发期回退项目根
- * resources/models（见 lib/paths.ts 的 getModelsDir）。前端以 /models/tesseract/... 与
- * /models/whisper/... 同源拉取，零 CORS、零外网依赖，满足「离线」诉求。
+ * 双根托管（@fastify/static 支持 array root）：
+ *   1) <dataDir>/models（可写，优先）—— 运行时下载的 ggml 模型权重落这里；
+ *   2) 打包资源目录 <RESOURCES_DIR>/models（只读兜底）—— tesseract 文件、whisper.wasm 等随包内置。
+ * 二者都挂在 /models/ 下，前端 URL（/models/tesseract/...、/models/whisper/...）不变，
+ * 下载的模型与内置的 wasm 共享同一域名，零 CORS、零外网依赖。
  * 必须先于 webDir 注册，否则根通配会吃掉 /models/*。 */
+const dataModelsDir = dataSubDir('models');
+const whisperRoots: string[] = [dataModelsDir];
 const modelsDir = getModelsDir();
-if (fs.existsSync(modelsDir)) {
-  app.register(staticPlugin, {
-    root: modelsDir,
-    prefix: '/models/',
-    decorateReply: false,
-    maxAge: '30d',
-  });
-}
+if (fs.existsSync(modelsDir)) whisperRoots.push(modelsDir);
+app.register(staticPlugin, {
+  root: whisperRoots,
+  prefix: '/models/',
+  decorateReply: false,
+  maxAge: '30d',
+});
 
 // ===== 同源托管前端构建产物（生产由 Tauri 传入 --web-dir）=====
 const webDir = resolveWebDir();
