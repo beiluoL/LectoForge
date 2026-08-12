@@ -195,6 +195,20 @@ npm run tauri build
 
 > ⚠️ 打包前务必确认 `tauri.conf.json` resources 含 `"../src-api/backup.js": "api/backup.js"`，且 `archiver` 已随 `scripts/prepare-bin.sh` 进 `.prod-modules/node_modules`。详见《桌面端技术架构与功能手册.md》§7.22 / §9.2.1。
 
+## 离线模拟面试 / 语音通话模块（2026-08-12 新增）
+
+对标豆包「模拟面试」：与 AI 面试官**语音对话**式模拟面试，题目取自**本地题库**，答完自动打分与追问。全链路可离线（语音识别本地 Whisper、语音合成 macOS 系统嗓音），LLM 先走现有云端 provider 跑通、架构 provider 无关，后续改 `baseUrl` 指本地 Ollama 即完全离线。
+
+- **路由（+2 视图 / +2 条路由）**：`/interview`（通话式面试：对话气泡 + 大「开始通话/结束」按钮 + 实时字幕）、`/interview-bank`（题库管理），均 `meta:{layout:'c',fullscreen:true}`；顶栏新增「模拟面试」入口。
+- **闭环**：录音（复用 `useVoiceRecorder`）→ `POST /api/interview/transcribe` → 本地 `whisper-server`(:8080) 转文字 → `POST /api/interview/answer` → `recallService` 关键词命中率打分 + `chatStream()` 生成口语化点评/追问 → **SSE** 回推 `evaluation → question|end`，前端边收边用 `window.speechSynthesis` 朗读。
+- **题库 `wb_qa_bank`（统一题库层）**：三来源汇入——① 手动导入面经（Markdown/纯文本 `Q:`/`A:` 或 `## ` 分隔）；② PDF 导入（`pdf-parse`）；③ 一键从复习卡 `wb_review_card`（front=问/back=答）与康奈尔笔记 `wb_note`（cue=问/note=答）导入。
+- **后端端点（+10 个）**：`/api/interview` 3 个（`transcribe` / `start` / `answer`，后两者为 **SSE 流**）+ `/api/qa-bank` 7 个（列表 / 取单条 / 随机抽题 / `import-md` / `import-pdf` / `import-from-review-cards` / `import-from-notes`）。
+- **LLM 层**：`lib/llm.ts` 新增 `local` provider 预设（Ollama `http://localhost:11434/v1`）+ `chatStream()` 流式生成器；`assertReady` 对 `local` 放宽 apiKey 强校验（本地模型无 Key）。
+- **Whisper 侧车**：Rust `WhisperSidecar` 镜像既有 `SidecarManager` 监督/退避模式，仅 release 编译；路径经 `WHISPER_BIN` / `WHISPER_MODEL` 解析，**缺二进制或模型则静默跳过不崩窗**；**刻意不进 `externalBin`** 以免开发者机器 `tauri build` 断裂；dev 手动起用 `scripts/run-whisper.sh`。不新增任何 invoke 命令 → `capabilities` 无需改动。
+
+> ⚠️ 两个 SSE 端点是「响应信封由 `index.ts` onSend 唯一负责」约定的**唯一例外**（控制器直写 `reply.raw`）。会话状态为 `interviewService` 内存 `Map`，进程重启即失。
+> ⚠️ 离线语音识别需先备好 `whisper-server` 二进制 + `ggml-*.bin` 模型（当前 `resources/models/whisper/` 为空），否则面试语音输入不可用。详见《桌面端技术架构与功能手册.md》§7.24。
+
 ## v1.1.0 新增能力（本次更新）
 
 在原有四模块闭环 + 文档库 + 思维导图之上，本次更新补齐了**稳定性基建**与**四个体验型功能**：
