@@ -34,6 +34,7 @@ import type {
   CreateFolderDTO,
   CreateNoteDTO,
   DeleteEntryDTO,
+  LibraryTodoItem,
   RenameEntryDTO,
   UpdateNoteDTO,
   WorkspaceInitDTO,
@@ -138,6 +139,56 @@ export function updateNoteContent(input: UpdateNoteDTO) {
 export function renameNoteEntry(input: RenameEntryDTO): Promise<TreeNode> {
   if (!input.filePath) throw new VaultError('缺少参数 filePath');
   return renameEntry(input.filePath, input.newName ?? '');
+}
+
+// ===== TODO 自动提取（功能 A：文档库 → 任务清单） =====
+
+/**
+ * 两种未完成待办语法都被识别：
+ *  - Markdown 任务清单 `- [ ] 某事` / `* [ ] 某事`（方框内必须是单个空格，已勾选的 `[x]` 不算）
+ *  - 关键字写法 `TODO: 某事` / `TODO：某事`（中英文冒号均可，大小写不敏感；允许行首 `>` 引用前缀）
+ */
+const TODO_CHECKBOX_RE = /^\s*[-*]\s*\[ \]\s*(.+?)\s*$/
+const TODO_KEYWORD_RE = /^(?:>\s*)?TODO[：:]\s*(.+?)\s*$/i
+
+/**
+ * 扫描文档库 Markdown 中的未完成待办项，返回全部命中。
+ *
+ * 范围两种：传 `fileId` 只扫这一个文件（编辑器内实时提示用）；
+ * 不传则全库扫描（文档库悬浮待办面板用）。全库扫描对超大库可能偏慢，
+ * 但这是只读探测、不落库，且前端按需手动刷新，风险可控。
+ *
+ * 读不到的文件（已删 / 越界）直接跳过，不让单点失败拖垮整次扫描。
+ */
+export async function scanTodos(fileId?: string): Promise<LibraryTodoItem[]> {
+  const targets = fileId ? [{ id: fileId, name: '' }] : await listAllNotes();
+  const items: LibraryTodoItem[] = [];
+  for (const note of targets) {
+    let noteName = note.name
+    let content = ''
+    try {
+      const res = await readNote(note.id)
+      content = res.content ?? ''
+      noteName = res.name || note.name || note.id
+    } catch {
+      // 跳过读不到的文件（可能已被用户在 Finder 里删除）
+      continue
+    }
+    content.split('\n').forEach((rawLine, idx) => {
+      const line = rawLine.trimEnd()
+      const m = TODO_CHECKBOX_RE.exec(line) || TODO_KEYWORD_RE.exec(line)
+      const text = m?.[1]?.trim()
+      if (text) {
+        items.push({
+          filePath: note.id,
+          fileName: noteName,
+          taskContent: text,
+          lineNumber: idx + 1,
+        })
+      }
+    });
+  }
+  return items
 }
 
 /**

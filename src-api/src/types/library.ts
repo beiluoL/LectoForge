@@ -28,6 +28,18 @@ export interface AssetResolution {
   mime: string;
 }
 
+/** GET /library/notes/todos 扫描出的单条未办待办项（功能 A：文档库 → 任务清单） */
+export interface LibraryTodoItem {
+  /** 笔记的相对路径（POSIX id），可用于深链回跳 */
+  filePath: string
+  /** 文件名（含 .md），展示用 */
+  fileName: string
+  /** 提取出的待办正文 */
+  taskContent: string
+  /** 在文件中的行号（从 1 开始），便于回跳定位 */
+  lineNumber: number
+}
+
 /** 各写操作的入参 */
 export interface CreateNoteDTO {
   parentDir?: string;

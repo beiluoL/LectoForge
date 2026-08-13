@@ -121,3 +121,28 @@ export function generateMindMapFromNote(payload: {
 }) {
   return apiPost<AiMindMapResult>('/ai/note/generate-mindmap', payload, { timeout: AI_TIMEOUT })
 }
+
+// ===================== 功能 B：导图 → 费曼故事草稿 =====================
+
+/** 功能 B 入参：把当前大纲树（OutlineNode[]）原样交给后端，后端只取 text/children */
+export interface MindmapToStoryPayload {
+  mindmapTitle?: string
+  outlineJson: OutlineNode[]
+  targetAudience?: string
+}
+
+/** 功能 B 出参：与后端 ai.MindmapToStoryVO 对齐（storyContent + title + AI 元信息） */
+export interface MindmapToStoryResult {
+  title: string
+  storyContent: string
+  model: string
+  latencyMs: number
+}
+
+/**
+ * 根据导图大纲生成一篇费曼故事草稿（只算不存）。
+ * 前端拿到结果后自行调 createStory 落库并跳转，保持「AI 只做计算、写入由业务侧负责」的边界。
+ */
+export function convertMindmapToStory(payload: MindmapToStoryPayload) {
+  return apiPost<MindmapToStoryResult>('/ai/mindmap/convert-to-story', payload, { timeout: AI_TIMEOUT })
+}

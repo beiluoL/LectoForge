@@ -18,6 +18,7 @@
 import { computed, reactive, watch } from 'vue'
 
 import {
+  convertMindmapToStory,
   createMindMap as apiCreate,
   deleteMindMap as apiDelete,
   generateMindMapByAi,
@@ -30,6 +31,8 @@ import {
   type MindMapNode,
   type OutlineNode,
 } from '@/api/mindmap'
+import { createStory } from '@/api/workbench'
+import router from '@/router'
 import { getApiError, notify } from '@/utils/toast'
 
 export type { OutlineNode, FlowchartData, MindMapEdge, MindMapMeta, MindMapNode }
@@ -614,4 +617,40 @@ export async function generateByAi(topic: string, options: { depth?: number; bra
 
 export function setViewMode(mode: ViewMode): void {
   mapState.viewMode = mode
+}
+
+/**
+ * 功能 B：把当前导图大纲一键转成费曼故事草稿。
+ *
+ * 流程：AI 计算故事正文（只算不存）→ 前端调 createStory 落库（status=DRAFT）→
+ * 直接跳转到新故事的编辑页。AI 调用期间 aiLoading 复用与「AI 生成大纲」同一状态位，
+ * 避免同时拉起两路生成时状态互相打架。
+ *
+ * @returns 成功跳转到故事页返回 true；大纲为空 / 失败返回 false。
+ */
+export async function generateStoryFromOutline(): Promise<boolean> {
+  if (!mapState.outlineData.length) {
+    notify('导图大纲为空，请先写点内容', 'warning')
+    return false
+  }
+  mapState.aiLoading = true
+  try {
+    const res = await convertMindmapToStory({
+      mindmapTitle: mapState.title,
+      outlineJson: mapState.outlineData,
+    })
+    const storyId = await createStory({
+      title: res.title || mapState.title || '费曼故事草稿',
+      content: res.storyContent,
+      status: 'DRAFT',
+    })
+    notify(`已生成故事草稿（${res.model}）`, 'success')
+    await router.push(`/workbench/story/${storyId}`)
+    return true
+  } catch (e) {
+    notify(getApiError(e, '生成费曼故事失败'), 'error')
+    return false
+  } finally {
+    mapState.aiLoading = false
+  }
 }

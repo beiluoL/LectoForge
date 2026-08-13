@@ -110,6 +110,18 @@ export async function remove(req: FastifyRequest, reply: FastifyReply) {
   return reply.code(204).send();
 }
 
+// ===== TODO 自动提取（功能 A：文档库 → 任务清单） =====
+
+/**
+ * GET /library/notes/todos?file=<id>
+ * 全库扫描（无 file 参数）或单文件扫描（带 file 参数）。返回裸数组，
+ * 由 index.ts 的 onSend 信封自动包成 { code: 200, data }。
+ */
+export async function scanTodos(req: FastifyRequest) {
+  const q = req.query as { file?: string };
+  return libraryService.scanTodos(q.file);
+}
+
 // ===== 资源（图片 / 矢量 / PDF 等附件） =====
 
 /**

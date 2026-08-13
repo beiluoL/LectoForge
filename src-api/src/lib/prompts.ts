@@ -1,5 +1,6 @@
 import type { ChatMessage } from './llm';
 import { truncate } from './llm';
+import type { MindmapOutlineNode } from '../types/ai';
 
 /**
  * AI 提示词集中管理
@@ -1449,6 +1450,71 @@ export function buildInterviewDecisionPrompt(input: {
         '  "nextQuestion": "若 nextAction=question，给出下一题或追问内容（针对薄弱点深入）；若 end 可留空字符串",',
         '  "weakness": "检出的薄弱点关键词（如 死锁/JVM调优/并发安全），无则空字符串",',
         '  "suggestion": "给学员的改进建议（1~2 句，口语化、适合语音朗读）"',
+        '}',
+      ].join('\n'),
+    },
+  ];
+}
+
+// ===================== 思维导图 → 费曼故事（功能 B） =====================
+
+/**
+ * 把思维导图大纲润色成一篇「讲给指定听众听的费曼故事」。
+ *
+ * 大纲是树，先压平成带缩进的文本提纲交给模型，再要求它：
+ * - 以 mindmapTitle 为总主题，用一条主线把各分支串成连贯叙述（不是逐条罗列）；
+ * - 多用类比和生活例子，避免术语堆砌；
+ * - 面向 targetAudience 调整深浅（初学者要更白话、面试官要更有深度）。
+ * 输出严格 JSON { title, content }，content 是纯 Markdown 长文，前端直接落库。
+ *
+ * 受众解析放在本函数内（AUDIENCE_LABEL 与既有故事提示词同源），
+ * 调用方只需传 targetAudience 枚举值，避免在 aiContentService 里再引一遍受众表。
+ */
+export function buildMindmapStoryPrompt(input: {
+  mindmapTitle?: string
+  outline: MindmapOutlineNode[]
+  targetAudience?: string
+}): ChatMessage[] {
+  const audience = AUDIENCE_LABEL[String(input.targetAudience || 'NEWBIE')] || AUDIENCE_LABEL.NEWBIE
+
+  // 树 → 缩进文本提纲
+  const outlineLines: string[] = []
+  const walk = (nodes: MindmapOutlineNode[], depth: number) => {
+    for (const node of nodes) {
+      const text = String(node.text || '').trim()
+      if (text) outlineLines.push(`${'  '.repeat(depth)}- ${text}`)
+      if (node.children?.length) walk(node.children, depth + 1)
+    }
+  }
+  walk(input.outline, 0)
+  const outlineText = outlineLines.join('\n') || '（空大纲）'
+
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是费曼学习法写作助手。用户给你一张思维导图的大纲，你要把它润色成一篇结构完整、',
+        '像在给指定听众「讲故事」一样的文章——不是把要点逐条罗列，而是用一条主线串成连贯叙述。',
+        '要求：',
+        '- 以主题为核心，按「总—分—总」展开，开头点题、结尾回扣；',
+        '- 多用类比和生活例子，避免术语堆砌；讲不清楚的概念就地打个比方；',
+        '- 段落清晰、有过渡句，读起来像一篇随笔而非大纲复刻；',
+        '- 不编造大纲里没有的事实性知识点，但可以自由补充帮助理解的比喻。只输出 JSON。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【文章主题】${input.mindmapTitle || '（未命名导图）'}`,
+        `【目标听众】${audience}`,
+        '',
+        '【思维导图大纲】',
+        outlineText,
+        '',
+        '请按以下 JSON 结构输出：',
+        '{',
+        '  "title": "文章标题（12 字以内、能概括主题）",',
+        '  "content": "一篇 600~1000 字的费曼故事，使用 Markdown 段落，不要带标题层级"',
         '}',
       ].join('\n'),
     },

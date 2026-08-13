@@ -8,6 +8,7 @@
 
 /* ---------- 页面容器：顶部一条工作区信息栏 + 下方三栏工作台 ---------- */
 .dl-page {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--kb-space-3);
@@ -766,3 +767,203 @@
  * 要么各自复制一份排版规则。引用方式：在使用 .dl-md 的组件里 import '@/lib/markdown.css'。
  * 本文件（index.vue）已在 script 顶部引入，故这里不再重复定义。
  * ===================================================================== */
+
+/* =====================================================================
+ * 功能 A：文档库 TODO 悬浮面板（文档库 → 任务清单）
+ * 颜色 / 间距 / 圆角 / 字号 / 阴影一律取 --kb-* 令牌，不硬编码色值。
+ * ===================================================================== */
+
+/* 顶部栏「待办」按钮上的未读数徽标 */
+.dl-todo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--kb-primary);
+  color: var(--kb-primary-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dl-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--kb-radius-sm);
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.dl-icon-btn:hover:not(:disabled) {
+  background: var(--kb-muted);
+  color: var(--kb-foreground);
+}
+.dl-icon-btn:active:not(:disabled) {
+  transform: translateY(var(--kb-press-y));
+}
+.dl-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--kb-focus-ring);
+}
+.dl-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 悬浮面板：固定在文档库右下角，层叠在编辑器之上 */
+.dl-todo-panel {
+  position: absolute;
+  right: var(--kb-space-4);
+  bottom: var(--kb-space-4);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-height: 60vh;
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.dl-todo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kb-space-2);
+  padding: var(--kb-space-2) var(--kb-space-3);
+  border-bottom: 1px solid var(--kb-border);
+  flex-shrink: 0;
+}
+.dl-todo-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--kb-fs-sm);
+  font-weight: 600;
+  color: var(--kb-foreground);
+}
+.dl-todo-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dl-todo-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--kb-space-2) 0;
+}
+
+.dl-todo-empty {
+  margin: 0;
+  padding: var(--kb-space-4) var(--kb-space-3);
+  font-size: var(--kb-fs-sm);
+  color: var(--kb-muted-foreground);
+  text-align: center;
+}
+.dl-todo-empty code {
+  font-family: var(--font-mono);
+  background: var(--kb-muted);
+  padding: 1px 4px;
+  border-radius: var(--kb-radius-sm);
+  font-size: 0.9em;
+}
+
+.dl-todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dl-todo-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--kb-space-2) var(--kb-space-3);
+  border-bottom: 1px solid var(--kb-border);
+  transition: opacity 0.3s ease, transform 0.3s ease, background 0.15s ease;
+}
+.dl-todo-item:last-child {
+  border-bottom: none;
+}
+.dl-todo-item:hover {
+  background: var(--kb-muted);
+}
+/* 加入任务后播放的划出动画 */
+.dl-todo-item.is-leaving {
+  opacity: 0;
+  transform: translateX(24px);
+}
+
+.dl-todo-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  min-width: 0;
+  font-size: var(--kb-fs-caption);
+  color: var(--kb-muted-foreground);
+}
+.dl-todo-file {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dl-todo-line {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.dl-todo-text {
+  margin: 0;
+  font-size: var(--kb-fs-sm);
+  color: var(--kb-foreground);
+  line-height: 1.5;
+  word-break: break-word;
+}
+.dl-todo-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-primary);
+  color: var(--kb-primary-foreground);
+  font-size: var(--kb-fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+.dl-todo-add:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+.dl-todo-add:active:not(:disabled) {
+  transform: translateY(var(--kb-press-y));
+}
+.dl-todo-add:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 面板进出场：从右下方滑入 */
+.dl-todo-slide-enter-active,
+.dl-todo-slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.dl-todo-slide-enter-from,
+.dl-todo-slide-leave-to {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}

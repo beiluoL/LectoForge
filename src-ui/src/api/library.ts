@@ -125,3 +125,21 @@ export function deleteEntry(filePath: string, recursive = false) {
 export function findAsset(name: string) {
   return apiGet<{ path: string }>('/library/asset/find', { name })
 }
+
+// ===== 功能 A：文档库 TODO 自动提取（文档库 → 任务清单） =====
+
+/** 单条未办待办（与后端 types/library.LibraryTodoItem 对齐） */
+export interface LibraryTodoItem {
+  filePath: string
+  fileName: string
+  taskContent: string
+  lineNumber: number
+}
+
+/**
+ * 扫描文档库 Markdown 中的未完成待办项。
+ * 不传 file 时全库扫描；传 file 时只扫该文件（POSIX 相对路径 id）。
+ */
+export function scanLibraryTodos(file?: string) {
+  return apiGet<LibraryTodoItem[]>('/library/notes/todos', file ? { file } : undefined)
+}

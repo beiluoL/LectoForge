@@ -17,6 +17,7 @@ import {
   buildCaptureSummarizePrompt,
   buildDraftNotePrompt,
   buildDraftStoryPrompt,
+  buildMindmapStoryPrompt,
   buildNoteExtendPrompt,
   buildNoteGeneratePrompt,
   buildPalaceLociPrompt,
@@ -47,6 +48,7 @@ import type {
   DraftNoteVO,
   FlashcardsDTO,
   FlashcardsVO,
+  MindmapOutlineNode,
   NoteExtendDTO,
   NoteExtendVO,
   NoteGenerateDTO,
@@ -67,6 +69,8 @@ import type {
   StoryDraftVO,
   TagsDTO,
   TagsVO,
+  MindmapToStoryDTO,
+  MindmapToStoryVO,
 } from '../types/ai';
 
 /** 入参不合法 —— 前端可直接把 message 展示给用户 */
@@ -543,3 +547,42 @@ export async function generateReviewMnemonic(
 
 /** 提供给依赖方复用的只读导出（当前仅测试与内部编排使用） */
 export { normalizeQuiz, quizToCard, ruleScore };
+
+// ===================== 功能 B：思维导图 → 费曼故事草稿 =====================
+
+/** LLM 返回的 JSON 结构（与提示词约定的字段对齐） */
+interface MindmapStoryOutput {
+  title: string
+  content: string
+}
+
+/**
+ * 把思维导图大纲润色成费曼故事。
+ *
+ * 纯计算 + 落库分离：本函数只产出正文与标题，落库（写 wb_story）由前端调
+ * POST /api/workbench/stories 完成——与既有「AI 只算不存」的边界保持一致。
+ */
+export async function convertMindmapToStory(b: MindmapToStoryDTO): Promise<AiResult<MindmapToStoryVO>> {
+  if (!Array.isArray(b.outlineJson) || b.outlineJson.length === 0) {
+    return badInput('导图大纲为空，请先在大纲视图里写点内容');
+  }
+  const { data, raw } = await chatJson<MindmapStoryOutput>(
+    buildMindmapStoryPrompt({
+      mindmapTitle: b.mindmapTitle,
+      outline: b.outlineJson as MindmapOutlineNode[],
+      targetAudience: b.targetAudience,
+    }),
+    { temperature: 0.6 },
+  )
+  const storyContent = String(data.content || '').trim()
+  if (!storyContent) return badResponse('AI 没有产出故事内容，请重试或换个模型')
+  return {
+    kind: 'ok',
+    data: {
+      storyContent,
+      title: String(data.title || b.mindmapTitle || '费曼故事草稿').trim(),
+      model: raw.model,
+      latencyMs: raw.latencyMs,
+    },
+  }
+}

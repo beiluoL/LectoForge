@@ -27,6 +27,7 @@ import type {
   StoryClarityDTO,
   StoryDraftDTO,
   TagsDTO,
+  MindmapToStoryDTO,
 } from '../types/ai';
 
 /**
@@ -155,6 +156,17 @@ export async function draftNote(req: FastifyRequest, reply: FastifyReply) {
 export async function storyDraft(req: FastifyRequest, reply: FastifyReply) {
   const b = (req.body || {}) as StoryDraftDTO;
   return run(reply, () => aiContentService.draftStory(b));
+}
+
+// ===================== 功能 B：思维导图 → 费曼故事草稿 =====================
+
+/**
+ * POST /api/ai/mindmap/convert-to-story
+ * 把导图大纲润色成费曼故事；落库（写 wb_story）由前端调 POST /api/workbench/stories 完成。
+ */
+export async function convertMindmapToStory(req: FastifyRequest, reply: FastifyReply) {
+  const b = (req.body || {}) as MindmapToStoryDTO;
+  return run(reply, () => aiContentService.convertMindmapToStory(b));
 }
 
 // ===================== P2-G1：学习周报 / 洞察 =====================

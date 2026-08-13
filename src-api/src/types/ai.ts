@@ -344,3 +344,29 @@ export interface AssociateVO {
   model: string;
   latencyMs: number;
 }
+
+// ===================== 思维导图 → 费曼故事（功能 B） =====================
+
+/** 导图的极简树节点（与前端 OutlineNode 对齐，但只保留大纲投影需要的字段） */
+export interface MindmapOutlineNode {
+  text: string;
+  children: MindmapOutlineNode[];
+}
+
+/** POST /ai/mindmap/convert-to-story 入参 */
+export interface MindmapToStoryDTO {
+  /** 导图标题，作为文章主题 */
+  mindmapTitle?: string;
+  /** 当前导图的树形大纲（outlineJson） */
+  outlineJson: MindmapOutlineNode[];
+  /** 目标听众：对齐 AUDIENCE_LABEL（CHILD/NEWBIE/PEER/INTERVIEWER），缺省初学者 */
+  targetAudience?: string;
+}
+
+/** POST /ai/mindmap/convert-to-story 出参（storyContent 不直接展示，由前端落库） */
+export interface MindmapToStoryVO extends AiMeta {
+  /** 润色后的费曼故事正文（Markdown 长文） */
+  storyContent: string;
+  /** 文章标题 */
+  title: string;
+}

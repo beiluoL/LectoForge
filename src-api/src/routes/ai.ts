@@ -31,6 +31,9 @@ export default async function (app: FastifyInstance) {
   app.post('/capture/draft-note', aiController.draftNote);
   app.post('/story/draft', aiController.storyDraft);
 
+  // ===== 功能 B：思维导图 → 费曼故事草稿 =====
+  app.post('/mindmap/convert-to-story', aiController.convertMindmapToStory);
+
   // ===== 只读洞察（周报 / 薄弱点 / 默写趋势）=====
   app.post('/insight/report', aiController.insightReport);
   app.post('/weakness/diagnose', aiController.weaknessDiagnose);

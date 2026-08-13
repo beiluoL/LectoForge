@@ -66,6 +66,16 @@
       <button type="button" class="kb-btn kb-btn-sm kb-btn-primary" @click="aiOpen = true">
         <Icon name="ai-sparkle" size="xs" /> AI 生成
       </button>
+      <button
+        type="button"
+        class="kb-btn kb-btn-sm"
+        :disabled="mapState.aiLoading"
+        title="根据当前导图大纲生成一篇费曼故事草稿"
+        @click="onGenerateStory"
+      >
+        <Icon name="book-open" size="xs" :class="mapState.aiLoading ? 'animate-spin' : ''" />
+        生成费曼故事
+      </button>
     </header>
 
     <!-- ===== 主体 ===== -->
@@ -147,6 +157,7 @@ import {
   bootstrap,
   createMap,
   flushSave,
+  generateStoryFromOutline,
   mapState,
   openMap,
   removeMap,
@@ -183,6 +194,12 @@ async function onCreate() {
 async function onDelete(m: MindMapMeta) {
   const ok = await confirmDialog(`确定删除《${m.title}》吗？此操作不可撤销。`)
   if (ok) await removeMap(m.id)
+}
+
+/** 功能 B：把当前导图大纲转成费曼故事草稿并跳转编辑页 */
+async function onGenerateStory() {
+  const ok = await confirmDialog('即将根据当前导图大纲生成一篇费曼故事，是否确认?')
+  if (ok) await generateStoryFromOutline()
 }
 
 /** ⌘S / Ctrl+S 立即保存：桌面端用户的肌肉记忆，必须接住，否则会触发浏览器保存网页 */

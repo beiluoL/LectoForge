@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 190 个端点（2026-08-13 审计值；含 2026-08-13 新增学习日报 `/api/insight` 3 个；含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《桌面端技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《桌面端技术架构与功能手册.md》§7.20） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 192 个端点（2026-08-13 审计值；2026-08-13 新增文档库待办扫描 `/api/library/notes/todos`、AI 导图转费曼故事 `/api/ai/mindmap/convert-to-story` 共 2 个；含 2026-08-13 新增学习日报 `/api/insight` 3 个；含番茄钟 `/api/pomodoro` 5 个、AI 25 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《桌面端技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《桌面端技术架构与功能手册.md》§7.20） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -25,7 +25,7 @@
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
 │   ├── src/routes/      # 薄路由 30 模块 / 679 行：只绑定「路径 → Controller」，无任何 SQL（逐模块端点明细见《桌面端技术架构与功能手册.md》§4.1）
-│   │                    # 共 190 个端点（2026-08-13 审计值）：AI /api/ai 24 + 文档库 15 + 收集箱 14 + 记忆宫殿 10 + 复习 reviews 9 + 笔记 9 + 日程 8 + 任务 8 + 思维导图 7 + 收集·剪藏 7 + 题库 7 + 四象限 6 + 习惯 7 + 故事 5 + 主动回忆 5 + 番茄钟 5 + 模拟面试 3 + 日历 4 + 数据备份 3 + 学习日报 insight 3 + 本地模型 5 + 其余（分类/配置/看板/搜索/概览/迁移/健康）若干
+│   │                    # 共 192 个端点（2026-08-13 审计值）：AI /api/ai 25 + 文档库 16 + 收集箱 14 + 记忆宫殿 10 + 复习 reviews 9 + 笔记 9 + 日程 8 + 任务 8 + 思维导图 7 + 收集·剪藏 7 + 题库 7 + 四象限 6 + 习惯 7 + 故事 5 + 主动回忆 5 + 番茄钟 5 + 模拟面试 3 + 日历 4 + 数据备份 3 + 学习日报 insight 3 + 本地模型 5 + 其余（分类/配置/看板/搜索/概览/迁移/健康）若干
 │   ├── src/controllers/ # 控制层 29 模块 / 2313 行：解析请求、调 Service、决定 HTTP 状态码
 │   ├── src/services/    # 服务层 45 模块 / 9880 行：Drizzle 查询、文件 IO、axios 外呼
 │   │   ├── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
