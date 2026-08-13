@@ -14,6 +14,7 @@ import { transcribeAudio as transcribeNative } from '@/api/interview';
 import { transcribeAudio as transcribeWasm } from '@/lib/stt/whisperClient';
 import { getSpeechConfig, getSpeechModels } from '@/api/speechModels';
 import type { SpeechConfig, SpeechModelEntry } from '@/api/speechModels';
+import { blobToWav } from '@/lib/stt/audio';
 
 export interface TranscribeOutcome {
   text: string;
@@ -61,6 +62,13 @@ export async function transcribe(blob: Blob, fileName = 'audio.webm'): Promise<T
   }
 
   // native：后端 whisper-server 代理
-  const r = await transcribeNative(blob, fileName);
+  // 转码为 WAV（whisper.cpp legacy 服务器解不了浏览器录音的 webm/opus，会 400）
+  let payload: Blob = blob;
+  try {
+    payload = await blobToWav(blob);
+  } catch {
+    // 转码失败（极少数不支持的格式）退回原 blob，由后端报错给出真实原因
+  }
+  const r = await transcribeNative(payload, payload === blob ? fileName : 'audio.wav');
   return { text: (r.text || '').trim() };
 }
