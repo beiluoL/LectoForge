@@ -323,7 +323,82 @@
       </div>
     </section>
 
-    <!-- ============ 卡片 2c：朗读嗓音（语音合成 TTS） ============ -->
+    <!-- ============ 卡片 2c：语音合成引擎（TTS 引擎 + 本地神经网络音色） ============ -->
+    <section class="lf-card" id="tts-engine">
+      <div class="lf-card-head">
+        <Icon name="audio-lines" :size="18" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">语音合成引擎</h2>
+          <p class="lf-card-desc">
+            选择朗读所用引擎。<b>本地神经网络 Piper</b> 为 VITS 神经嗓音、自然度远超系统语音且完全离线；
+            <b>系统语音</b>为零依赖、立即可用。
+          </p>
+        </div>
+      </div>
+
+      <div class="lf-field lf-span-2">
+        <label class="kb-label">朗读引擎</label>
+        <div class="lf-radio-row">
+          <label class="lf-radio">
+            <input type="radio" value="browser" v-model="ttsEngine" />
+            <span>系统语音（Web Speech，零依赖）</span>
+          </label>
+          <label class="lf-radio">
+            <input type="radio" value="piper" v-model="ttsEngine" />
+            <span>本地神经网络 Piper（更自然·离线）</span>
+          </label>
+        </div>
+      </div>
+
+      <template v-if="ttsEngine === 'piper'">
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">默认音色</label>
+          <select v-model="ttsSelectedVoiceId" class="kb-input">
+            <option v-for="v in ttsVoiceList" :key="v.id" :value="v.id" :disabled="v.status !== 'downloaded'">
+              {{ v.label }}（{{ v.gender }}·{{ v.sizeMB }}MB）{{ v.status === 'downloaded' ? '' : '· 未下载' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="lf-field lf-span-2">
+          <label class="kb-label">音色库（离线，需先下载）</label>
+          <ul class="lf-model-list">
+            <li v-for="v in ttsVoiceList" :key="v.id" class="lf-model-item">
+              <div class="lf-model-main">
+                <div class="lf-model-name">{{ v.label }}
+                  <span v-if="v.default" class="lf-tag">推荐</span>
+                  <span v-if="v.id === ttsSelectedVoiceId" class="lf-tag lf-tag-active">当前</span>
+                </div>
+                <div class="lf-model-meta">{{ v.gender }} · {{ v.sizeMB }} MB · {{ v.note }}</div>
+              </div>
+              <div class="lf-model-ctrl">
+                <span v-if="v.status === 'downloaded'" class="lf-badge is-ok">已下载</span>
+                <span v-else-if="v.status === 'downloading'" class="lf-badge is-busy">下载中 {{ ttsDownloadProgress[v.id] || 0 }}%</span>
+                <span v-else class="lf-badge is-off">未下载</span>
+                <button v-if="v.status === 'available'" :disabled="ttsBusy" @click="startTtsDownload(v.id)">下载</button>
+                <button v-else-if="v.status === 'downloading'" @click="removeTtsVoice(v.id)">取消</button>
+                <button v-else @click="removeTtsVoice(v.id)">删除</button>
+              </div>
+              <div v-if="v.status === 'downloading'" class="lf-progress">
+                <div class="lf-progress-bar" :style="{ width: (ttsDownloadProgress[v.id] || 0) + '%' }"></div>
+              </div>
+            </li>
+          </ul>
+          <p class="lf-field-hint">
+            音色来自 HuggingFace <code>rhasspy/piper-voices</code>，首次下载需联网（走国内镜像）。下载后朗读完全离线、不联网、不上传。
+          </p>
+        </div>
+      </template>
+
+      <div class="lf-actions">
+        <button class="kb-btn kb-btn-primary" :disabled="ttsSaving" @click="saveTtsEngine">
+          <Icon :name="ttsSaving ? 'loader' : 'save'" :size="16" :class="ttsSaving ? 'lf-spin' : ''" />
+          保存引擎设置
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ 卡片 2d：朗读嗓音（系统语音 Web Speech 微调） ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
         <Icon name="audio-lines" :size="18" class="lf-card-icon" />
@@ -512,6 +587,15 @@ import {
   cancelSpeech,
   type TtsVoiceOption,
 } from '@/lib/tts/tts'
+import {
+  getTtsVoices,
+  getTtsConfig,
+  saveTtsConfig,
+  deleteTtsVoice,
+  downloadTtsVoice,
+  type VoiceEntry,
+  type TtsConfig,
+} from '@/api/ttsVoices'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -546,6 +630,14 @@ const downloadProgress = reactive<Record<string, number>>({})
 const ttsVoices = ref<TtsVoiceOption[]>([])
 const ttsSelected = ref('') // 选中的嗓音 name；'' = 自动（最优）
 const ttsPreviewing = ref(false)
+
+// ============ 语音合成引擎（TTS：系统语音 / 本地神经网络 Piper）============
+const ttsEngine = ref<'browser' | 'piper'>('browser')
+const ttsSelectedVoiceId = ref('zh_CN-huayan-medium')
+const ttsVoiceList = ref<VoiceEntry[]>([])
+const ttsBusy = ref(false)
+const ttsSaving = ref(false)
+const ttsDownloadProgress = reactive<Record<string, number>>({})
 
 async function loadTtsVoices() {
   const list = await listChineseVoices()
@@ -625,6 +717,64 @@ async function saveSpeechSettings() {
   } finally {
     speechSaving.value = false
   }
+}
+
+// ============ 语音合成引擎（TTS：系统语音 / 本地神经网络 Piper）============
+async function loadTts() {
+  try {
+    const [voices, cfg] = await Promise.all([getTtsVoices(), getTtsConfig()])
+    ttsVoiceList.value = voices
+    ttsEngine.value = cfg.engine
+    ttsSelectedVoiceId.value = cfg.selectedVoiceId
+  } catch (e) {
+    notify(getApiError(e, '读取 TTS 配置失败'), 'error')
+  }
+}
+
+async function saveTtsEngine() {
+  if (ttsSaving.value) return
+  ttsSaving.value = true
+  try {
+    const cfg = await saveTtsConfig({
+      engine: ttsEngine.value,
+      selectedVoiceId: ttsSelectedVoiceId.value,
+    })
+    ttsEngine.value = cfg.engine
+    ttsSelectedVoiceId.value = cfg.selectedVoiceId
+    notify('TTS 引擎设置已保存', 'success')
+  } catch (e) {
+    notify(getApiError(e, '保存失败'), 'error')
+  } finally {
+    ttsSaving.value = false
+  }
+}
+
+async function startTtsDownload(id: string) {
+  if (ttsBusy.value) return
+  ttsBusy.value = true
+  ttsDownloadProgress[id] = 0
+  try {
+    await downloadTtsVoice(id, (evt) => {
+      if (evt.type === 'progress') ttsDownloadProgress[id] = evt.pct || 0
+    })
+    notify('音色下载完成，可离线使用', 'success')
+  } catch (e) {
+    notify(getApiError(e, '音色下载失败'), 'error')
+  } finally {
+    ttsBusy.value = false
+    ttsDownloadProgress[id] = 0
+    await loadTts() // 刷新列表状态
+  }
+}
+
+async function removeTtsVoice(id: string) {
+  try {
+    await deleteTtsVoice(id)
+    notify('已删除音色文件', 'success')
+  } catch (e) {
+    notify(getApiError(e, '删除失败'), 'error')
+  }
+  await loadTts()
 }
 
 const presets = ref<AiProviderPreset[]>([])
@@ -822,6 +972,8 @@ onMounted(async () => {
   await loadBackupSettings()
   // 离线语音模型列表 / 配置（独立端点，不计入上方 AI 配置基线）
   await loadSpeech()
+  // 语音合成引擎（系统语音 / 本地神经网络 Piper 音色）
+  await loadTts()
   // 朗读嗓音列表（Web Speech API，前端范畴）
   await loadTtsVoices()
   // 全部载入完成后才立基线，否则回填过程会被误判成「用户改动」

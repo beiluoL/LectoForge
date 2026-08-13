@@ -33,6 +33,7 @@ import backup from './routes/backup';
 import interview from './routes/interview';
 import qaBank from './routes/qaBank';
 import models from './routes/models';
+import ttsVoices from './routes/ttsVoices';
 
 const app = Fastify({ logger: false });
 
@@ -185,6 +186,7 @@ app.register(interview, { prefix: '/api' });
  * 独立前缀 /api：端点 /qa-bank 系列。 */
 app.register(qaBank, { prefix: '/api' });
 app.register(models, { prefix: '/api' });
+app.register(ttsVoices, { prefix: '/api' });
 
 /* ===== 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）=====
  * 独立前缀 /api：端点 /backup（立即备份）、/backup/schedule（GET/PUT 计划）。

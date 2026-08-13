@@ -119,7 +119,7 @@ import { useVoiceRecorder } from '@/composables/useVoiceRecorder'
 import { notify, getApiError } from '@/utils/toast'
 import { postSSE } from '@/api/sse'
 import { transcribe } from '@/lib/stt/sttDispatch'
-import { speakText, cancelSpeech } from '@/lib/tts/tts'
+import { synthesize, stopSynthesis } from '@/lib/tts/ttsDispatch'
 
 type Role = 'interviewer' | 'user' | 'evaluation' | 'system' | 'end'
 interface Msg {
@@ -205,14 +205,14 @@ async function scrollToBottom() {
 async function speak(text: string): Promise<void> {
   speaking.value = true
   try {
-    await speakText(text, { rate: 0.98, pitch: 1, sentenceGapMs: 120 })
+    await synthesize(text)
   } finally {
     speaking.value = false
   }
 }
 
 function stopSpeech() {
-  cancelSpeech()
+  stopSynthesis()
   speaking.value = false
 }
 
