@@ -343,6 +343,27 @@ impl SidecarManager {
 //    二进制+模型（见 scripts/run-whisper.sh），或配置环境变量 WHISPER_BIN/WHISPER_MODEL。
 // =============================================================================
 
+/// 从 speech-config.json 解析用户选定的默认模型档位，拼出权重文件名。
+/// 任一环节失败 / 非法值均回落 base-q5_1，保证侧车至少能用一个合理默认。
+/// （与前端 speechModels.ts 注册表保持同步：id → ggml-{id}.bin）
+#[cfg(not(debug_assertions))]
+fn whisper_model_file_from_config(data_dir: &Path) -> String {
+    const FALLBACK: &str = "ggml-base-q5_1.bin";
+    let cfg = data_dir.join("speech-config.json");
+    let Ok(text) = std::fs::read_to_string(&cfg) else {
+        return FALLBACK.to_string();
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return FALLBACK.to_string();
+    };
+    match v.get("selectedModelId").and_then(|x| x.as_str()) {
+        Some("tiny-q5_1") => "ggml-tiny-q5_1.bin".to_string(),
+        Some("base-q5_1") => "ggml-base-q5_1.bin".to_string(),
+        Some("small-q5_1") => "ggml-small-q5_1.bin".to_string(),
+        _ => FALLBACK.to_string(),
+    }
+}
+
 #[cfg(not(debug_assertions))]
 struct WhisperSidecar {
     bin: PathBuf,
@@ -357,11 +378,13 @@ struct WhisperSidecar {
 #[cfg(not(debug_assertions))]
 impl WhisperSidecar {
     /// 解析 whisper-server 二进制与模型路径；任一缺失返回 None（调用方静默跳过）。
-    fn resolve(resource_dir: &Path) -> Option<Self> {
+    /// `data_dir` 为用户数据目录（模型下载落盘处 = AppData/com.lectoforge.desktop），
+    /// `resource_dir` 为 .app 内 Contents/Resources（二进制随包落点，由 scripts/build-whisper.sh 构建）。
+    fn resolve(resource_dir: &Path, data_dir: &Path) -> Option<Self> {
         let bin = if let Ok(p) = std::env::var("WHISPER_BIN") {
             PathBuf::from(p)
         } else {
-            // 随包落在 Contents/Resources/models/whisper-server（scripts/fetch-models.sh 负责下载）
+            // 随包落在 Contents/Resources/models/whisper-server（由 scripts/build-whisper.sh 构建）
             resource_dir.join("models").join("whisper-server")
         };
         if !bin.exists() {
@@ -372,27 +395,23 @@ impl WhisperSidecar {
             );
             return None;
         }
-        // 可写数据目录（模型运行时下载到这里）；优先于只读 .app Resources。
-        let data_dir = std::env::var("LECTOFORGE_DATA_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| resource_dir.to_path_buf());
-        // 模型默认档位 ggml-base-q5_1（与前端下载器、whisperClient 一致）。
-        // 运行时下载到 dataDir/models/whisper/（可写，优先）；
-        // 兜底 .app Resources/models/whisper/（随包内置，需开发者手动放置）。
+        // 模型文件名跟随「设置→语音」里用户选定的默认档位（selectedModelId），
+        // 而非硬编码 base；这样用户下 small/tiny 也能被侧车正确加载。
+        // 优先查可写 data_dir/models/whisper（运行时下载落盘处），
+        // 兜底 .app Resources/models/whisper（随包内置，需开发者手动放置）。
         let model = if let Ok(p) = std::env::var("WHISPER_MODEL") {
+            // 显式环境变量优先（开发者手动指定模型）
             PathBuf::from(p)
         } else {
-            let in_data = data_dir
-                .join("models")
-                .join("whisper")
-                .join("ggml-base-q5_1.bin");
+            let model_file = whisper_model_file_from_config(data_dir);
+            let in_data = data_dir.join("models").join("whisper").join(&model_file);
             if in_data.exists() {
                 in_data
             } else {
                 resource_dir
                     .join("models")
                     .join("whisper")
-                    .join("ggml-base-q5_1.bin")
+                    .join(&model_file)
             }
         };
         if !model.exists() {
@@ -794,7 +813,7 @@ pub fn run() {
                     node_bin,
                     entry: api_index,
                     web_dir,
-                    data_dir,
+                    data_dir: data_dir.clone(),
                     // Tauri 的 resource_dir() 即 .app 内 Contents/Resources，模型随包落在 <resources>/models
                     // 注意：下方 792 行 WhisperSidecar::resolve(&resource_dir) 仍需借用原始值，
                     // 故此处 clone 一份，避免把 resource_dir 整体 move 走导致后续借用失效。
@@ -807,7 +826,8 @@ pub fn run() {
                 app.manage(Arc::clone(&manager));
 
                 // 本地 Whisper STT 侧车（离线语音转文字）：二进制/模型缺失时自动跳过，不影响主流程
-                if let Some(ws) = WhisperSidecar::resolve(&resource_dir) {
+                // 传入 data_dir（模型下载落盘处），否则会误去 .app Resources 找模型而跳过。
+                if let Some(ws) = WhisperSidecar::resolve(&resource_dir, &data_dir) {
                     let ws = Arc::new(ws);
                     ws.supervise();
                     app.manage(Arc::clone(&ws));
