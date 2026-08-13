@@ -1262,6 +1262,78 @@ export function buildReviewSummaryPrompt(input: ReviewSummaryInput): ChatMessage
   ];
 }
 
+// ===================== 主动智能：每日学习日报 =====================
+
+export interface DailyReportInput {
+  /** 本地昨日日期键 YYYY-MM-DD */
+  date: string;
+  stats: {
+    capturesYesterday: number;
+    reviewsYesterday: number;
+    weakPoints: string[];
+    conversion7d: number;
+    conversionDetail: { captured: number; converted: number };
+  };
+}
+
+export interface DailyReportOutput {
+  title: string;
+  summary: string;
+  weakPoints: string;
+  encouragement: string;
+  suggestions: string;
+}
+
+/**
+ * 每日学习日报 Prompt。
+ *
+ * 设计要点（与本项目其他提示词一致的「只输出 JSON」约束）：
+ * - 把昨天的 收集量 / 复习量 / 薄弱点 / 7天转化率 讲成人话，给出温暖的复盘与可执行建议；
+ * - 薄弱点来自本地只读聚合（quality<2 的卡片题面），模型只做归纳，不得编造用户没有涉及的知识点；
+ * - 若昨日无薄弱点，要求真诚夸一句并给保持建议，而不是硬凑问题。
+ */
+export function buildDailyReportPrompt(input: DailyReportInput): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是一位专注于学习效率的 AI 个人助理，擅长用温暖、克制、有洞察力的语言帮用户复盘一天的学习。',
+        '要求：',
+        '- title：以「{date} 学习日报」为基底，可加一句情绪化副标题，不超过 20 字；',
+        '- summary：2~3 句口语化总结，点出昨天的输入量与复习量是否达标，不堆砌数据；',
+        '- weakPoints：把用户昨日反复出错的薄弱点（已给出题面）归纳成一段 2~3 句话的「为什么老栽在这里」分析；',
+        '  若用户昨日无薄弱点，请真诚夸一句并给保持建议，不要硬凑问题；',
+        '- encouragement：一句真诚的鼓励，不超过 25 字，不浮夸、不空洞；',
+        '- suggestions：给 2~3 条**下一步可立刻执行**的具体动作（例如「把 X 与 Y 对比记忆」「今晚睡前过一遍错题」），',
+        '  不要写「多复习」「保持练习」这类无信息量建议；',
+        '- 严禁编造用户没有涉及的知识点与数据，只基于所给统计推断；',
+        '- 只输出 JSON，不要任何解释性文字。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        `【统计日期】${input.date}（本地昨日）`,
+        `【昨日收集箱新增】${input.stats.capturesYesterday} 条`,
+        `【昨日完成复习】${input.stats.reviewsYesterday} 次`,
+        `【昨日薄弱知识点（quality<2 的卡片题面）】${
+          input.stats.weakPoints.length ? input.stats.weakPoints.join('；') : '（无，全部记住了）'
+        }`,
+        `【近 7 天收集→笔记转化率】${input.stats.conversion7d}%（${input.stats.conversionDetail.converted}/${input.stats.conversionDetail.captured}）`,
+        '',
+        '请严格按以下 JSON 结构输出：',
+        '{',
+        '  "title": "日报标题",',
+        '  "summary": "2~3 句总体复盘",',
+        '  "weakPoints": "薄弱点归纳（2~3 句，无薄弱点时写夸奖+保持建议）",',
+        '  "encouragement": "一句鼓励（≤25字）",',
+        '  "suggestions": "下一步建议（2~3 条，换行分隔）"',
+        '}',
+      ].join('\n'),
+    },
+  ];
+}
+
 // ===================== 知识库问答（RAG 检索增强生成）=====================
 
 /**

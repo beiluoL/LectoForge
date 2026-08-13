@@ -390,13 +390,14 @@ const navItems: NavItem[] = [
     key: 'ai',
     label: 'AI 助手',
     icon: 'brain-circuit',
-    match: ['/ai-chat', '/interview', '/interview-bank'],
+    match: ['/ai-chat', '/interview', '/interview-bank', '/daily-report'],
     dividerBefore: true,
     collapse: true,
     children: [
       { path: '/ai-chat', label: '知识库问答', icon: 'message-circle' },
       { path: '/interview', label: '模拟面试', icon: 'mic' },
       { path: '/interview-bank', label: '题库管理', icon: 'database' },
+      { path: '/daily-report', label: '学习日报', icon: 'calendar-clock' },
     ],
   },
 

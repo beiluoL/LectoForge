@@ -232,6 +232,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/AiInsights.vue'),
     meta: { layout: 'c', fullscreen: true },
   },
+  {
+    // 主动智能：每日学习日报与知识闪卡联动（AI 助手组下）
+    path: '/daily-report',
+    name: 'DailyReport',
+    component: () => import('@/views/Insights/DailyReport.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
   { path: '/:pathMatch(.*)*', redirect: '/workbench' },
 ];
 

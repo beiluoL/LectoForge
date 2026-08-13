@@ -34,6 +34,8 @@ import interview from './routes/interview';
 import qaBank from './routes/qaBank';
 import models from './routes/models';
 import ttsVoices from './routes/ttsVoices';
+import insight from './routes/insight';
+import * as insightService from './services/insightService';
 
 const app = Fastify({ logger: false });
 
@@ -188,6 +190,11 @@ app.register(qaBank, { prefix: '/api' });
 app.register(models, { prefix: '/api' });
 app.register(ttsVoices, { prefix: '/api' });
 
+/* ===== 主动智能：每日学习日报（聚合 + AI 文案 + 薄弱点闪卡联动）=====
+ * 端点 /insight/daily-report（只读聚合）、/insight/daily-report/generate（AI 文案）、
+ * /insight/daily-report/generate-cards（薄弱点→wb_review_card）。 */
+app.register(insight, { prefix: '/api/insight' });
+
 /* ===== 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）=====
  * 独立前缀 /api：端点 /backup（立即备份）、/backup/schedule（GET/PUT 计划）。
  * 实际打包由 Node 侧车用 child_process 拉起 backup.js（archiver）完成。 */
@@ -319,6 +326,40 @@ if (isLaunchedByHost()) {
     }
   }, 5000);
   orphanTimer.unref();
+
+  /* 主动智能：每日学习日报清晨推送。
+   * 每小时轮询一次，命中本地 08:00 整点即生成昨日日报（聚合 + AI 文案）并落盘
+   * <dataDir>/last-daily-report.json。用「当天日期标记」防同一天重复生成（覆盖同小时多次触发与重启）。 */
+  const markerPath = path.join(resolveDataDir(), 'last-daily-report.json');
+  const localDayKey = (d: Date = new Date()) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const pushTimer = setInterval(async () => {
+    const now = new Date();
+    if (now.getHours() !== 8) return; // 仅本地 08:00 触发
+    const todayKey = localDayKey(now);
+    let marker: { date?: string } = {};
+    try {
+      marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+    } catch {
+      /* 首跑无标记文件，忽略 */
+    }
+    if (marker.date === todayKey) return; // 今日已生成，跳过
+    try {
+      const bundle = await insightService.runMorningPush();
+      fs.writeFileSync(
+        markerPath,
+        JSON.stringify(
+          { date: todayKey, reportDate: bundle.date, generatedAt: now.toISOString(), stats: bundle.stats, content: bundle.content },
+          null,
+          2,
+        ),
+      );
+      console.log(`[lectoforge-desktop] 学习日报已生成（${bundle.date}）`);
+    } catch (e) {
+      console.error('[lectoforge-desktop] 学习日报生成失败', e);
+    }
+  }, 60 * 60 * 1000);
+  pushTimer.unref();
 }
 
 /* ===== 启动：仅绑定回环地址 =====
