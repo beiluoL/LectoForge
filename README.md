@@ -11,7 +11,7 @@
 | 层 | 技术 | 说明 |
 |----|------|------|
 | 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 149 个端点（含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《桌面端技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《桌面端技术架构与功能手册.md》§7.20） |
+| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 190 个端点（2026-08-13 审计值；含 2026-08-13 新增学习日报 `/api/insight` 3 个；含番茄钟 `/api/pomodoro` 5 个、AI 24 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《桌面端技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《桌面端技术架构与功能手册.md》§7.20） |
 | 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
 | 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
 | 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
@@ -24,16 +24,16 @@
 ```
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
-│   ├── src/routes/      # 薄路由 25 模块 / 522 行：只绑定「路径 → Controller」，无任何 SQL
-│   │                    # 17 张表对应 163 个端点（以《桌面端技术架构与功能手册.md》§4.1 汇总表为准：学习工作台 53 [含 收集箱 /api/inbox 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个] + 分类 2 + AI 21 + 文档库 15 + 思维导图 5 + 健康检查 1 + v1.1.0 新增 6：间隔复习 2 / 搜索 1 / 看板 1 / 配置 2 + 「间隔复习体验升级」3：snooze / heatmap / forgetting-curve + 2026-08-09 新增四象限 /api/quadrant 6 个 + 同日新增日历视图 /api/calendar 4 个 + 2026-08-10 任务清单 /api/tasks 7 个 与 /api/lists 4 个、数据备份 /api/backup 3 个）
-│   ├── src/controllers/ # 控制层 25 模块 / 1959 行：解析请求、调 Service、决定 HTTP 状态码
-│   ├── src/services/    # 服务层 33 模块 / 7570 行：Drizzle 查询、文件 IO、axios 外呼
+│   ├── src/routes/      # 薄路由 30 模块 / 679 行：只绑定「路径 → Controller」，无任何 SQL（逐模块端点明细见《桌面端技术架构与功能手册.md》§4.1）
+│   │                    # 共 190 个端点（2026-08-13 审计值）：AI /api/ai 24 + 文档库 15 + 收集箱 14 + 记忆宫殿 10 + 复习 reviews 9 + 笔记 9 + 日程 8 + 任务 8 + 思维导图 7 + 收集·剪藏 7 + 题库 7 + 四象限 6 + 习惯 7 + 故事 5 + 主动回忆 5 + 番茄钟 5 + 模拟面试 3 + 日历 4 + 数据备份 3 + 学习日报 insight 3 + 本地模型 5 + 其余（分类/配置/看板/搜索/概览/迁移/健康）若干
+│   ├── src/controllers/ # 控制层 29 模块 / 2313 行：解析请求、调 Service、决定 HTTP 状态码
+│   ├── src/services/    # 服务层 45 模块 / 9880 行：Drizzle 查询、文件 IO、axios 外呼
 │   │   ├── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
 │   │   └── backupService.ts # child_process 拉起 backup.js 打包 + 每日备份计划持久化
-│   ├── src/types/       # 契约层 23 模块 / 1938 行：DTO / VO / 结果判别联合
+│   ├── src/types/       # 契约层 26 模块 / 2043 行：DTO / VO / 结果判别联合
 │   ├── src/db/          # schema + 建表 + WAL
 │   └── backup.js        # 纯 JS 备份脚本（archiver 打 zip），被 Tauri 单独打进 api/backup.js
-├── src-ui/          # Vue 3 前端（24 个业务视图 / 28 条路由：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图 + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats) + 2026-08-09 新增 日程计划(/schedule)/习惯打卡(/habits)/四象限(/quadrant)/日历(/calendar)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎、calendarStore 日历状态）+ lucide-vue-next 图标体系
+├── src-ui/          # Vue 3 前端（33 条路由 / 60 个 .vue 视图与组件 / 15 个 Pinia store：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图/学习日报(/daily-report) + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats) + 2026-08-09 新增 日程计划(/schedule)/习惯打卡(/habits)/四象限(/quadrant)/日历(/calendar)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎、calendarStore 日历状态）+ lucide-vue-next 图标体系
 ├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
 ├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
 └── package.json     # 编排脚本
@@ -41,7 +41,7 @@ desktopApp/
 
 ## 后端分层约定（2026-08-08 三层重构完成）
 
-18 个路由模块已全量下沉为 **Route → Controller → Service**，新增代码必须遵守边界：
+30 个路由模块已全量下沉为 **Route → Controller → Service**，新增代码必须遵守边界：
 
 - **Route** 只声明路径、方法、参数 schema 并绑定 Controller，**禁止出现** `db.` / `drizzle-orm` / `axios` / `fetch(`。
 - **Controller** 解析请求、调用 Service、决定 HTTP 状态码，**禁止写 SQL**。
@@ -208,6 +208,19 @@ npm run tauri build
 
 > ⚠️ 两个 SSE 端点是「响应信封由 `index.ts` onSend 唯一负责」约定的**唯一例外**（控制器直写 `reply.raw`）。会话状态为 `interviewService` 内存 `Map`，进程重启即失。
 > ⚠️ 离线语音识别需先备好 `whisper-server` 二进制 + `ggml-*.bin` 模型（当前 `resources/models/whisper/` 为空），否则面试语音输入不可用。详见《桌面端技术架构与功能手册.md》§7.24。
+
+## 学习日报与知识闪卡联动模块（2026-08-13 新增，主动智能）
+
+AI 从「被动答疑」升级为「主动复盘」：每天自动分析用户**昨日（本地时区 0:00–24:00）**的学习数据，生成精美日报，并据薄弱点一键生成强化复习卡推入间隔复习系统。
+
+- **路由（+1 视图 / +1 条路由）**：`/daily-report`（Apple-Health 风格统计卡 + 磨砂玻璃 AI 面板 + 「🔁重新生成」「🧠一键生成 3 张复习闪卡」按钮），`meta:{layout:'c',fullscreen:true}`；顶栏「AI 助手」组（原含知识库问答 / 模拟面试 / 题库管理）新增「学习日报」子项，`match` 数组含 `/daily-report`。
+- **四维聚合（本地时区红线）**：① 昨日新收集箱流入量 ② 昨日复习次数 ③ 昨日薄弱知识点 Top3（`wb_review_log.quality < 2` 错题，按 `front` 分组）④ 近 7 天「收集箱 → 笔记」转化率（`wb_capture.capture_id` → `wb_note` 闭环）。所有「昨日」过滤统一用 `date(col,'localtime') = date('now','-1 day','localtime')`，非裸 UTC。
+- **后端端点（+3 个，前缀 `/api/insight`）**：`GET /daily-report`（只读聚合）、`POST /daily-report/generate`（AI 文案，严格只输出 JSON，结果按 `YYYY-MM-DD` 在内存 `Map` 缓存 1h）、`POST /daily-report/generate-cards`（薄弱点 → 复习卡，**空薄弱点返回「昨日表现完美」且不调 LLM**）。
+- **闪卡联动（红线）**：`generate-cards` 复用既有 `generateFlashcards({ autoSave:true })`，新卡写入旧系统 `wb_review_card`，`next_review_time=now` 立即进复习队列（`/review/flashcard`）。
+- **清晨定时推送**：宿主拉起后端后，每小时检查本地 08:00，触发 `runMorningPush` → 生成日报并落盘 `<dataDir>/last-daily-report.json`；用「当日日期」标记防同小时 / 重启重复生成。仅宿主拉起时启用，开发者 `npm run dev:api` 不触发。
+- **分层**：`routes/insight.ts`（薄路由）→ 内联 `fail/replyResult` 翻译 `LlmError`/`AiResult`；`services/insightService.ts`（聚合 + 缓存 + 复用 `generateFlashcards`）；`buildDailyReportPrompt` 在 `lib/prompts.ts`。
+
+> ⚠️ 不新增数据表（复用 `wb_capture` / `wb_review_log` / `wb_review_card` / `wb_note`），故《桌面端技术架构与功能手册.md》§3.2 的「15 张表」计数不变。详见《桌面端技术架构与功能手册.md》§7.26。
 
 ## v1.1.0 新增能力（本次更新）
 
