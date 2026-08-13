@@ -18,6 +18,21 @@
       </span>
     </header>
 
+    <!-- 预设角色选择区（影响面试官人设 + 智能追问风格；通话中锁定） -->
+    <div class="iv-roles">
+      <button
+        v-for="r in ROLES"
+        :key="r"
+        type="button"
+        class="iv-role"
+        :class="{ 'is-active': selectedRole === r }"
+        :disabled="inCall"
+        @click="selectedRole = r"
+      >
+        {{ r }}
+      </button>
+    </div>
+
     <!-- 对话区（面试官左 / 用户右；点评与总结居中卡片） -->
     <div ref="scrollEl" class="iv-chat">
       <div v-if="!messages.length" class="iv-empty">
@@ -38,6 +53,7 @@
 
         <!-- 面试官提问气泡 -->
         <div v-if="m.role === 'interviewer'" class="iv-bubble iv-bubble-left">
+          <span v-if="m.followUp" class="iv-followup-tag">⚡ 追问</span>
           <p class="iv-bubble-text">{{ m.text }}</p>
           <span v-if="m.speaking" class="iv-caption">正在朗读…</span>
         </div>
@@ -131,7 +147,14 @@ interface Msg {
   /** 点评分数（0~100） */
   score?: number
   comment?: string
+  /** 面试官提问气泡：⚡ 追问（针对上一轮薄弱点的深入提问） */
+  followUp?: boolean
 }
+
+/** 预设面试角色（与后端 INTERVIEW_ROLE_PROMPTS 的 key 对齐） */
+const ROLES = ['通用面试官', '大厂架构师', 'HR面试官', '同级评审', '技术主管']
+/** 当前选中的角色（默认与后端 DEFAULT_ROLE 一致：通用面试官） */
+const selectedRole = ref<string>('通用面试官')
 
 type Status = 'idle' | 'connecting' | 'speaking' | 'await' | 'listening' | 'answering' | 'ended'
 
@@ -226,11 +249,11 @@ async function startCall() {
   const ctrl = new AbortController()
   sseAbort = ctrl
   try {
-    for await (const ev of postSSE('/interview/start', {}, { signal: ctrl.signal })) {
+    for await (const ev of postSSE('/interview/start', { role: selectedRole.value }, { signal: ctrl.signal })) {
       if (ev.event === 'question') {
-        const d = ev.data as { sessionId: string; text: string; questionId?: string }
+        const d = ev.data as { sessionId: string; text: string; questionId?: string; followUp?: boolean }
         sessionId.value = d.sessionId
-        const msg = pushMsg({ role: 'interviewer', text: d.text, speaking: true })
+        const msg = pushMsg({ role: 'interviewer', text: d.text, speaking: true, followUp: !!d.followUp })
         status.value = 'speaking'
         await speak(d.text)
         msg.speaking = false
@@ -306,9 +329,9 @@ async function stopAndAnswer() {
         const d = ev.data as { score: number; comment: string }
         pushMsg({ role: 'evaluation', text: '', score: d.score, comment: d.comment })
       } else if (ev.event === 'question') {
-        const d = ev.data as { sessionId: string; text: string; questionId?: string }
+        const d = ev.data as { sessionId: string; text: string; questionId?: string; followUp?: boolean }
         sessionId.value = d.sessionId
-        const msg = pushMsg({ role: 'interviewer', text: d.text, speaking: true })
+        const msg = pushMsg({ role: 'interviewer', text: d.text, speaking: true, followUp: !!d.followUp })
         status.value = 'speaking'
         await speak(d.text)
         msg.speaking = false
@@ -394,6 +417,32 @@ onBeforeUnmount(() => {
 .iv-state-dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
 .iv-state.is-on { color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 12%, transparent); }
 
+/* 预设角色选择区 */
+.iv-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: .25rem .25rem .75rem;
+}
+.iv-role {
+  padding: .35rem .85rem;
+  border-radius: 999px;
+  font-size: var(--kb-fs-caption, .78rem);
+  font-weight: 500;
+  color: var(--kb-muted-foreground);
+  background: var(--kb-muted);
+  border: 1px solid var(--kb-border);
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.iv-role:hover:not(:disabled) { color: var(--kb-foreground); }
+.iv-role.is-active {
+  color: var(--kb-primary-foreground);
+  background: var(--kb-primary);
+  border-color: var(--kb-primary);
+}
+.iv-role:disabled { opacity: .5; cursor: not-allowed; }
+
 /* 对话区 */
 .iv-chat {
   flex: 1;
@@ -449,6 +498,19 @@ onBeforeUnmount(() => {
 }
 .iv-bubble-right .iv-bubble-text { color: #fff; }
 .iv-bubble-text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.iv-followup-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  margin-bottom: .4rem;
+  padding: .12rem .55rem;
+  border-radius: 999px;
+  font-size: var(--kb-fs-caption, .72rem);
+  font-weight: 600;
+  color: var(--kb-warning, #d97706);
+  background: color-mix(in srgb, var(--kb-warning, #d97706) 14%, transparent);
+  align-self: flex-start;
+}
 .iv-caption {
   display: inline-block;
   margin-top: .35rem;

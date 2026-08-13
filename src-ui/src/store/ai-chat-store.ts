@@ -27,18 +27,21 @@ export const useAiChatStore = defineStore('ai-chat', () => {
   /** 最近一次错误的可读提示（含「未配置 AI」的引导文案） */
   const error = ref<string | null>(null);
 
-  async function sendMessage(query: string) {
+  async function sendMessage(query: string, opts?: { imageText?: string }) {
     const q = (query || '').trim();
-    if (!q || loading.value) return;
+    const imageText = (opts?.imageText || '').trim();
+    // 允许「纯图片提问」（无文字时默认一句话引导模型描述图片）
+    const finalQuery = q || (imageText ? '请描述一下这张图片的内容，并回答相关问题。' : '');
+    if (!finalQuery || loading.value) return;
 
-    messages.value.push({ role: 'user', content: q });
+    messages.value.push({ role: 'user', content: q || '（图片提问）' });
     const placeholder: ChatMessage = { role: 'assistant', content: '', loading: true };
     messages.value.push(placeholder);
     loading.value = true;
     error.value = null;
 
     try {
-      const res = await askRag({ query: q });
+      const res = await askRag({ query: finalQuery, imageText: imageText || undefined });
       placeholder.content = res.answer;
       placeholder.sources = res.sources;
     } catch (e: unknown) {

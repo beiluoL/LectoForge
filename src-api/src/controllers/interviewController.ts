@@ -17,6 +17,8 @@ import type { QaBankFilter } from '../types/qaBank';
 
 interface StartBody {
   filter?: QaBankFilter;
+  /** 预设面试角色（通用面试官 / 大厂架构师 / HR面试官 / 同级评审 / 技术主管） */
+  role?: string;
 }
 interface AnswerBody {
   sessionId?: string;
@@ -66,7 +68,7 @@ async function streamSse(reply: FastifyReply, gen: AsyncGenerator<interviewServi
 
 export async function start(req: FastifyRequest, reply: FastifyReply) {
   const b = (req.body ?? {}) as StartBody;
-  await streamSse(reply, interviewService.startSession(b.filter));
+  await streamSse(reply, interviewService.startSession(b.filter, b.role));
 }
 
 export async function answer(req: FastifyRequest, reply: FastifyReply) {

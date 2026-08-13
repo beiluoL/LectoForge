@@ -11,6 +11,12 @@ import type { AiResult } from './ai';
 export interface RagRequest {
   /** 用户提问 */
   query: string;
+  /**
+   * 多模态：用户上传图片后，由前端离线 OCR（tesseract.js）提取的图中文字。
+   * 当前阶段（无 Node 侧 OCR / 纯文本 LLM 接口）以「OCR 文本」作为最稳定的多模态落地，
+   * 后端把它作为上下文的一部分与 query 一并交给 LLM。留空则表示纯文本提问。
+   */
+  imageText?: string;
 }
 
 /** 检索来源（文档库 .md 或康奈尔笔记） */

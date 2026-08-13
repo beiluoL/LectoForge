@@ -497,6 +497,6 @@ export function associateContent(payload: {
  * 未配置 AI 时后端返回 { code, message, aiCode: 'AI_NOT_CONFIGURED' }，
  * 拦截器会把 aiCode 挂到错误对象上，调用方据此引导用户去「设置 → AI 服务」。
  */
-export function askRag(payload: { query: string }) {
+export function askRag(payload: { query: string; imageText?: string }) {
   return apiPost<RagResponse>('/ai/rag/ask', payload, { timeout: AI_TIMEOUT })
 }

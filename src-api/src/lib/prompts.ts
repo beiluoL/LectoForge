@@ -1308,3 +1308,77 @@ export function buildRagPrompt(query: string, context: string): ChatMessage[] {
     },
   ];
 }
+
+// ===================== 模拟面试（多角色 + 智能追问）=====================
+
+/** 不同面试角色的 System 人设。键与前端胶囊选项保持一致。 */
+const INTERVIEW_ROLE_PROMPTS: Record<string, string> = {
+  通用面试官:
+    '你是一场模拟面试的通用面试官，正在和学员进行语音通话。请用自然、口语化、适合语音朗读的中文沟通，' +
+    '不要使用 Markdown、列表或括号备注，也不要暴露「我是 AI」。保持简短、像真人在对话，兼顾广度与深度。',
+  大厂架构师:
+    '你是一位拥有 10 年经验的 Java 架构师，正在对候选人进行后端技术栈的深度压力面试。' +
+    '语气严厉、专业，追问务必切中要害：深入底层原理（JVM、并发、分布式、系统设计），' +
+    '对含糊回答要当场追问「为什么」「底层是怎么实现的」。不要使用 Markdown，口语化、适合语音朗读。',
+  HR面试官:
+    '你是一位资深 HR 面试官，正在评估候选人的综合素质、沟通表达、职业规划与团队协作。' +
+    '关注行为面试（STAR 法则）、自我认知与稳定性，语气专业但温和，像真人在对话，不要用 Markdown。',
+  同级评审:
+    '你是一位同级的资深同事，正在和 candidate 做技术评审（peer review / 结对探讨）。' +
+    '风格平等、 Collaborative，可以探讨不同方案的取舍，也可以就某个实现细节深入切磋，像真人同事聊天，不用 Markdown。',
+  技术主管:
+    '你是一位技术主管（Tech Lead），关注候选人的技术判断力、权衡决策、带人能力与落地经验。' +
+    '会问「为什么选 A 不选 B」「如果规模扩大 10 倍你怎么改」，语气沉稳、有领导者视角，口语化、适合语音朗读，不用 Markdown。',
+};
+
+const DEFAULT_INTERVIEW_ROLE = '通用面试官';
+
+/**
+ * 生成面试 System Prompt（含角色人设 + 历史对话上下文）。
+ *
+ * @param role    前端选择的预设角色（见 INTERVIEW_ROLE_PROMPTS 的键）
+ * @param history 最近若干轮「问答+点评」的文本摘要（已截断），用于让追问连贯
+ * @returns ChatMessage[]（单条 system 消息），供 interviewService 再追加 user 指令
+ */
+export function buildInterviewSystemPrompt(role: string, history: string): ChatMessage[] {
+  const persona = INTERVIEW_ROLE_PROMPTS[role] || INTERVIEW_ROLE_PROMPTS[DEFAULT_INTERVIEW_ROLE];
+  const historyBlock = history && history.trim() ? `\n\n【对话历史（最近几轮，供你保持连贯）】\n${history.trim()}` : '';
+  return [
+    {
+      role: 'system',
+      content:
+        `${persona}${historyBlock}\n\n你的职责：基于学员上一轮回答，判断其薄弱点；` +
+        '若发现薄弱点（如死锁、JVM 调优、并发安全、系统设计缺陷等），必须生成一道针对该薄弱点的深入追问，' +
+        '不要每次都抽新题。只输出严格 JSON，不要任何解释性文字。',
+    },
+  ];
+}
+
+/**
+ * 构建「下一轮决策」请求的 user 指令：要求模型输出
+ * { nextAction, nextQuestion, weakness, suggestion }。
+ */
+export function buildInterviewDecisionPrompt(input: {
+  lastQuestion: string;
+  transcript: string;
+  score: number;
+}): ChatMessage[] {
+  return [
+    {
+      role: 'user',
+      content: [
+        `【上一题】${input.lastQuestion || '（开场，无上一题）'}`,
+        `【学员回答】${input.transcript || '（未作答）'}`,
+        `【关键词命中评分(0~100)】${input.score}`,
+        '',
+        '请基于以上，做出下一步决策，严格按以下 JSON 结构输出：',
+        '{',
+        '  "nextAction": "question" 或 "end"（学员表现达标且无可追问题则 end），',
+        '  "nextQuestion": "若 nextAction=question，给出下一题或追问内容（针对薄弱点深入）；若 end 可留空字符串",',
+        '  "weakness": "检出的薄弱点关键词（如 死锁/JVM调优/并发安全），无则空字符串",',
+        '  "suggestion": "给学员的改进建议（1~2 句，口语化、适合语音朗读）"',
+        '}',
+      ].join('\n'),
+    },
+  ];
+}

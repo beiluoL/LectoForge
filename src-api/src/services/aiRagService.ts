@@ -19,7 +19,7 @@ import { eq, like, or } from 'drizzle-orm';
 
 import { db } from '../db';
 import { wbNote, wbEmbedding } from '../db/schema';
-import { chatJson, truncate, embed, embeddingsReady, readEmbeddingConfig } from '../lib/llm';
+import { chatJson, truncate, embed, embeddingsReady, readEmbeddingConfig, type ChatMessage } from '../lib/llm';
 import { requireRootDir, safeResolve, toRelId } from '../lib/vault';
 import { buildRagPrompt } from '../lib/prompts';
 import type { AiResult } from '../types/ai';
@@ -484,6 +484,29 @@ function assembleContext(blocks: RagContextBlock[]): string {
 }
 
 /**
+ * 多模态提问组装：把用户原始提问与图片 OCR 文本合成为一段交给 LLM 的提问。
+ * 当前阶段（Node 侧无 OCR 端点、LLM 为纯文本接口）以「OCR 提取的文本」作为
+ * 最稳定的多模态落地——前端用 tesseract.js 离线识别图中文字后，把文本经
+ * RagRequest.imageText 传回，这里把它拼接进提问上下文。
+ *
+ * @param question  用户原始文字提问
+ * @param imageText 前端 OCR 得到的图中文字（空字符串表示无图）
+ * @returns 合成后的提问文本
+ */
+function handleMultimodalQuery(question: string, imageText?: string): string {
+  const text = (imageText || '').trim();
+  if (!text) return question;
+  return [
+    `用户提问：${question}`,
+    '',
+    '【图片中的文字识别结果（OCR）】',
+    text,
+    '',
+    '请结合上述图片文字内容，回答用户提问。',
+  ].join('\n');
+}
+
+/**
  * 知识库问答主入口。
  * @returns AiResult<RagResponse> —— Controller 据此翻译成 HTTP 响应。
  */
@@ -493,6 +516,13 @@ export async function askRag(req: RagRequest): Promise<AiResult<RagResponse>> {
     return { kind: 'fail', status: 400, message: '问题不能为空', aiCode: 'AI_BAD_INPUT' };
   }
 
+  // 多模态：前端已用离线 tesseract.js 把图片文字识别为 imageText 传回；
+  // 这里假设文本作为上下文并入提问（Node 侧无 OCR 端点，最稳定的多模态落地）。
+  const imageText = (req.imageText || '').trim();
+  if (imageText) {
+    console.log('[lectoforge-desktop] RAG 多模态：收到图片 OCR 文本，长度', imageText.length);
+  }
+
   // 优先向量语义检索；不可用时降级关键词检索
   const vectorBlocks = await vectorRetrieve(query);
   const blocks =
@@ -500,12 +530,31 @@ export async function askRag(req: RagRequest): Promise<AiResult<RagResponse>> {
       ? vectorBlocks
       : buildContextBlocks(retrieveDocsKeyword(query), retrieveNotesKeyword(query));
 
-  // 没有任何检索命中：直接坦诚回复，省去一次 LLM 调用
-  if (blocks.length === 0) {
+  // 没有任何检索命中、且未附图片：直接坦诚回复，省去一次 LLM 调用
+  if (blocks.length === 0 && !imageText) {
     return { kind: 'ok', data: { answer: '知识库中未找到相关内容', sources: [] } };
   }
 
-  const messages = buildRagPrompt(query, assembleContext(blocks));
+  const augmentedQuery = handleMultimodalQuery(query, imageText);
+  const context = assembleContext(blocks);
+
+  // 纯多模态（有图但知识库无命中）：放宽约束，让模型基于图片文字作答，不要求引用来源
+  const messages: ChatMessage[] = imageText && blocks.length === 0
+    ? [
+        {
+          role: 'system',
+          content:
+            '你是 LectoForge 的问答助手。用户上传了一张图片，下方是图片中的文字识别结果（OCR）。' +
+            '请基于图片文字内容，用中文清晰、有条理地回答用户提问。不要编造图片里没有的信息。只输出 JSON。',
+        },
+        {
+          role: 'user',
+          content:
+            `${augmentedQuery}\n\n请严格按以下 JSON 结构输出：\n{\n  "answer": "基于图片文字的回答",\n  "sources": []\n}`,
+        },
+      ]
+    : buildRagPrompt(augmentedQuery, context);
+
   const { data } = await chatJson<{
     answer?: string;
     sources?: Array<{ sourceType?: string; title?: string; link?: string }>;
