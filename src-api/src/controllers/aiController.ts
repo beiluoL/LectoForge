@@ -5,6 +5,8 @@ import * as aiConfigService from '../services/aiConfigService';
 import * as aiContentService from '../services/aiContentService';
 import * as aiEmbeddingService from '../services/aiEmbeddingService';
 import * as aiInsightService from '../services/aiInsightService';
+import * as aiRagService from '../services/aiRagService';
+import type { RagRequest } from '../types/rag';
 import type {
   AiResult,
   AssociateDTO,
@@ -219,4 +221,12 @@ export async function embeddingsSync(req: FastifyRequest, reply: FastifyReply) {
 export async function associate(req: FastifyRequest, reply: FastifyReply) {
   const b = (req.body || {}) as AssociateDTO;
   return run(reply, () => aiEmbeddingService.associate(b));
+}
+
+// ===================== 知识库问答（RAG 检索增强生成）=====================
+
+/** POST /api/ai/rag/ask —— 检索文档库 + 康奈尔笔记，基于上下文作答并回传来源 */
+export async function ragAsk(req: FastifyRequest, reply: FastifyReply) {
+  const b = (req.body || {}) as RagRequest;
+  return run(reply, () => aiRagService.askRag(b));
 }

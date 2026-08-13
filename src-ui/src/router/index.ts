@@ -197,6 +197,15 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 知识库问答（RAG）：检索文档库 + 康奈尔笔记后由 AI 作答。
+    // 挂在顶层 /ai-chat（不进 /workbench），与 /library、/interview 等同理，
+    // 避免顶栏 isActive 用 startsWith 时被「工作台」误吞高亮。
+    path: '/ai-chat',
+    name: 'AiChat',
+    component: () => import('@/views/AiChat/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     // 离线模拟面试 / 语音通话：全屏沉浸式，顶栏保留（非 standalone）。
     path: '/interview',
     name: 'Interview',

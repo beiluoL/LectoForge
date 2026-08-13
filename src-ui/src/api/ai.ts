@@ -2,6 +2,7 @@
 // 与 /api/workbench/* 完全解耦——AI 只负责算出结果返回，落库仍走原有业务接口，
 // 因此未配置 Key 或断网时，所有原有功能不受任何影响。
 import { apiGet, apiPost, apiPut } from './request'
+import type { RagResponse } from './types'
 
 /** AI 调用普遍在 1~10s，远超全局 15s 默认超时的安全边界，单独放宽 */
 const AI_TIMEOUT = 90000
@@ -487,4 +488,15 @@ export function associateContent(payload: {
   limit?: number
 }) {
   return apiPost<AssociateResult>('/ai/associate', payload, { timeout: AI_TIMEOUT })
+}
+
+// ============================ 知识库问答（RAG 检索增强生成）===========================
+
+/**
+ * 知识库问答：检索文档库(.md) + 康奈尔笔记(wb_note)，由后端基于上下文生成答案并回传来源。
+ * 未配置 AI 时后端返回 { code, message, aiCode: 'AI_NOT_CONFIGURED' }，
+ * 拦截器会把 aiCode 挂到错误对象上，调用方据此引导用户去「设置 → AI 服务」。
+ */
+export function askRag(payload: { query: string }) {
+  return apiPost<RagResponse>('/ai/rag/ask', payload, { timeout: AI_TIMEOUT })
 }

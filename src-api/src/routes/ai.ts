@@ -52,4 +52,7 @@ export default async function (app: FastifyInstance) {
   // ===== 本地向量索引 + 语义关联 =====
   app.post('/embeddings/sync', aiController.embeddingsSync);
   app.post('/associate', aiController.associate);
+
+  // ===== 知识库问答（RAG 检索增强生成）=====
+  app.post('/rag/ask', aiController.ragAsk);
 }

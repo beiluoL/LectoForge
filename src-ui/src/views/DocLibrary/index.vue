@@ -91,7 +91,7 @@
 // - 只有「大纲点击 → 预览区滚动」这一条跨栏交互需要 DOM，故由本组件用 ref 调 EditorArea 暴露的方法；
 // - 反向的「滚动 → 当前标题」由 EditorArea 以事件回报，本组件转成 activeAnchor 下发给 TOC。
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 
 import Icon from '@/components/ui/Icon.vue'
 // Markdown 渲染排版与渲染器（@/lib/markdown.ts）配套，任何 v-html 出 .dl-md 的模块都要引它
@@ -102,7 +102,7 @@ import EditorArea from './EditorArea.vue'
 import FileTree from './FileTree.vue'
 import TOC from './TOC.vue'
 import WorkspacePicker from './WorkspacePicker.vue'
-import { chooseWorkspace, docState, flushSave, loadWorkspace, toggleLeft, treeStats } from './useDocStore'
+import { chooseWorkspace, docState, expandAncestors, flushSave, loadWorkspace, openNote, toggleLeft, treeStats } from './useDocStore'
 
 /** 大纲显隐偏好本地留存，下次进页面保持上次的选择 */
 const TOC_PREF_KEY = 'kb.docLibrary.tocVisible'
@@ -111,6 +111,7 @@ const editorRef = ref<InstanceType<typeof EditorArea> | null>(null)
 const tocVisible = ref(localStorage.getItem(TOC_PREF_KEY) !== '0')
 const activeAnchor = ref('')
 const pickerOpen = ref(false)
+const route = useRoute()
 
 function toggleToc() {
   tocVisible.value = !tocVisible.value
@@ -139,9 +140,15 @@ function onBeforeUnload() {
   void flushSave()
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('beforeunload', onBeforeUnload)
-  void loadWorkspace()
+  await loadWorkspace()
+  // 深链：知识库问答的来源胶囊以 /library?doc=<相对id> 跳转，进入后自动展开并打开该笔记
+  const doc = route.query.doc
+  if (typeof doc === 'string' && doc) {
+    expandAncestors(doc)
+    await openNote(doc)
+  }
 })
 
 onBeforeRouteLeave(async () => {

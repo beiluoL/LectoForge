@@ -30,9 +30,12 @@ const request = axios.create({
 // 响应拦截器：解包 Result<T>，统一透传业务错误
 request.interceptors.response.use(
   (response) => {
-    const res = response.data as { code?: number; message?: string }
+    const res = response.data as { code?: number; message?: string; aiCode?: string }
     if (res && res.code !== undefined && res.code !== 200) {
-      return Promise.reject(new Error(res.message || '请求失败'))
+      // 把后端业务码（如 AI_NOT_CONFIGURED）挂到错误对象上，便于调用方差异化处理
+      const err = new Error(res.message || '请求失败')
+      ;(err as Error & { aiCode?: string }).aiCode = res.aiCode
+      return Promise.reject(err)
     }
     return response.data
   },
@@ -61,9 +64,12 @@ request.interceptors.response.use(
     }
 
     // 透传后端业务错误信息，避免展示 axios 原始英文报错
-    const bizMessage = error.response?.data?.message
-    if (bizMessage) {
-      return Promise.reject(new Error(bizMessage))
+    const bizData = error.response?.data as { message?: string; aiCode?: string } | undefined
+    if (bizData?.message) {
+      // 同上：保留 aiCode，使「未配置 AI」等场景能被前端识别并引导去设置页
+      const err = new Error(bizData.message)
+      ;(err as Error & { aiCode?: string }).aiCode = bizData.aiCode
+      return Promise.reject(err)
     }
     return Promise.reject(error)
   },

@@ -381,19 +381,21 @@ const navItems: NavItem[] = [
   // 思维导图沿用 share-2：lucide 没有 mindmap 这个图标名，写了会 fallback 成空 SVG。
   { kind: 'leaf', key: 'mindmap', path: '/mindmap', label: '思维导图', icon: 'share-2', collapse: true },
 
-  /* ---- 离线模拟面试（本地语音通话 + 题库）----
-   * 父级下拉：两个入口（面试通话 / 题库管理）同属「模拟面试」域。
-   * 无独立 /interview 之外的父路由，高亮靠 match 覆盖两个子路径。 */
+  /* ---- 🧠 AI 助手（知识库问答 + 模拟面试 + 题库管理 统一入口）----
+   * 父级下拉、不挂独立路由（path: undefined），仅作容器；高亮靠 match 覆盖三个子路径。
+   * 子项：知识库问答(/ai-chat) · 模拟面试(/interview) · 题库管理(/interview-bank)。
+   * 之前独立的「模拟面试」父级入口已并入此处，避免顶栏出现两个 AI 相关下拉。 */
   {
     kind: 'group',
-    key: 'interview',
-    label: '模拟面试',
-    icon: 'mic',
-    match: ['/interview', '/interview-bank'],
+    key: 'ai',
+    label: '🧠 AI 助手',
+    icon: 'brain-circuit',
+    match: ['/ai-chat', '/interview', '/interview-bank'],
     dividerBefore: true,
     collapse: true,
     children: [
-      { path: '/interview', label: '面试通话', icon: 'mic' },
+      { path: '/ai-chat', label: '知识库问答', icon: 'message-circle' },
+      { path: '/interview', label: '模拟面试', icon: 'mic' },
       { path: '/interview-bank', label: '题库管理', icon: 'database' },
     ],
   },
