@@ -199,7 +199,7 @@
     </section>
 
     <!-- ============ 卡片 2b：本地模型（离线模拟面试） ============ -->
-    <section class="lf-card">
+    <section class="lf-card" id="local-model">
       <div class="lf-card-head">
         <Icon name="cpu" :size="18" class="lf-card-icon" />
         <div>
