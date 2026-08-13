@@ -55,7 +55,7 @@
 
     <!-- 错误提示（含「未配置 AI」引导） -->
     <div v-if="store.error" class="ai-error">
-      <Icon name="alert-triangle" size="sm" />
+      <Icon name="alert-circle" size="sm" />
       <span>{{ store.error }}</span>
       <router-link to="/settings" class="ai-error-link">前往设置</router-link>
     </div>
