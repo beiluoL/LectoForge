@@ -323,6 +323,39 @@
       </div>
     </section>
 
+    <!-- ============ 卡片 2c：朗读嗓音（语音合成 TTS） ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="audio-lines" :size="18" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">朗读嗓音（语音合成）</h2>
+          <p class="lf-card-desc">模拟面试官/点评的播报嗓音；选更高质量的嗓音可显著减少「人机感」。</p>
+        </div>
+      </div>
+
+      <div class="lf-field lf-span-2">
+        <label class="kb-label">朗读嗓音</label>
+        <select v-model="ttsSelected" class="kb-input" @change="onTtsVoiceChange">
+          <option value="">自动（系统最优中文嗓音）</option>
+          <option v-for="v in ttsVoices" :key="v.name" :value="v.name">
+            {{ v.name }}（{{ v.lang }}）· {{ v.quality === 'neural' ? '神经网络' : v.quality === 'enhanced' ? '增强版' : '标准' }}
+          </option>
+        </select>
+        <p class="lf-field-hint">
+          列表来自本机已安装的语音。若没有高质量嗓音，可在 macOS
+          <b>系统设置 → 辅助功能 → 语音内容 → 嗓音</b> 中下载「增强版 / Premium / Siri」中文嗓音，
+          重启应用后即出现在此处。
+        </p>
+      </div>
+
+      <div class="lf-actions">
+        <button class="kb-btn" :disabled="ttsPreviewing" @click="previewTtsVoice">
+          <Icon :name="ttsPreviewing ? 'loader' : 'play'" :size="16" :class="ttsPreviewing ? 'lf-spin' : ''" />
+          {{ ttsPreviewing ? '试听中…' : '试听示例' }}
+        </button>
+      </div>
+    </section>
+
     <!-- ============ 卡片 3：AI 能力清单 ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
@@ -471,6 +504,14 @@ import {
   type SpeechModelEntry,
   type SpeechConfig,
 } from '@/api/speechModels'
+import {
+  listChineseVoices,
+  getSelectedVoiceName,
+  setSelectedVoiceName,
+  speakText,
+  cancelSpeech,
+  type TtsVoiceOption,
+} from '@/lib/tts/tts'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -499,6 +540,35 @@ const speechCfg = reactive<SpeechConfig>({ runtime: 'native', selectedModelId: '
 const speechBusy = ref(false) // 是否正在下载（禁用其它下载按钮）
 const speechSaving = ref(false)
 const downloadProgress = reactive<Record<string, number>>({})
+
+// ============ 朗读嗓音（语音合成 TTS 选择，B 阶段快赢）============
+// 仅前端 Web Speech API 范畴，按 name 持久化到 localStorage；换机/换嗓音回落最优中文嗓音。
+const ttsVoices = ref<TtsVoiceOption[]>([])
+const ttsSelected = ref('') // 选中的嗓音 name；'' = 自动（最优）
+const ttsPreviewing = ref(false)
+
+async function loadTtsVoices() {
+  const list = await listChineseVoices()
+  ttsVoices.value = list
+  ttsSelected.value = getSelectedVoiceName()
+}
+
+function onTtsVoiceChange() {
+  setSelectedVoiceName(ttsSelected.value)
+}
+
+async function previewTtsVoice() {
+  if (ttsPreviewing.value) {
+    cancelSpeech()
+    ttsPreviewing.value = false
+    return
+  }
+  ttsPreviewing.value = true
+  const sample =
+    '你好，我是你的面试助手。下面请你用一分钟，介绍一下最近做过的项目，以及你在其中承担的角色。'
+  await speakText(sample, { rate: 0.98, pitch: 1, sentenceGapMs: 120 })
+  ttsPreviewing.value = false
+}
 
 async function loadSpeech() {
   try {
@@ -752,6 +822,8 @@ onMounted(async () => {
   await loadBackupSettings()
   // 离线语音模型列表 / 配置（独立端点，不计入上方 AI 配置基线）
   await loadSpeech()
+  // 朗读嗓音列表（Web Speech API，前端范畴）
+  await loadTtsVoices()
   // 全部载入完成后才立基线，否则回填过程会被误判成「用户改动」
   baseline.value = snapshot()
 })

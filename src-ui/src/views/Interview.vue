@@ -119,6 +119,7 @@ import { useVoiceRecorder } from '@/composables/useVoiceRecorder'
 import { notify, getApiError } from '@/utils/toast'
 import { postSSE } from '@/api/sse'
 import { transcribe } from '@/lib/stt/sttDispatch'
+import { speakText, cancelSpeech } from '@/lib/tts/tts'
 
 type Role = 'interviewer' | 'user' | 'evaluation' | 'system' | 'end'
 interface Msg {
@@ -195,68 +196,23 @@ async function scrollToBottom() {
   if (el) el.scrollTop = el.scrollHeight
 }
 
-// ---------------------- TTS（window.speechSynthesis） ----------------------
+// ---------------------- TTS（window.speechSynthesis，统一封装于 @/lib/tts/tts） ----------------------
 
-/** 预取嗓音；首次 getVoices 可能为空，监听 voiceschanged 兜底 */
-function loadVoices(): Promise<SpeechSynthesisVoice[]> {
-  return new Promise((resolve) => {
-    const vs = window.speechSynthesis.getVoices()
-    if (vs.length) return resolve(vs)
-    const onChanged = () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onChanged)
-      resolve(window.speechSynthesis.getVoices())
-    }
-    window.speechSynthesis.addEventListener('voiceschanged', onChanged)
-    // 1s 兜底：部分环境下 voiceschanged 不触发
-    window.setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1000)
-  })
-}
-
-/** 按中文标点切句，避免一次性长句不自然 */
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[，。！？；\n])/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-/** 朗读文本（异步，逐句串联）；开始前 cancel 清空上一段防堆叠 */
+/**
+ * 朗读文本：委托给共享 TTS 模块，使用用户选中的嗓音（默认回落最优中文嗓音），
+ * 并做轻微降速 + 句间停顿，比原生匀速更自然。
+ */
 async function speak(text: string): Promise<void> {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-  const voices = await loadVoices()
-  const voice = voices.find((v) => /^zh/i.test(v.lang)) || voices[0] || null
-  const sentences = splitSentences(text)
-  if (!sentences.length) return
-
-  return new Promise<void>((resolve) => {
-    window.speechSynthesis.cancel()
-    speaking.value = true
-    let i = 0
-    const speakNext = () => {
-      if (i >= sentences.length) {
-        speaking.value = false
-        resolve()
-        return
-      }
-      const u = new SpeechSynthesisUtterance(sentences[i++])
-      if (voice) u.voice = voice
-      u.lang = voice?.lang || 'zh-CN'
-      u.rate = 1
-      u.onend = speakNext
-      u.onerror = () => {
-        speaking.value = false
-        resolve()
-      }
-      window.speechSynthesis.speak(u)
-    }
-    speakNext()
-  })
+  speaking.value = true
+  try {
+    await speakText(text, { rate: 0.98, pitch: 1, sentenceGapMs: 120 })
+  } finally {
+    speaking.value = false
+  }
 }
 
 function stopSpeech() {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    window.speechSynthesis.cancel()
-  }
+  cancelSpeech()
   speaking.value = false
 }
 
