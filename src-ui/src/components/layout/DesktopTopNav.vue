@@ -17,18 +17,14 @@
     <!-- 自绘 macOS 红黄绿：顶掉被 decorations:false 移除的系统窗口按钮 -->
     <WindowControls class="mr-4 shrink-0" />
 
-    <!-- Left: Logo（原「知识库」文字入口已彻底移除，仅保留产品名 LectoForge + 图标，点击回工作台驾驶舱） -->
+    <!-- Left: Logo 占位（品牌图标 + 产品名已从顶栏移除，保留 router-link 作为回工作台的热区） -->
     <router-link
       to="/workbench"
-      class="flex items-center shrink-0 gap-2"
+      class="flex items-center shrink-0 min-w-[12px]"
       data-tauri-drag-region="false"
       style="color: var(--kb-primary)"
+      aria-label="返回工作台"
     >
-      <Icon name="brain" size="xl" />
-      <span
-        class="hidden sm:inline font-semibold tracking-tight"
-        :style="{ fontSize: 'var(--kb-logo-text-fs)', color: 'var(--kb-foreground)' }"
-      >LectoForge</span>
     </router-link>
 
     <!-- ============================================================
