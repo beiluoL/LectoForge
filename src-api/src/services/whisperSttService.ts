@@ -1,15 +1,16 @@
 /**
  * Whisper 本地语音转写代理（STT）。
  *
- * 连接本机运行的 whisper.cpp `whisper-server`（OpenAI 兼容 /v1/audio/transcriptions 端点），
- * 语音不出本机，满足「离线模拟面试」诉求。地址读 WHISPER_URL（默认 http://127.0.0.1:8080），
- * 模型名读 WHISPER_MODEL（默认 whisper-1，whisper.cpp 实际按启动时 -m 指定的模型忽略此字段，
- * 但 OpenAI 协议要求请求体带 model）。
+ * 连接本机运行的 whisper.cpp `whisper-server`（由 lib.rs 侧车拉起，默认 :8080）。
+ * 注意：随包构建的 whisper-server 是 whisper.cpp 的 **legacy** 服务器
+ * （examples/server，非 OpenAI 兼容版），其转写端点为 `POST /inference`，
+ * 音频字段名 `file`，默认 response_format=json 返回 `{ text }`。
+ * 语音不出本机，满足「离线模拟面试 / 笔记速记」诉求。
+ * 地址读 WHISPER_URL（默认 http://127.0.0.1:8080）。
  */
 import { LlmError } from '../lib/llm';
 
 const WHISPER_URL = process.env.WHISPER_URL || 'http://127.0.0.1:8080';
-const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
 
 /** 把 MIME 兜底成扩展名（MediaRecorder 产出的 Blob 常无文件名）。 */
 function mimeToExt(mime: string): string {
@@ -57,7 +58,9 @@ export async function transcribe(audioBuffer: Buffer, mime: string): Promise<{ t
   const view = new Uint8Array(audioBuffer.buffer, audioBuffer.byteOffset, audioBuffer.byteLength);
   const blob = new Blob([view as unknown as BlobPart], { type: mime || 'audio/webm' });
   form.append('file', blob, filename);
-  form.append('model', WHISPER_MODEL);
+  // legacy whisper-server 按启动时 -m 指定的模型转写，忽略 model 字段；
+  // language=auto 触发自动语种检测（默认 en 对中文语音不友好）。
+  form.append('language', 'auto');
 
   let lastErr: unknown;
   for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
@@ -66,7 +69,7 @@ export async function transcribe(audioBuffer: Buffer, mime: string): Promise<{ t
       await new Promise((r) => setTimeout(r, delay));
     }
     try {
-      const resp = await fetch(`${WHISPER_URL}/v1/audio/transcriptions`, {
+      const resp = await fetch(`${WHISPER_URL}/inference`, {
         method: 'POST',
         body: form,
       });
