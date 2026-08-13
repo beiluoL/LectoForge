@@ -118,7 +118,7 @@ import Icon from '@/components/ui/Icon.vue'
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder'
 import { notify, getApiError } from '@/utils/toast'
 import { postSSE } from '@/api/sse'
-import { transcribeAudio } from '@/api/interview'
+import { transcribe } from '@/lib/stt/sttDispatch'
 
 type Role = 'interviewer' | 'user' | 'evaluation' | 'system' | 'end'
 interface Msg {
@@ -318,11 +318,11 @@ async function stopAndAnswer() {
   status.value = 'answering'
   answering.value = true
 
-  // 1) 转写
+  // 1) 转写（按设置页 runtime 分发：native→后端 whisper-server / wasm→前端 worker）
   let transcript: string
   try {
-    const r = await transcribeAudio(rec.blob, rec.fileName)
-    transcript = r.text.trim()
+    const r = await transcribe(rec.blob, rec.fileName)
+    transcript = r.text
   } catch (e) {
     answering.value = false
     notify(getApiError(e, '语音转写失败'), 'error')
