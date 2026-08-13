@@ -1,13 +1,14 @@
 /**
- * 离线语音转文字组合式函数。
+ * 离线语音转文字组合式函数（笔记速记 / 收集箱 / 笔记编辑通用）。
  *
  * 录制走既有的 useVoiceRecorder（已处理 macOS 麦克风轨道释放与 mimeType 探测），
- * 停止后把音频交给 whisperClient（whisper.cpp WASM）本地转写，结果通过 onResult 回调
- * 回填到调用方输入框。整个过程零云依赖。
+ * 停止后把音频交给 sttDispatch 统一转写——默认走后端 whisper-server 侧车（native，
+ * Metal 加速、速度快），若用户在「设置 → 本地模型」选了 wasm 则回落前端 worker。
+ * 与离线模拟面试共用同一条已验证链路、同一份模型、同一套重试兜底。整个过程零云依赖。
  */
 import { ref } from 'vue';
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
-import { transcribeAudio } from '@/lib/stt/whisperClient';
+import { transcribe } from '@/lib/stt/sttDispatch';
 
 export interface SpeechToTextOptions {
   /** 识别成功后的文本（已 trim） */
@@ -27,7 +28,7 @@ export function useSpeechToText(options: SpeechToTextOptions) {
     transcribing.value = true;
     lastError.value = '';
     try {
-      const text = await transcribeAudio(rec.blob);
+      const { text } = await transcribe(rec.blob);
       if (text && text.trim()) options.onResult(text.trim());
       else options.onError?.('未识别到语音内容，请靠近麦克风重试');
     } catch (e) {

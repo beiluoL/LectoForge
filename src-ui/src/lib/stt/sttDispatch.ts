@@ -1,5 +1,5 @@
 /**
- * STT 运行时分发器（离线模拟面试专用）。
+ * STT 运行时分发器（离线语音转文字通用；模拟面试 / 笔记速记共用）。
  *
  * 依据「设置 → 本地模型」持久化的 speech-config.json.runtime 选择语音转写路径：
  *   - native：交给后端 whisper-server 侧车（src-api whisperSttService），
