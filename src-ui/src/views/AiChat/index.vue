@@ -42,11 +42,12 @@
               :key="j"
               type="button"
               class="ai-pill"
-              :title="s.link"
-              @click="openSource(s.link)"
+              :title="s.anchor ? `${s.title} · ${s.anchor}` : s.title"
+              @click="openSource(s)"
             >
               <span>{{ s.sourceType === 'doc' ? '📄' : '📝' }}</span>
               <span class="ai-pill-title">{{ s.title }}</span>
+              <span v-if="s.anchor" class="ai-pill-anchor">{{ s.anchor }}</span>
             </button>
           </div>
         </div>
@@ -90,6 +91,7 @@ import { nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import Icon from '@/components/ui/Icon.vue';
+import type { RagSource } from '@/api/types';
 import { useAiChatStore } from '@/store/ai-chat-store';
 
 const store = useAiChatStore();
@@ -99,9 +101,17 @@ const input = ref('');
 const listEl = ref<HTMLElement | null>(null);
 const taEl = ref<HTMLTextAreaElement | null>(null);
 
-/** 点击来源：跳转到文档库（?doc=）或康奈尔笔记详情 */
-function openSource(link: string) {
-  if (link) router.push(link);
+/** 点击来源：跳转到文档库（?doc= + ?highlight= 行号锚点）或康奈尔笔记详情 */
+function openSource(s: RagSource) {
+  if (!s.link) return;
+  // 文档来源：确保带上 highlight 行号锚点，便于文档库精准高亮对应行
+  if (s.sourceType === 'doc' && s.anchor) {
+    const url = new URL(s.link, window.location.origin);
+    url.searchParams.set('highlight', s.anchor);
+    router.push(`${url.pathname}${url.search}`);
+    return;
+  }
+  router.push(s.link);
 }
 
 /** 发送当前输入 */
@@ -283,6 +293,16 @@ watch(() => store.loading, scrollToBottom);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ai-pill-anchor {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
 }
 
 /* 错误条 */

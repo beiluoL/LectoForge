@@ -255,6 +255,28 @@ md.renderer.rules.obsidian_embed = (tokens, idx) => tokens[idx].content
 md.inline.ruler.before('image', 'obsidian', obsidianRule)
 
 /**
+ * 为渲染出的块级元素标注【源文件行号区间】，供知识库问答的「精准溯源」高亮使用。
+ *
+ * markdown-it 的 block token 自带 `token.map = [startLine, endLine]`（0-based，endLine 独占），
+ * 据此写出 data-line-start / data-line-end（1-based 闭区间）。例如某段落落在源文件第 20~25 行，
+ * 渲染出的 `<p>` 会得到 `data-line-start="20" data-line-end="25"`。
+ * 后端 AI 问答命中 .md 文档时会带上形如 "L20-L25" 的 anchor，前端按行区间匹配这些属性，
+ * 定位并浅黄高亮对应段落（见 DocLibrary/EditorArea 的 highlightAnchor）。
+ *
+ * 仅处理带 map 的块级起始/自闭合 token；line 级 token 与 inline token 无 map，自动跳过。
+ */
+function lineAnchorPlugin(state: import('markdown-it').StateCore): void {
+  for (const token of state.tokens) {
+    if (!token.map || token.nesting === -1) continue; // 跳过行内 token 与闭标签
+    const start = token.map[0] + 1; // 0-based → 1-based
+    const end = token.map[1]; // map[1] 独占末端 → 即最后一行行号（1-based 闭区间）
+    token.attrSet('data-line-start', String(start));
+    token.attrSet('data-line-end', String(end));
+  }
+}
+md.core.ruler.push('line_anchors', lineAnchorPlugin)
+
+/**
  * 标准 Markdown 图片 ![](src) 的本地文件改写：
  * 把相对 / 绝对（库内）路径改写为同源资源 URL，使本地图片也能正常加载；
  * 外链(http/https)、data:、blob: 保持原样。
@@ -326,9 +348,13 @@ md.renderer.rules.fence = (tokens, idx) => {
   const lineCount = code.split('\n').length
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => `<span class="code-line-num">${i + 1}</span>`).join('')
   const langLabel = lang ? md.utils.escapeHtml(lang) : 'text'
+  // 代码块同样标注源行号区间（与段落等块级元素一致，供 RAG 行高亮覆盖）
+  const anchorAttrs = token.map
+    ? ` data-line-start="${token.map[0] + 1}" data-line-end="${token.map[1]}"`
+    : ''
 
   return (
-    `<div class="code-block-wrapper">` +
+    `<div class="code-block-wrapper"${anchorAttrs}>` +
     `<div class="code-block-header">` +
     `<span class="code-lang">${langLabel}</span>` +
     `<button class="code-copy-btn" type="button" data-dl-copy><span class="copy-label">复制</span></button>` +

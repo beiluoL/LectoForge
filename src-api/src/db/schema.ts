@@ -315,11 +315,14 @@ export const wbTask = sqliteTable(
 );
 
 // ===== P3-G3：内容向量索引（本地 embedding 存储，相似度在应用层计算）=====
+// ⚠️ entityId 用 TEXT 而非 INTEGER：文档库(.md)的实体标识是 POSIX 相对路径字符串
+// （如 "折子/并发编程指南.md"），capture/note/story 则是数字 id；统一以字符串存储，
+// 读取时按 entityType 决定是否需要 Number() 还原。该表是纯本地缓存，重建索引即可重算。
 export const wbEmbedding = sqliteTable('wb_embedding', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  // 实体类型：capture / note / story
+  // 实体类型：doc / capture / note / story
   entityType: text('entity_type').notNull(),
-  entityId: integer('entity_id').notNull(),
+  entityId: text('entity_id').notNull(),
   // 生成向量所用的模型（与配置中的 embeddingsModel 对齐）
   model: text('model').notNull(),
   // 向量维度

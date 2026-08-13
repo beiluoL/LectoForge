@@ -323,14 +323,16 @@ export interface EmbeddingsSyncVO {
 
 export interface AssociateDTO {
   entityType?: string;
-  entityId?: number;
+  // ⚠️ 文档库(.md)的实体标识是 POSIX 相对路径字符串，故用 string 而非 number
+  entityId?: string;
   text?: string;
   limit?: number;
 }
 
 export interface AssociateItem {
   entityType: string;
-  entityId: number;
+  // ⚠️ 与 wb_embedding.entity_id(TEXT) 对齐：note 用数字字符串，doc 用路径字符串
+  entityId: string;
   title: string;
   snippet: string;
   score: number;

@@ -388,7 +388,7 @@ const navItems: NavItem[] = [
   {
     kind: 'group',
     key: 'ai',
-    label: '🧠 AI 助手',
+    label: 'AI 助手',
     icon: 'brain-circuit',
     match: ['/ai-chat', '/interview', '/interview-bank'],
     dividerBefore: true,

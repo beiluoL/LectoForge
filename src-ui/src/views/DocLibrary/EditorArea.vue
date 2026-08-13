@@ -247,6 +247,44 @@ function scrollToAnchor(anchorId: string) {
   })
 }
 
+/**
+ * 供父组件（知识库问答来源联动）调用：按行号锚点（如 "L20-L25"）在预览里高亮对应段落并滚动定位。
+ * data-line-start/end 由 @/lib/markdown 依据源文件真实行号标注，按行区间重叠匹配；
+ * 因预览渲染带 80ms 防抖，高亮时 DOM 可能尚未就绪，故带重试（最多约 1s）。
+ * 高亮为浅黄背景，3 秒后自动移除并渐隐。
+ */
+async function highlightAnchor(anchor: string) {
+  const m = /^L(\d+)(?:-L?(\d+))?$/.exec((anchor || '').trim());
+  if (!m) return;
+  const start = Number(m[1]);
+  const end = m[2] ? Number(m[2]) : start;
+
+  // 源模式下列高亮无法滚动定位，切到分栏确保预览可见
+  if (mode.value === 'source') mode.value = 'split';
+  await nextTick();
+
+  const apply = (): boolean => {
+    const root = previewRef.value;
+    if (!root) return false;
+    const blocks = Array.from(root.querySelectorAll<HTMLElement>('[data-line-start]'));
+    const hits = blocks.filter((b) => {
+      const s = Number(b.dataset.lineStart);
+      const e = Number(b.dataset.lineEnd);
+      return s <= end && e >= start;
+    });
+    if (!hits.length) return false;
+    hits.forEach((h) => h.classList.add('lf-rag-hl'));
+    hits[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => hits.forEach((h) => h.classList.remove('lf-rag-hl')), 3000);
+    return true;
+  };
+
+  for (let i = 0; i < 20; i += 1) {
+    if (apply()) return;
+    await new Promise((r) => window.setTimeout(r, 50));
+  }
+}
+
 let scrollRaf = 0
 /** 滚动时回报「当前所在标题」，让右侧大纲高亮跟随 */
 function onPreviewScroll() {
@@ -454,7 +492,7 @@ function onPreviewClick(e: MouseEvent) {
   notify(`暂不支持打开该链接：${href}`, 'info')
 }
 
-defineExpose({ scrollToAnchor })
+defineExpose({ scrollToAnchor, highlightAnchor })
 
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => {
@@ -517,5 +555,15 @@ void props
   max-width: 55%;
   direction: rtl;
   text-align: right;
+}
+
+/* RAG 精准溯源：按行号区间高亮的浅黄背景，移除时渐隐 */
+:deep([data-line-start]) {
+  transition: background-color 0.6s ease;
+}
+:deep(.lf-rag-hl) {
+  background-color: color-mix(in srgb, #fde047 45%, transparent);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #fde047 35%, transparent);
 }
 </style>

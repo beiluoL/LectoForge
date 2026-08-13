@@ -322,6 +322,11 @@ export interface RagSource {
   title: string
   /** 跳转链接：文档为 /library?doc=<相对id>，笔记为 /workbench/notes/<id> */
   link: string
+  /**
+   * 文档库命中时的精确行号锚点，形如 "L20-L25"（1-based，闭区间）。
+   * 笔记来源因 content 多为 HTML/富文本，暂不提供精确行号，故为可选。
+   */
+  anchor?: string
 }
 
 /** POST /ai/rag/ask 返回 */

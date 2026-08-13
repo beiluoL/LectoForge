@@ -5,11 +5,15 @@
  * better-sqlite3 无原生 vector 类型，且本地数据量级（千条内）完全够用。
  * 绝不触碰任何业务表。
  */
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '../db';
 import { wbCapture, wbEmbedding, wbNote, wbStory } from '../db/schema';
 import { embed, embeddingsReady, readEmbeddingConfig, stripHtml } from '../lib/llm';
+import { requireRootDir, safeResolve, toRelId } from '../lib/vault';
 import type { AiResult, AssociateDTO, AssociateVO, EmbeddingsSyncDTO, EmbeddingsSyncVO } from '../types/ai';
 
 /** 向量化服务未配置时的统一出口，由前端据 aiCode 引导去设置页 */
@@ -50,14 +54,24 @@ function contentHash(text: string): string {
   return `${text.length}:${(h >>> 0).toString(36)}`;
 }
 
-/** 按实体类型+id 读取实体（供关联结果回填标题/摘要） */
+/** 按实体类型+id 读取实体（供关联结果回填标题/摘要）。
+ * id 可能为数字(capture/note/story)或字符串文档相对路径(doc)。 */
 function loadEntity(
   type: string,
-  id: number,
+  id: number | string,
 ): { title?: string | null; content?: string | null; noteColumn?: string | null } | null {
-  if (type === 'capture') return db.select().from(wbCapture).where(eq(wbCapture.id, id)).get() as any;
-  if (type === 'note') return db.select().from(wbNote).where(eq(wbNote.id, id)).get() as any;
-  if (type === 'story') return db.select().from(wbStory).where(eq(wbStory.id, id)).get() as any;
+  if (type === 'capture') return db.select().from(wbCapture).where(eq(wbCapture.id, Number(id))).get() as any;
+  if (type === 'note') return db.select().from(wbNote).where(eq(wbNote.id, Number(id))).get() as any;
+  if (type === 'story') return db.select().from(wbStory).where(eq(wbStory.id, Number(id))).get() as any;
+  if (type === 'doc') {
+    try {
+      const abs = safeResolve(String(id));
+      const raw = fs.readFileSync(abs, 'utf8');
+      return { title: path.basename(abs, path.extname(abs)), content: raw, noteColumn: raw };
+    } catch {
+      return null;
+    }
+  }
   return null;
 }
 
@@ -68,11 +82,68 @@ function snippetOf(text: string): string {
 }
 
 /** 关联结果的可点击前端路由 */
-function entityRoute(type: string, id: number): string {
+function entityRoute(type: string, id: number | string): string {
   if (type === 'capture') return '/inbox';
   if (type === 'note') return `/workbench/notes/${id}`;
   if (type === 'story') return `/workbench/story/${id}`;
+  if (type === 'doc') return `/library?doc=${encodeURIComponent(String(id))}`;
   return '/workbench';
+}
+
+/** 文档库扫描限制：与 aiRagService 保持一致 */
+const MAX_DOC_FILES = 4000;
+const DOC_READ_CAP = 1024 * 1024;
+const DOC_SKIP_DIRS = new Set([
+  '.git', '.svn', '.hg', 'node_modules', '.obsidian', '.trash',
+  '.DS_Store', '__pycache__', '.idea', '.vscode',
+]);
+
+/** 把文档库中的 .md 文件也纳入向量索引，供 RAG 语义检索使用。 */
+function collectDocsForEmbed(): Array<{ type: 'doc'; id: string; text: string; hash: string }> {
+  let root: string;
+  try {
+    root = requireRootDir();
+  } catch {
+    return [];
+  }
+
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    if (files.length >= MAX_DOC_FILES) return;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (files.length >= MAX_DOC_FILES) return;
+      if (e.name.startsWith('.') || DOC_SKIP_DIRS.has(e.name)) continue;
+      const abs = path.join(dir, e.name);
+      try {
+        if (e.isDirectory()) walk(abs);
+        else if (e.isFile() && /\.(md|markdown|mdx)$/i.test(e.name)) files.push(abs);
+      } catch {
+        /* 权限不足忽略 */
+      }
+    }
+  };
+  walk(root);
+
+  return files
+    .map((abs) => {
+      try {
+        const st = fs.statSync(abs);
+        if (st.size > DOC_READ_CAP) return null;
+        const raw = fs.readFileSync(abs, 'utf8');
+        const relId = toRelId(abs);
+        const text = embeddingText({ title: path.basename(abs, path.extname(abs)), content: raw });
+        return { type: 'doc' as const, id: relId, text, hash: contentHash(text) };
+      } catch {
+        return null;
+      }
+    })
+    .filter((x): x is { type: 'doc'; id: string; text: string; hash: string } => !!x && x.text.length > 0);
 }
 
 // ===================== P3-G3：向量索引重建 =====================
@@ -96,6 +167,8 @@ export async function syncEmbeddings(b: EmbeddingsSyncDTO): Promise<AiResult<Emb
     ...collect(db.select().from(wbCapture).all() as any[], 'capture'),
     ...collect(db.select().from(wbNote).all() as any[], 'note'),
     ...collect(db.select().from(wbStory).all() as any[], 'story'),
+    // 文档库(.md)同样纳入向量索引，供 RAG 语义检索命中具体文档
+    ...collectDocsForEmbed(),
   ];
 
   // 已有索引（按 实体+模型）用于跳过未变更项
@@ -103,7 +176,7 @@ export async function syncEmbeddings(b: EmbeddingsSyncDTO): Promise<AiResult<Emb
     .select({ entityType: wbEmbedding.entityType, entityId: wbEmbedding.entityId, contentHash: wbEmbedding.contentHash })
     .from(wbEmbedding)
     .where(eq(wbEmbedding.model, model))
-    .all() as { entityType: string; entityId: number; contentHash: string | null }[];
+    .all() as { entityType: string; entityId: string; contentHash: string | null }[];
   const existingMap = new Map(existing.map((e) => [`${e.entityType}:${e.entityId}`, e.contentHash]));
 
   const todo = items.filter((it) => b.force || existingMap.get(`${it.type}:${it.id}`) !== it.hash);
@@ -114,7 +187,7 @@ export async function syncEmbeddings(b: EmbeddingsSyncDTO): Promise<AiResult<Emb
     const vectors = await embed(chunk.map((c) => c.text), { config: cfg });
     const rows = chunk.map((c, idx) => ({
       entityType: c.type,
-      entityId: c.id,
+      entityId: String(c.id),
       model,
       dim: vectors[idx].length,
       vector: JSON.stringify(vectors[idx]),
@@ -167,7 +240,7 @@ export async function associate(b: AssociateDTO): Promise<AiResult<AssociateVO>>
       .where(
         and(
           eq(wbEmbedding.entityType, sourceRef.type),
-          eq(wbEmbedding.entityId, sourceRef.id),
+          eq(wbEmbedding.entityId, String(sourceRef.id)),
           eq(wbEmbedding.model, cfg.model),
         ),
       )
@@ -178,7 +251,7 @@ export async function associate(b: AssociateDTO): Promise<AiResult<AssociateVO>>
       db.insert(wbEmbedding)
         .values({
           entityType: sourceRef.type,
-          entityId: sourceRef.id,
+          entityId: String(sourceRef.id),
           model: cfg.model,
           dim: vec.length,
           vector: JSON.stringify(vec),
@@ -223,13 +296,13 @@ export async function associate(b: AssociateDTO): Promise<AiResult<AssociateVO>>
       const score = cosineSimilarity(sourceVec, vec);
       return { type: e.entityType, id: e.entityId, score, model: e.model };
     })
-    .filter((x): x is { type: string; id: number; score: number; model: string } => !!x && x.score > 0)
-    .filter((x) => !(sourceRef && x.type === sourceRef.type && x.id === sourceRef.id))
+    .filter((x): x is { type: string; id: string; score: number; model: string } => !!x && x.score > 0)
+    .filter((x) => !(sourceRef && x.type === sourceRef.type && x.id === String(sourceRef.id)))
     .sort((a, b2) => b2.score - a.score)
     .slice(0, limit);
 
   const items = scored.map((s) => {
-    const row = loadEntity(s.type, s.id);
+    const row = loadEntity(s.type, s.type === 'doc' ? s.id : Number(s.id));
     const title = row ? row.title || '(无标题)' : '(已删除)';
     const snippet = row ? snippetOf(embeddingText(row)) : '';
     return {

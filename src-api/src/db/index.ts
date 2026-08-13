@@ -211,7 +211,7 @@ CREATE INDEX IF NOT EXISTS idx_wb_pomodoro_end ON wb_pomodoro_log (end_time);
 CREATE TABLE IF NOT EXISTS wb_embedding (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   entity_type TEXT NOT NULL,
-  entity_id INTEGER NOT NULL,
+  entity_id TEXT NOT NULL,
   model TEXT NOT NULL,
   dim INTEGER NOT NULL,
   vector TEXT NOT NULL,
@@ -442,6 +442,37 @@ addColumn('wb_note', 'image_hint', 'TEXT');
   if (locCols.some((c) => c.name === 'label')) {
     sqlite.exec(`UPDATE wb_palace_loci SET name = COALESCE(NULLIF(name, ''), label) WHERE name IS NULL OR name = ''`);
     sqlite.exec(`ALTER TABLE wb_palace_loci DROP COLUMN label`); // 需 SQLite >= 3.35
+  }
+}
+
+// 迁移：wb_embedding.entity_id 由 INTEGER 改为 TEXT（支持文档库 .md 的字符串相对 id）。
+// 该表是纯本地向量缓存（可由 syncEmbeddings 重算），旧库若是 INTEGER 列则直接重建，
+// 避免把字符串 relId 写进整型列导致数据损坏；已有向量会在下次「重建索引」时自动补齐。
+{
+  const embCols = sqlite
+    .prepare(`PRAGMA table_info(wb_embedding)`)
+    .all() as Array<{ name: string; type: string }>;
+  const idCol = embCols.find((c) => c.name === 'entity_id');
+  if (idCol && idCol.type.toUpperCase() !== 'TEXT') {
+    sqlite.exec(`DROP TABLE IF EXISTS wb_embedding`);
+    sqlite.exec(`
+      CREATE TABLE wb_embedding (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        model TEXT NOT NULL,
+        dim INTEGER NOT NULL,
+        vector TEXT NOT NULL,
+        content_hash TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_wb_embedding_entity ON wb_embedding (entity_type, entity_id)`);
+    sqlite.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_wb_embedding_uniq ON wb_embedding (entity_type, entity_id, model)`,
+    );
+    console.log('[lectoforge-desktop] 迁移完成：wb_embedding.entity_id → TEXT');
   }
 }
 

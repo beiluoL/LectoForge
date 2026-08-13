@@ -149,6 +149,11 @@ onMounted(async () => {
     expandAncestors(doc)
     await openNote(doc)
   }
+  // 深链：RAG 来源可能附带 ?highlight=L20-L25，进入后自动滚动并浅黄高亮对应行
+  const hl = route.query.highlight
+  if (typeof hl === 'string' && hl) {
+    editorRef.value?.highlightAnchor(hl)
+  }
 })
 
 onBeforeRouteLeave(async () => {
