@@ -8,6 +8,7 @@
 > 1. **包管理器是 npm，不是 pnpm**：本仓库 `src-ui` 有独立 `package.json` + `package-lock.json` + `node_modules`，根目录用 `npm --prefix src-ui`。本文档及 tasks/checklist 中所有 `pnpm` / `pnpm -F src-ui` 命令一律替换为：进入 `src-ui/` 后执行 `npm <cmd>`（如 `npm install`、`npm run dev`、`npm run build`、`npm run typecheck`、`npm run lint`、`npm ls`）。
 > 2. **X6 全家桶统一锁 2.x（core `^2.19.2`）**：npm registry 现默认拉取 **3.x**（core 3.1.x、vue-shape 3.0.x、clipboard 3.0.0），但其余 12 个插件仍停 2.x。**core 3 + 插件 2 主版本错配必炸**，故整条线钉死 2.x（已验证 13 个包均 dedupe 到 `@antv/x6@2.19.2`）。
 > 3. **迁移时序采用「先加 X6、保留 Vue Flow」**：P1-T1.1 仅新增 X6 依赖与 `src/views/Diagram/x6/` 骨架 + 隐藏 playground 路由（`/diagram-x6-playground`），**不立即移除 `@vue-flow/*`**。原 spec/tasks 中标注「移除 @vue-flow/*」（如 ENV-03、tasks 多处）的动作**延后至 X6 达到功能对等（约 P1-T3 末）后再执行**，期间 `/diagram`（Vue Flow）保持可用、可并排回归。
+> 4. **自由画笔（penMode）WKWebView 兼容层采用「方案 B：文档级监听器」**：经代码核实，WKWebView 的 `setPointerCapture` 在指针跨 DOM 边界快速移动时会丢捕获/误发 `pointercancel`，导致自由笔迹断裂——这是 **WKWebView 对该 API 的固有脆弱性，与库无关**。而 X6 核心交互（拖拽/框选/连线/平移）**内部根本不用 `setPointerCapture`**（走 `mousedown`+`touchstart` 双路绑定、`mousemove/up` 挂 `document`），故 X6 标准交互无需任何 overlay。仅「自由画笔」需自研，且**拍板去掉 `setPointerCapture`**：同一透明层（延续现有 `<svg class="lf-pen-layer">` 思路）在 `penMode` 时渲染并盖于 X6 容器上方，期间 `graph.setInteracting(false)` 关掉 X6 交互；**起笔用 `mousedown`/`touchstart`、收笔把 `mousemove`/`mouseup`/`touchmove`/`touchend` 挂到 `document`**（即 X6 内部自身保证兼容的手法），松手经 `graph.clientToLocal()` 转坐标后生成 X6 `Shape.Path`。本机 Tauri macOS 真机构建须回归验证不断笔。原 spec/tasks 中 P1-T5.1「保留 overlay 拦截 pointer 方案」字样即指本方案 B，非复制 Vue Flow 旧代码。
 
 ---
 
