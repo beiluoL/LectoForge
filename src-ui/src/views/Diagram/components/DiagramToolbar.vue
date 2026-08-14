@@ -45,6 +45,27 @@
 
     <span class="lf-sep" />
 
+    <!-- 批量对齐 / 分布（需选中 ≥2 节点） -->
+    <div class="lf-tools lf-align">
+      <button class="kb-btn kb-btn-sm" :disabled="selectedNodeIds.length < 2" @click="showAlign = !showAlign" title="对齐与分布">
+        对齐
+      </button>
+      <div v-if="showAlign" class="lf-align-menu" @mouseleave="showAlign = false">
+        <p class="lf-align-title">对齐</p>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('left')">左对齐</button>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('right')">右对齐</button>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('top')">顶对齐</button>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('bottom')">底对齐</button>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('hcenter')">水平居中</button>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('vcenter')">垂直居中</button>
+        <p class="lf-align-title">分布</p>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 3" @click="doDistribute('hdistribute')">水平等距</button>
+        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 3" @click="doDistribute('vdistribute')">垂直等距</button>
+      </div>
+    </div>
+
+    <span class="lf-sep" />
+
     <!-- 排版：文本色 / 填充色 / 描边色（应用到选中节点，同时作为新节点的默认笔刷） -->
     <div class="lf-tools">
       <label class="lf-color" title="文本色">
@@ -121,7 +142,7 @@
  * - 排版：文本色 / 填充色 / 描边色，应用到当前选中节点，同时写入 brush 作为新节点默认；
  * - 图层：撤销 / 重做 / 复制 / 删除选中 / 适应屏幕 / 自动布局。
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 
 import Icon from '@/components/ui/Icon.vue';
@@ -131,8 +152,18 @@ import { confirmDialog } from '@/utils/toast';
 const emit = defineEmits<{ (e: 'export-png'): void; (e: 'fit'): void; (e: 'auto-layout'): void }>();
 
 const store = useDiagramStore();
-const { currentName, edgeLineType, brush, selectedNode, canUndo, canRedo, isSaving, dirty, diagrams, currentDiagramId, nodeCount, hasSelection } =
+const { currentName, edgeLineType, brush, selectedNode, canUndo, canRedo, isSaving, dirty, diagrams, currentDiagramId, nodeCount, hasSelection, selectedNodeIds } =
   storeToRefs(store);
+
+const showAlign = ref(false);
+function doAlign(mode: 'left' | 'right' | 'top' | 'bottom' | 'hcenter' | 'vcenter') {
+  store.alignNodes(mode);
+  showAlign.value = false;
+}
+function doDistribute(mode: 'hdistribute' | 'vdistribute') {
+  store.distributeNodes(mode);
+  showAlign.value = false;
+}
 
 async function onSwitch(e: Event) {
   const id = Number((e.target as HTMLSelectElement).value);
@@ -237,5 +268,48 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   color: var(--kb-foreground);
   font-size: 13px;
   flex-shrink: 0;
+}
+.lf-align {
+  position: relative;
+}
+.lf-align-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 116px;
+  padding: 6px;
+  background: var(--kb-popover, #fff);
+  border: 1px solid var(--kb-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+}
+:global(.dark) .lf-align-menu {
+  background: var(--kb-card, #1f1f1f);
+}
+.lf-align-title {
+  margin: 2px 4px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--kb-muted-foreground);
+}
+.lf-align-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kb-foreground);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.lf-align-item:hover:not(:disabled) {
+  background: var(--kb-muted, #f1f5f9);
+}
+.lf-align-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 </style>

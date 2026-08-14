@@ -605,6 +605,84 @@ export const useDiagramStore = defineStore('diagram', () => {
     touch();
   }
 
+  // ===== 批量对齐 / 分布 =====
+  /**
+   * 对齐选中节点。mode：left/right/top/bottom/hcenter/vcenter。
+   * 选中 < 2 个时直接忽略。重赋值 nodes（而非原地改）以确保 VueFlow 收到新引用并重排。
+   */
+  function alignNodes(mode: 'left' | 'right' | 'top' | 'bottom' | 'hcenter' | 'vcenter') {
+    const selSet = new Set(selectedNodeIds.value);
+    if (selSet.size < 2) return;
+    const list = (nodes.value as any[])
+      .filter((n) => selSet.has(n.id))
+      .map((n) => {
+        const def = shapeOf(n.type);
+        const w = Number(n.data?.width) || def.defaultWidth;
+        const h = Number(n.data?.height) || def.defaultHeight;
+        return { id: n.id, x: n.position.x, y: n.position.y, w, h, cx: n.position.x + w / 2, cy: n.position.y + h / 2 };
+      });
+    if (list.length < 2) return;
+
+    let target = 0;
+    if (mode === 'left') target = Math.min(...list.map((s) => s.x));
+    else if (mode === 'right') target = Math.max(...list.map((s) => s.x + s.w));
+    else if (mode === 'top') target = Math.min(...list.map((s) => s.y));
+    else if (mode === 'bottom') target = Math.max(...list.map((s) => s.y + s.h));
+    else if (mode === 'hcenter') target = list.reduce((a, s) => a + s.cx, 0) / list.length;
+    else target = list.reduce((a, s) => a + s.cy, 0) / list.length;
+
+    const next = new Map<string, { x: number; y: number }>();
+    for (const s of list) {
+      if (mode === 'left') next.set(s.id, { x: Math.round(target), y: s.y });
+      else if (mode === 'right') next.set(s.id, { x: Math.round(target - s.w), y: s.y });
+      else if (mode === 'top') next.set(s.id, { x: s.x, y: Math.round(target) });
+      else if (mode === 'bottom') next.set(s.id, { x: s.x, y: Math.round(target - s.h) });
+      else if (mode === 'hcenter') next.set(s.id, { x: Math.round(target - s.w / 2), y: s.y });
+      else next.set(s.id, { x: s.x, y: Math.round(target - s.h / 2) });
+    }
+    pushHistory();
+    nodes.value = (nodes.value as any[]).map((n) =>
+      selSet.has(n.id) && next.has(n.id) ? { ...n, position: next.get(n.id) } : n,
+    );
+    touch();
+  }
+
+  /**
+   * 等距分布选中节点。mode：hdistribute/vdistribute。选中 < 3 个时无意义（2 个仅端点不动），忽略。
+   * 以中心点为基准，在首个与最末个节点之间均分间距。
+   */
+  function distributeNodes(mode: 'hdistribute' | 'vdistribute') {
+    const selSet = new Set(selectedNodeIds.value);
+    if (selSet.size < 3) return;
+    const list = (nodes.value as any[])
+      .filter((n) => selSet.has(n.id))
+      .map((n) => {
+        const def = shapeOf(n.type);
+        const w = Number(n.data?.width) || def.defaultWidth;
+        const h = Number(n.data?.height) || def.defaultHeight;
+        return { id: n.id, x: n.position.x, y: n.position.y, w, h, cx: n.position.x + w / 2, cy: n.position.y + h / 2 };
+      });
+    if (list.length < 3) return;
+
+    const sorted = [...list].sort((a, b) => (mode === 'hdistribute' ? a.cx - b.cx : a.cy - b.cy));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const span = (mode === 'hdistribute' ? last.cx - first.cx : last.cy - first.cy);
+    const gap = span / (sorted.length - 1);
+
+    const next = new Map<string, { x: number; y: number }>();
+    sorted.forEach((s, i) => {
+      const center = (mode === 'hdistribute' ? first.cx + gap * i : first.cy + gap * i);
+      if (mode === 'hdistribute') next.set(s.id, { x: Math.round(center - s.w / 2), y: s.y });
+      else next.set(s.id, { x: s.x, y: Math.round(center - s.h / 2) });
+    });
+    pushHistory();
+    nodes.value = (nodes.value as any[]).map((n) =>
+      selSet.has(n.id) && next.has(n.id) ? { ...n, position: next.get(n.id) } : n,
+    );
+    touch();
+  }
+
   // ===== 导出 =====
   /**
    * 导出 SVG（基于当前 nodes/edges 的几何信息重新绘制，不依赖画布 DOM 像素）。
@@ -881,6 +959,8 @@ export const useDiagramStore = defineStore('diagram', () => {
     copyToClipboard,
     pasteFromClipboard,
     autoLayout,
+    alignNodes,
+    distributeNodes,
     exportToSVG,
   };
 });
