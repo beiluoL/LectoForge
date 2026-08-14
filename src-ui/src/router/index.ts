@@ -214,7 +214,7 @@ const routes: RouteRecordRaw[] = [
     path: '/diagram-x6-playground',
     name: 'DiagramX6Playground',
     component: () => import('@/views/Diagram/x6/DiagramPlayground.vue'),
-    meta: { layout: 'c', fullscreen: true },
+    meta: { layout: 'c', fill: true },
   },
   {
     // 知识库问答（RAG）：检索文档库 + 康奈尔笔记后由 AI 作答。

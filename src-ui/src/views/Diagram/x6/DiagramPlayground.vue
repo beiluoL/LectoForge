@@ -1,100 +1,112 @@
 <template>
-  <div class="x6-playground">
-    <div class="bar">
-      <span class="title">X6 Playground（方案 B 验证用，非正式编辑器）</span>
-      <button class="kb-btn" @click="addRect">+ 矩形</button>
-      <button class="kb-btn" @click="addVueNode">+ Vue 节点</button>
-      <button class="kb-btn" @click="undo">撤销</button>
-      <button class="kb-btn" @click="redo">重做</button>
-      <span class="hint">graphReady: {{ graphReady }}</span>
+  <div class="x6-pg">
+    <div class="x6-pg-hint">
+      X6 方案 B 验证台（P1-T2）：双击节点/边标签改字 · 拖节点四向锚点连线 · 选中节点拖动角点 resize · 选中边拖拐点改路径
     </div>
-    <div class="canvas-wrap">
-      <div ref="containerRef" class="canvas"></div>
-      <div ref="minimapRef" class="minimap"></div>
-    </div>
+    <div ref="containerRef" class="x6-pg-canvas"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+/**
+ * X6 方案 B 隐藏验证台（路由 /diagram-x6-playground）。
+ * 仅用于本地验证 11 种原生形状 + 3 种连线在 X6 下渲染 / 编辑 / 连线 / resize 是否正常，
+ * 不替换现有 /diagram（Vue Flow）。
+ */
+import { ref, watch, nextTick } from 'vue'
 import { useGraph } from './useGraph'
+import { SHAPES } from '../shapeDefs'
+import { buildEdgeMetadata } from './edgeFactory'
 
 const containerRef = ref<HTMLElement | null>(null)
-const minimapRef = ref<HTMLElement | null>(null)
-const { graph, graphReady } = useGraph({ containerRef, minimapContainerRef: minimapRef })
+const { graph, graphReady } = useGraph({ containerRef })
 
-function addRect() {
-  graph.value?.addNode({
-    shape: 'rect',
-    x: 80 + Math.random() * 120,
-    y: 80 + Math.random() * 120,
-    width: 120,
-    height: 50,
-    label: 'X6 矩形',
-    attrs: { body: { fill: '#f6ffed', stroke: '#52c41a', strokeWidth: 1.5 } },
+watch(graphReady, async (ready) => {
+  if (!ready || !graph.value) return
+  await nextTick()
+  const g = graph.value
+
+  // 11 种形状按 4 列网格铺开
+  const colW = 220
+  const rowH = 150
+  const ids: Record<string, string> = {}
+  SHAPES.forEach((s, i) => {
+    const col = i % 4
+    const row = Math.floor(i / 4)
+    const id = `demo-${s.type}`
+    ids[s.type] = id
+    const isUml = s.render === 'uml'
+    g.addNode({
+      id,
+      shape: `diagram-${s.type}`,
+      x: 40 + col * colW,
+      y: 60 + row * rowH,
+      width: s.defaultWidth,
+      height: s.defaultHeight,
+      attrs: {
+        body: { fill: '#FFFFFF', stroke: '#475569' },
+        label: { text: s.defaultText },
+        ...(isUml ? { header: { fill: '#475569' } } : {}),
+      },
+      data: {
+        label: s.defaultText,
+        fill: '#FFFFFF',
+        stroke: '#475569',
+        textColor: '#0F172A',
+        width: s.defaultWidth,
+        height: s.defaultHeight,
+      },
+    })
   })
-}
 
-function addVueNode() {
-  graph.value?.addNode({
-    shape: 'test-vue-node',
-    x: 300,
-    y: 140,
-    width: 140,
-    height: 44,
-    data: { text: 'Vue 节点 ✅' },
-  })
-}
+  // 3 种线型示例边
+  const samples: Array<{ from: string; to: string; lineType: any; label: string }> = [
+    { from: 'process', to: 'decision', lineType: 'smoothstep', label: '平滑折线' },
+    { from: 'decision', to: 'rounded', lineType: 'bezier', label: '曲线' },
+    { from: 'rounded', to: 'ellipse', lineType: 'straight', label: '直线' },
+  ]
+  for (const s of samples) {
+    const fromId = ids[s.from]
+    const toId = ids[s.to]
+    if (!fromId || !toId) continue
+    g.addEdge(
+      buildEdgeMetadata({
+        source: fromId,
+        target: toId,
+        label: s.label,
+        data: { lineType: s.lineType, color: '#475569', lineWidth: 1.6, dashed: false, arrow: true },
+      }) as any,
+    )
+  }
 
-function undo() {
-  if (graph.value?.canUndo()) graph.value.undo()
-}
-
-function redo() {
-  if (graph.value?.canRedo()) graph.value.redo()
-}
+  g.zoomToFit({ padding: 40, maxScale: 1 })
+})
 </script>
 
 <style scoped>
-.x6-playground {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-}
-.bar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--kb-border, #e5e7eb);
-}
-.title {
-  font-weight: 600;
-  margin-right: 8px;
-}
-.hint {
-  margin-left: auto;
-  color: #6b7280;
-  font-size: 12px;
-}
-.canvas-wrap {
+.x6-pg {
   position: relative;
-  flex: 1;
-  min-height: 0;
+  width: 100%;
+  height: 100%;
+  background: #f8fafc;
 }
-.canvas {
-  position: absolute;
-  inset: 0;
+.x6-pg-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
-.minimap {
+.x6-pg-hint {
   position: absolute;
+  z-index: 20;
+  top: 8px;
+  left: 12px;
   right: 12px;
-  bottom: 12px;
-  width: 200px;
-  height: 140px;
-  border: 1px solid var(--kb-border, #e5e7eb);
-  background: #fff;
-  z-index: 5;
+  font-size: 12px;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  pointer-events: none;
 }
 </style>

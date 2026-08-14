@@ -1,6 +1,7 @@
 // X6 画布配置常量（方案 B：AntV X6 自研升级）。
 // 所有画布参数集中在此，后续由 Pinia 的 diagramStore.graphConfig 驱动时可在此扩展。
-import type { Graph } from '@antv/x6'
+import { Graph, Shape } from '@antv/x6'
+import { edgeConnectorRouter, edgeLineAttrs } from './edgeFactory'
 
 /** 网格尺寸（px） */
 export const GRID_SIZE = 8
@@ -33,6 +34,17 @@ export function createGraphOptions(container: HTMLElement): Graph.Options {
       allowLoop: false,
       snap: { radius: 24 },
       highlight: true,
+      // 拖动连接时生成的边：默认 smoothstep + block 箭头（与现有 CustomEdge 默认一致）
+      createEdge() {
+        const { connector, router } = edgeConnectorRouter('smoothstep')
+        return new Shape.Edge({
+          shape: 'edge',
+          connector,
+          router,
+          attrs: { line: edgeLineAttrs() },
+          data: { lineType: 'smoothstep', color: '#475569', lineWidth: 1.6, dashed: false, arrow: true },
+        })
+      },
     },
   }
 }

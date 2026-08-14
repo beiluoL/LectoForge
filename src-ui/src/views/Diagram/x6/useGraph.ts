@@ -17,6 +17,8 @@ import { MiniMap } from '@antv/x6-plugin-minimap'
 import { Export } from '@antv/x6-plugin-export'
 import { createGraphOptions, HISTORY_STACK_SIZE } from './graphConfig'
 import { registerVueShapes } from './vue-shapes'
+import { registerDiagramShapes } from './shapeFactory'
+import { setupCellEditing } from './useCellEditing'
 
 export interface UseGraphParams {
   containerRef: Ref<HTMLElement | null>
@@ -28,14 +30,16 @@ export function useGraph(params: UseGraphParams) {
   // 用 shallowRef：Graph 实例是可变对象，无需深度响应，避免 X6 内部频繁触发 Vue 响应式开销。
   const graph = shallowRef<Graph | null>(null)
   const graphReady = ref(false)
+  let cleanupEditing: (() => void) | null = null
 
   onMounted(() => {
     if (!containerRef.value) {
       console.error('[useGraph] container ref 未挂载，无法初始化 Graph')
       return
     }
-    // 注册 Vue shape（幂等）。
+    // 注册 Vue shape（幂等）+ 11 种原生 diagram shape（幂等）。
     registerVueShapes()
+    registerDiagramShapes()
 
     const g = new Graph(createGraphOptions(containerRef.value))
 
@@ -53,18 +57,54 @@ export function useGraph(params: UseGraphParams) {
     )
     g.use(new Clipboard({ enabled: true }))
     g.use(new Snapline({ enabled: true }))
-    g.use(new Transform({ resizing: true, rotating: true }))
+    g.use(new Transform({ resizing: { minWidth: 60, minHeight: 36 }, rotating: true }))
     g.use(new Scroller({ enabled: true, pannable: true }))
     g.use(new Export())
     if (minimapContainerRef?.value) {
       g.use(new MiniMap({ container: minimapContainerRef.value }))
     }
 
+    // ===== 选中态工具：节点加 transform（resize/rotate），边加 vertices+segments（拐点编辑） =====
+    g.on('node:selected', ({ node }: any) => {
+      node.addTools('transform')
+    })
+    g.on('node:unselected', ({ node }: any) => {
+      node.removeTools()
+    })
+    g.on('edge:selected', ({ edge }: any) => {
+      edge.attr('line/strokeWidth', Number(edge.attr('line/strokeWidth') || 1.6) + 1)
+      edge.addTools(['vertices', 'segments'])
+    })
+    g.on('edge:unselected', ({ edge }: any) => {
+      edge.attr('line/strokeWidth', Math.max(1, Number(edge.attr('line/strokeWidth') || 1.6) - 1))
+      edge.removeTools()
+    })
+
+    // ===== 形状保真：terminal 胶囊 rx 随高变化；uml header 填充跟随描边 =====
+    g.on('node:change:size', ({ node }: any) => {
+      if (node.getShape().endsWith('-terminal')) {
+        node.attr('body/rx', Math.max(2, node.getSize().height / 2))
+      }
+    })
+    g.on('node:change:attrs', ({ node }: any) => {
+      const shape = node.getShape()
+      if (shape.endsWith('-class') || shape.endsWith('-interface')) {
+        const desired = node.attr('body/stroke') || '#475569'
+        if (node.attr('header/fill') !== desired) {
+          node.attr('header/fill', desired)
+        }
+      }
+    })
+
+    // ===== 双击编辑节点 / 边标签 =====
+    cleanupEditing = setupCellEditing(g, containerRef.value)
+
     graph.value = g
     graphReady.value = true
   })
 
   onBeforeUnmount(() => {
+    cleanupEditing?.()
     graph.value?.dispose()
     graph.value = null
     graphReady.value = false
