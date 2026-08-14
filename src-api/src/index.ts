@@ -34,6 +34,7 @@ import backup from './routes/backup';
 import interview from './routes/interview';
 import qaBank from './routes/qaBank';
 import models from './routes/models';
+import diagram from './routes/diagram';
 import ttsVoices from './routes/ttsVoices';
 import insight from './routes/insight';
 import * as insightService from './services/insightService';
@@ -189,6 +190,7 @@ app.register(interview, { prefix: '/api' });
  * 独立前缀 /api：端点 /qa-bank 系列。 */
 app.register(qaBank, { prefix: '/api' });
 app.register(models, { prefix: '/api' });
+app.register(diagram, { prefix: '/api' });
 app.register(ttsVoices, { prefix: '/api' });
 
 /* ===== 主动智能：每日学习日报（聚合 + AI 文案 + 薄弱点闪卡联动）=====

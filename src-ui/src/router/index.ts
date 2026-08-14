@@ -199,6 +199,15 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true },
   },
   {
+    // 绘图工具 / 流程图（类 ProcessOn / Draw.io 白板）：独立的图文件系统，
+    // 整图存库、自动保存。路径刻意不挂在 /workbench 下，与 /library、/mindmap 同理
+    // （isActive 用 startsWith，避免被「工作台」误吞高亮）；高亮走「规划」分组的 match。
+    path: '/diagram',
+    name: 'Diagram',
+    component: () => import('@/views/Diagram/index.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     // 知识库问答（RAG）：检索文档库 + 康奈尔笔记后由 AI 作答。
     // 挂在顶层 /ai-chat（不进 /workbench），与 /library、/interview 等同理，
     // 避免顶栏 isActive 用 startsWith 时被「工作台」误吞高亮。

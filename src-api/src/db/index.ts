@@ -12,6 +12,7 @@ import {
   wbHabitLog,
   wbQuadrantTask,
   wbTaskList,
+  wbDiagram,
 } from './schema';
 import { getDbPath } from '../lib/paths';
 
@@ -374,6 +375,19 @@ CREATE TABLE IF NOT EXISTS wb_ai_message (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_wb_ai_message_conv ON wb_ai_message (conversation_id, created_at);
+/* ===== 绘图工具 / 流程图 =====
+ * 整图存进 data 列（JSON）：nodes / edges / viewport 不拆子表，永远整图加载。
+ * 列表查询形态只有「某用户的全部图文件」，(user_id, updated_at) 让「最近编辑」排序走索引；
+ * 详情页按 id 取，主键命中。 */
+CREATE TABLE IF NOT EXISTS wb_diagram (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL DEFAULT '未命名文件',
+  data TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[],"viewport":{"x":0,"y":0,"zoom":1}}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_diagram_owner ON wb_diagram (user_id, updated_at);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====

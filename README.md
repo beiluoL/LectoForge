@@ -24,8 +24,8 @@
 ```
 desktopApp/
 ├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
-│   ├── src/routes/      # 薄路由 30 模块 / 679 行：只绑定「路径 → Controller」，无任何 SQL（逐模块端点明细见《桌面端技术架构与功能手册.md》§4.1）
-│   │                    # 共 192 个端点（2026-08-13 审计值）：AI /api/ai 25 + 文档库 16 + 收集箱 14 + 记忆宫殿 10 + 复习 reviews 9 + 笔记 9 + 日程 8 + 任务 8 + 思维导图 7 + 收集·剪藏 7 + 题库 7 + 四象限 6 + 习惯 7 + 故事 5 + 主动回忆 5 + 番茄钟 5 + 模拟面试 3 + 日历 4 + 数据备份 3 + 学习日报 insight 3 + 本地模型 5 + 其余（分类/配置/看板/搜索/概览/迁移/健康）若干
+│   ├── src/routes/      # 薄路由 31 模块 / 679 行：只绑定「路径 → Controller」，无任何 SQL（逐模块端点明细见《桌面端技术架构与功能手册.md》§4.1）
+│   │                    # 共 197 个端点（2026-08-14 审计值）：AI /api/ai 25 + 文档库 16 + 收集箱 14 + 记忆宫殿 10 + 复习 reviews 9 + 笔记 9 + 日程 8 + 任务 8 + 思维导图 7 + 收集·剪藏 7 + 题库 7 + 四象限 6 + 习惯 7 + 故事 5 + 主动回忆 5 + 番茄钟 5 + 模拟面试 3 + 日历 4 + 绘图工具 5 + 数据备份 3 + 学习日报 insight 3 + 本地模型 5 + 其余（分类/配置/看板/搜索/概览/迁移/健康）若干
 │   ├── src/controllers/ # 控制层 29 模块 / 2313 行：解析请求、调 Service、决定 HTTP 状态码
 │   ├── src/services/    # 服务层 45 模块 / 9880 行：Drizzle 查询、文件 IO、axios 外呼
 │   │   ├── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
@@ -41,7 +41,7 @@ desktopApp/
 
 ## 后端分层约定（2026-08-08 三层重构完成）
 
-30 个路由模块已全量下沉为 **Route → Controller → Service**，新增代码必须遵守边界：
+31 个路由模块已全量下沉为 **Route → Controller → Service**，新增代码必须遵守边界：
 
 - **Route** 只声明路径、方法、参数 schema 并绑定 Controller，**禁止出现** `db.` / `drizzle-orm` / `axios` / `fetch(`。
 - **Controller** 解析请求、调用 Service、决定 HTTP 状态码，**禁止写 SQL**。
@@ -180,6 +180,17 @@ npm run tauri build
 - **乐观交互**：新建成功后重拉当前视图；更新 / 删除乐观更新 + 失败回滚 + 轻量 toast，store ID 固定 `defineStore('calendar')`。
 
 > 后端接口、表结构（`wb_calendar_event`）、范围查询与 UTC ISO 时间口径详见《桌面端技术架构与功能手册.md》§7.20。
+
+## 绘图工具 / 流程图模块（2026-08-14 新增）
+
+类 ProcessOn / Draw.io 的本地白板流程图编辑器，整图存库、防抖自动保存。
+
+- **前端三栏**（`src/views/Diagram/`）：左「图形库」（基础形状 / 流程图 / UML 共 11 种，支持拖入画布与点击添加）、顶「工具栏」（新建 / 保存 / 导出 PNG·SVG / 连线样式 / 排版色 / 撤销重做 / 删除 / 图文件切换）、中「画布」（`@vue-flow/core` + background + controls，`ConnectionMode.Loose` 四向互联、双击编辑）、右「属性面板」（节点 X/Y/宽/高/文本/填充/描边/文字色，连线线宽/虚线/箭头/线色）。
+- **状态层**（`store/diagram-store.ts`）：`nodes`/`edges`/`viewport` 直接绑 VueFlow v-model（`any[]` 规避 TS2589），2000ms 防抖自动保存；快照式撤销/重做（VueFlow core 无内建 history）；PNG（html2canvas）/ SVG 导出；编辑文字时屏蔽 Delete/Backspace 防误删。
+- **后端（前缀 `/api/diagram`，5 端点）**：`GET /`（列表）、`POST /`（新建空白画布）、`GET /:id`（详情）、`PUT /:id`（保存）、`DELETE /:id`（删除）。数据落 `wb_diagram` 表（`data` 列存整图 JSON，不拆子表），写前 `sanitizeData` 只留业务字段。
+- 顶栏入口：规划▾ → 流程图（`/diagram`）。
+
+> 前后端接口、11 种形状与关键技术取舍详见《桌面端技术架构与功能手册.md》§7.12。
 
 ## 数据备份模块（2026-08-10 新增）
 

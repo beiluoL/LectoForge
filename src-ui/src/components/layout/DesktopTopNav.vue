@@ -411,13 +411,14 @@ const navItems: NavItem[] = [
     icon: 'calendar-days',
     /* /schedule 仍留在 match 里：它已重定向到 /tasks，但重定向发生在导航守卫之后、
      * 期间 route.path 可能短暂等于 /schedule，留着它能避免顶栏在跳转瞬间闪一下熄灭。 */
-    match: ['/tasks', '/schedule', '/quadrant', '/habits', '/calendar'],
+    match: ['/tasks', '/schedule', '/quadrant', '/habits', '/calendar', '/diagram'],
     collapse: true,
     children: [
       { path: '/tasks', label: '任务清单', icon: 'list-checks' },
       { path: '/calendar', label: '日历', icon: 'calendar' },
       { path: '/quadrant', label: '四象限', icon: 'layout-grid' },
       { path: '/habits', label: '习惯打卡', icon: 'check-circle-2' },
+      { path: '/diagram', label: '流程图', icon: 'workflow' },
     ],
   },
 ];

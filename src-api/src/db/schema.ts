@@ -505,3 +505,20 @@ export const wbAiMessage = sqliteTable(
     convIdx: index('idx_wb_ai_message_conv').on(t.conversationId, t.createdAt),
   }),
 );
+
+// ===== 模块：绘图工具 / 流程图（类 ProcessOn / Draw.io 白板）=====
+// 一份「图文件」= 一个画布快照。nodes / edges / viewport 整体序列化进 data 列的 JSON，
+// 不拆子表：流程图节点没有独立查询需求（永远整图加载），拆表只会增加 join 与事务复杂度。
+// user_id 仍保留逻辑外键口径（单用户桌面应用，默认 1）。
+// createdAt / updatedAt 用 TEXT(ISO)，与项目其它表一致，便于排序与展示。
+export const wbDiagram = sqliteTable('wb_diagram', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  name: text('name').notNull().default('未命名文件'),
+  /** 画布完整状态 JSON：{ nodes: Node[], edges: Edge[], viewport: { x, y, zoom } }
+   * 存纯净业务字段（id/type/position/data.label + 边 source/target 等），
+   * 不含 vue-flow 运行时字段（computedPosition 等），序列化由前端 toPlain 负责。 */
+  data: text('data').notNull().default('{"nodes":[],"edges":[],"viewport":{"x":0,"y":0,"zoom":1}}'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
