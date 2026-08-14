@@ -8,6 +8,7 @@
       </div>
       <DiagramProperties />
     </div>
+    <DiagramBottomBar />
     <DiagramContextMenu v-model="menuOpen" :payload="menuPayload" @fit="onFit" />
   </div>
 </template>
@@ -22,7 +23,7 @@
  *
  * 进入页面：先拉列表，自动打开「最近编辑」的图；若还没有任何图，则新建一个空白图。
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 
 import { useDiagramStore } from '@/store/diagram-store';
@@ -31,6 +32,7 @@ import DiagramContextMenu from './components/DiagramContextMenu.vue';
 import DiagramLibrary from './components/DiagramLibrary.vue';
 import DiagramProperties from './components/DiagramProperties.vue';
 import DiagramToolbar from './components/DiagramToolbar.vue';
+import DiagramBottomBar from './components/DiagramBottomBar.vue';
 
 const store = useDiagramStore();
 const centerEl = ref<HTMLElement | null>(null);
@@ -38,6 +40,12 @@ const canvasRef = ref<InstanceType<typeof DiagramCanvas> | null>(null);
 
 const menuOpen = ref(false);
 const menuPayload = ref<CanvasContextMenuPayload | null>(null);
+
+/** 切换页面后重新适应视口（节点/边已随 store 切换刷新） */
+watch(
+  () => store.currentPageId,
+  () => onFit(),
+);
 
 function onContextMenu(payload: CanvasContextMenuPayload) {
   menuPayload.value = payload;

@@ -21,116 +21,188 @@ import type {
   DiagramDetail,
   DiagramEdge,
   DiagramNode,
+  DiagramPage,
   DiagramRow,
   DiagramSummary,
   DiagramUpdateInput,
 } from '../types/diagram';
 
-const BLANK_DATA: DiagramData = {
-  nodes: [],
-  edges: [],
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
-
 const DEFAULT_NAME = '未命名文件';
 
-/** 深拷贝空白图，避免多处共享同一引用导致互相污染 */
+/** 空白多页（单页）画布，避免多处共享同一引用导致互相污染 */
 function blankData(): DiagramData {
-  return JSON.parse(JSON.stringify(BLANK_DATA));
+  const now = nowIso();
+  return {
+    currentPageId: 'p1',
+    pages: [
+      {
+        id: 'p1',
+        name: '页面 1',
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+  };
 }
 
-/** 解析库里的 data 字符串；任何损坏都回退空白图 */
+/** 清洗单个节点（只留业务白名单字段） */
+function sanitizeNodes(input: unknown): DiagramNode[] {
+  if (!Array.isArray(input)) return [];
+  return input.map((n) => {
+    const rawData = n?.data && typeof n.data === 'object' ? (n.data as Record<string, unknown>) : {};
+    return {
+      id: String(n?.id ?? ''),
+      type: n?.type ?? null,
+      position: {
+        x: Number(n?.position?.x) || 0,
+        y: Number(n?.position?.y) || 0,
+      },
+      data: {
+        label: String(rawData.label ?? ''),
+        ...(typeof rawData.fill === 'string' ? { fill: rawData.fill } : {}),
+        ...(typeof rawData.stroke === 'string' ? { stroke: rawData.stroke } : {}),
+        ...(typeof rawData.textColor === 'string' ? { textColor: rawData.textColor } : {}),
+        ...(typeof rawData.width === 'number' ? { width: rawData.width } : {}),
+        ...(typeof rawData.height === 'number' ? { height: rawData.height } : {}),
+        ...(typeof rawData.path === 'string' ? { path: rawData.path } : {}),
+        ...(typeof rawData.points === 'string' ? { points: rawData.points } : {}),
+        ...(typeof rawData.strokeWidth === 'number' ? { strokeWidth: rawData.strokeWidth } : {}),
+        ...(typeof rawData.pathColor === 'string' ? { pathColor: rawData.pathColor } : {}),
+      },
+    };
+  });
+}
+
+/** 清洗单条连线（type 归一为 'custom'，真实线型存 data.lineType） */
+function sanitizeEdges(input: unknown): DiagramEdge[] {
+  if (!Array.isArray(input)) return [];
+  return input.map((e) => {
+    const rawData = e?.data && typeof e.data === 'object' ? (e.data as Record<string, unknown>) : {};
+    return {
+      id: String(e?.id ?? ''),
+      source: String(e?.source ?? ''),
+      target: String(e?.target ?? ''),
+      sourceHandle: e?.sourceHandle ?? undefined,
+      targetHandle: e?.targetHandle ?? undefined,
+      type: e?.type ?? null,
+      label: e?.label == null ? null : String(e.label),
+      data: {
+        ...(typeof rawData.lineWidth === 'number' ? { lineWidth: rawData.lineWidth } : {}),
+        ...(typeof rawData.dashed === 'boolean' ? { dashed: rawData.dashed } : {}),
+        ...(typeof rawData.arrow === 'boolean' ? { arrow: rawData.arrow } : {}),
+        ...(typeof rawData.color === 'string' ? { color: rawData.color } : {}),
+        ...(typeof rawData.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(rawData.lineType as string)
+          ? { lineType: rawData.lineType }
+          : {}),
+      },
+    };
+  });
+}
+
+/** 清洗视口 */
+function sanitizeViewport(input: unknown): { x: number; y: number; zoom: number } {
+  const vp = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  return {
+    x: Number(vp.x) || 0,
+    y: Number(vp.y) || 0,
+    zoom: Number(vp.zoom) || 1,
+  };
+}
+
+/** 清洗单个页面 */
+function sanitizePage(input: unknown): DiagramPage {
+  const p = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  const now = nowIso();
+  return {
+    id: String(p.id || 'p1'),
+    name: String(p.name || '页面 1'),
+    nodes: sanitizeNodes(p.nodes),
+    edges: sanitizeEdges(p.edges),
+    viewport: sanitizeViewport(p.viewport),
+    createdAt: String(p.createdAt || now),
+    updatedAt: String(p.updatedAt || now),
+  };
+}
+
+/** 解析库里的 data 字符串 → 多页结构；任何损坏或旧单页格式都回退/迁移为多页 */
 function parseData(raw: string | null | undefined): DiagramData {
   if (!raw) return blankData();
   try {
     const parsed = JSON.parse(raw);
-    return {
-      nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
-      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
-      viewport:
-        parsed.viewport && typeof parsed.viewport === 'object'
-          ? {
-              x: Number(parsed.viewport.x) || 0,
-              y: Number(parsed.viewport.y) || 0,
-              zoom: Number(parsed.viewport.zoom) || 1,
-            }
-          : { x: 0, y: 0, zoom: 1 },
-    };
+    if (Array.isArray(parsed.pages) && parsed.pages.length) {
+      const pages = parsed.pages.map(sanitizePage);
+      const currentPageId =
+        typeof parsed.currentPageId === 'string' && pages.some((p: any) => p.id === parsed.currentPageId)
+          ? parsed.currentPageId
+          : pages[0].id;
+      return { currentPageId, pages };
+    }
+    // 旧单页格式：{ nodes, edges, viewport } → 自动包成单页，旧图无需迁移即可打开
+    if (Array.isArray(parsed.nodes) || Array.isArray(parsed.edges)) {
+      return {
+        currentPageId: 'p1',
+        pages: [sanitizePage({ id: 'p1', name: '页面 1', nodes: parsed.nodes, edges: parsed.edges, viewport: parsed.viewport })],
+      };
+    }
+    return blankData();
   } catch {
     return blankData();
   }
 }
 
 /**
- * 写入前清洗：只保留业务字段，剔除 vue-flow 可能混进来的运行时字段
- * （computedPosition / handleBounds / dimensions / selected 等）。
- * 同时把各字段归一为字符串 / 数字，防御前端误传 null / undefined 落库成脏数据。
+ * 写入前清洗：只保留业务字段，剔除 vue-flow 可能混进来的运行时字段。
+ * 接受多页结构；也兼容旧单页结构（落库时统一包成多页）。
  */
 function sanitizeData(input: unknown): DiagramData {
-  const src = (input && typeof input === 'object' ? input : {}) as Partial<DiagramData>;
-
-  const nodes: DiagramNode[] = Array.isArray(src.nodes)
-    ? src.nodes.map((n) => {
-        const rawData = n?.data && typeof n.data === 'object' ? (n.data as Record<string, unknown>) : {};
-        return {
-          id: String(n?.id ?? ''),
-          type: n?.type ?? null,
-          position: {
-            x: Number(n?.position?.x) || 0,
-            y: Number(n?.position?.y) || 0,
-          },
-          // 节点业务 + 视觉数据统一在 data 下：只保留白名单键，剔除任何运行时混入
-          data: {
-            label: String(rawData.label ?? ''),
-            ...(typeof rawData.fill === 'string' ? { fill: rawData.fill } : {}),
-            ...(typeof rawData.stroke === 'string' ? { stroke: rawData.stroke } : {}),
-            ...(typeof rawData.textColor === 'string' ? { textColor: rawData.textColor } : {}),
-            ...(typeof rawData.width === 'number' ? { width: rawData.width } : {}),
-            ...(typeof rawData.height === 'number' ? { height: rawData.height } : {}),
-          },
-        };
-      })
-    : [];
-
-  const edges: DiagramEdge[] = Array.isArray(src.edges)
-    ? src.edges.map((e) => {
-        const rawData = e?.data && typeof e.data === 'object' ? (e.data as Record<string, unknown>) : {};
-        return {
-          id: String(e?.id ?? ''),
-          source: String(e?.source ?? ''),
-          target: String(e?.target ?? ''),
-          sourceHandle: e?.sourceHandle ?? undefined,
-          targetHandle: e?.targetHandle ?? undefined,
-          type: e?.type ?? null,
-          label: e?.label == null ? null : String(e.label),
-          data: {
-            ...(typeof rawData.lineWidth === 'number' ? { lineWidth: rawData.lineWidth } : {}),
-            ...(typeof rawData.dashed === 'boolean' ? { dashed: rawData.dashed } : {}),
-            ...(typeof rawData.arrow === 'boolean' ? { arrow: rawData.arrow } : {}),
-            ...(typeof rawData.color === 'string' ? { color: rawData.color } : {}),
-            ...(typeof rawData.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(rawData.lineType as string)
-              ? { lineType: rawData.lineType }
-              : {}),
-          },
-        };
-      })
-    : [];
-
-  const vp = (src.viewport && typeof src.viewport === 'object' ? src.viewport : {}) as Record<string, unknown>;
-  const viewport = {
-    x: Number(vp.x) || 0,
-    y: Number(vp.y) || 0,
-    zoom: Number(vp.zoom) || 1,
+  const src = (input && typeof input === 'object' ? input : {}) as Partial<DiagramData> & {
+    nodes?: unknown;
+    edges?: unknown;
+    viewport?: unknown;
   };
 
-  return { nodes, edges, viewport };
+  // 多页结构
+  if (Array.isArray(src.pages)) {
+    const pages = src.pages.map(sanitizePage);
+    if (!pages.length) return blankData();
+    const currentPageId =
+      typeof src.currentPageId === 'string' && pages.some((p) => p.id === src.currentPageId)
+        ? src.currentPageId
+        : pages[0].id;
+    return { currentPageId, pages };
+  }
+
+  // 旧单页结构：直接包成单页
+  if (Array.isArray(src.nodes) || Array.isArray(src.edges)) {
+    return {
+      currentPageId: 'p1',
+      pages: [
+        sanitizePage({
+          id: 'p1',
+          name: '页面 1',
+          nodes: src.nodes,
+          edges: src.edges,
+          viewport: src.viewport,
+        }),
+      ],
+    };
+  }
+
+  return blankData();
 }
 
 function toSummary(row: DiagramRow): DiagramSummary {
   let count = 0;
   try {
     const parsed = JSON.parse(row.data || '{}');
-    count = Array.isArray(parsed.nodes) ? parsed.nodes.length : 0;
+    if (Array.isArray(parsed.pages)) {
+      count = parsed.pages.reduce((sum: number, p: any) => sum + (Array.isArray(p?.nodes) ? p.nodes.length : 0), 0);
+    } else if (Array.isArray(parsed.nodes)) {
+      count = parsed.nodes.length;
+    }
   } catch {
     count = 0;
   }

@@ -26,7 +26,7 @@ import {
   fetchDiagrams as apiList,
   updateDiagram as apiUpdate,
 } from '@/api/diagram';
-import type { DiagramData, DiagramEdge, DiagramNode, DiagramSummary } from '@/api/diagram';
+import type { DiagramData, DiagramDetail, DiagramEdge, DiagramNode, DiagramPage, DiagramSummary } from '@/api/diagram';
 import { notify } from '@/utils/toast';
 
 import { SHAPE_BY_TYPE, shapeOf, type DiagramShapeType } from '@/views/Diagram/shapeDefs';
@@ -63,6 +63,12 @@ export const useDiagramStore = defineStore('diagram', () => {
   const nodes = ref<any[]>([]);
   const edges = ref<any[]>([]);
   const viewport = ref<{ x: number; y: number; zoom: number }>({ x: 0, y: 0, zoom: 1 });
+
+  // ===== 多页画布 =====
+  /** 全部页面（含当前页）。切换/新增/删除/重排都改这里；保存时整体打包。 */
+  const pages = ref<DiagramPage[]>([]);
+  /** 当前激活页面 id（nodes/edges/viewport 始终反映该页内容） */
+  const currentPageId = ref<string>('');
 
   // ===== 交互态 =====
   const selection = ref<SelectionState>({ nodeId: null, edgeId: null });
@@ -109,6 +115,11 @@ export const useDiagramStore = defineStore('diagram', () => {
     if (typeof d.textColor === 'string') data.textColor = d.textColor;
     if (typeof d.width === 'number') data.width = d.width;
     if (typeof d.height === 'number') data.height = d.height;
+    // 自由画笔节点（type='drawing'）的几何与笔刷字段
+    if (typeof d.path === 'string') data.path = d.path;
+    if (typeof d.points === 'string') data.points = d.points;
+    if (typeof d.strokeWidth === 'number') data.strokeWidth = d.strokeWidth;
+    if (typeof d.pathColor === 'string') data.pathColor = d.pathColor;
     return {
       id: String(n?.id ?? ''),
       type: n?.type ?? null,
@@ -158,8 +169,150 @@ export const useDiagramStore = defineStore('diagram', () => {
     return { type: MarkerType.ArrowClosed, color: String(data?.color || '#475569'), width: 18, height: 18 };
   }
 
+  // ===== 多页：数据规范化与同步 =====
+  /** 把库里的节点（业务字段）转回 VueFlow 运行时节点（补 markerEnd 等） */
+  function normalizeNode(n: any): any {
+    const isDrawing = n?.type === 'drawing';
+    return {
+      id: String(n.id),
+      type: isDrawing ? 'drawing' : (SHAPE_BY_TYPE[n.type as string] ? n.type : 'rect') as string,
+      position: { x: Number(n.position?.x) || 0, y: Number(n.position?.y) || 0 },
+      data: {
+        label: String(n.data?.label ?? ''),
+        ...(n.data?.fill ? { fill: n.data.fill } : {}),
+        ...(n.data?.stroke ? { stroke: n.data.stroke } : {}),
+        ...(n.data?.textColor ? { textColor: n.data.textColor } : {}),
+        ...(n.data?.width ? { width: n.data.width } : {}),
+        ...(n.data?.height ? { height: n.data.height } : {}),
+        ...(n.data?.path ? { path: n.data.path } : {}),
+        ...(n.data?.points ? { points: n.data.points } : {}),
+        ...(typeof n.data?.strokeWidth === 'number' ? { strokeWidth: n.data.strokeWidth } : {}),
+        ...(n.data?.pathColor ? { pathColor: n.data.pathColor } : {}),
+      },
+    };
+  }
+
+  function normalizeEdge(e: any): any {
+    return {
+      id: String(e.id || newId('e')),
+      source: String(e.source),
+      target: String(e.target),
+      sourceHandle: e.sourceHandle ?? undefined,
+      targetHandle: e.targetHandle ?? undefined,
+      type: 'custom',
+      label: e.label == null ? undefined : String(e.label),
+      markerEnd: edgeMarker(e.data),
+      data: {
+        ...(typeof e.data?.lineWidth === 'number' ? { lineWidth: e.data.lineWidth } : {}),
+        ...(typeof e.data?.dashed === 'boolean' ? { dashed: e.data.dashed } : {}),
+        ...(typeof e.data?.arrow === 'boolean' ? { arrow: e.data.arrow } : {}),
+        ...(typeof e.data?.color === 'string' ? { color: e.data.color } : {}),
+        ...(typeof e.data?.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(e.data.lineType)
+          ? { lineType: e.data.lineType }
+          : {}),
+      },
+    };
+  }
+
+  function normalizeViewport(vp: any) {
+    return vp && typeof vp === 'object'
+      ? { x: Number(vp.x) || 0, y: Number(vp.y) || 0, zoom: Number(vp.zoom) || 1 }
+      : { x: 0, y: 0, zoom: 1 };
+  }
+
+  /** 把任意 data（可能旧单页）规范成多页结构，旧图无需迁移即可打开 */
+  function normalizePages(d: any): { currentPageId: string; pages: DiagramPage[] } {
+    if (d && Array.isArray(d.pages) && d.pages.length) {
+      const pages = d.pages.map(normalizePage);
+      const currentPageId =
+        typeof d.currentPageId === 'string' && pages.some((p: any) => p.id === d.currentPageId)
+          ? d.currentPageId
+          : pages[0].id;
+      return { currentPageId, pages };
+    }
+    if (d && (Array.isArray(d.nodes) || Array.isArray(d.edges))) {
+      return {
+        currentPageId: 'p1',
+        pages: [
+          normalizePage({ id: 'p1', name: '页面 1', nodes: d.nodes || [], edges: d.edges || [], viewport: d.viewport }),
+        ],
+      };
+    }
+    const now = new Date().toISOString();
+    return {
+      currentPageId: 'p1',
+      pages: [{ id: 'p1', name: '页面 1', nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 }, createdAt: now, updatedAt: now }],
+    };
+  }
+
+  function normalizePage(p: any): DiagramPage {
+    return {
+      id: String(p?.id || 'p1'),
+      name: String(p?.name || '页面 1'),
+      nodes: Array.isArray(p?.nodes) ? p.nodes.map(normalizeNode) : [],
+      edges: Array.isArray(p?.edges) ? p.edges.map(normalizeEdge) : [],
+      viewport: normalizeViewport(p?.viewport),
+      createdAt: String(p?.createdAt || ''),
+      updatedAt: String(p?.updatedAt || ''),
+    };
+  }
+
+  /** 把当前激活页的内容（nodes/edges/viewport）写回 pages 数组对应页 */
+  function syncActivePage() {
+    const id = currentPageId.value;
+    if (!id) return;
+    pages.value = pages.value.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            nodes: (nodes.value as any[]).map(cleanNode),
+            edges: (edges.value as any[]).map(cleanEdge),
+            viewport: { ...viewport.value },
+          }
+        : p,
+    );
+  }
+
+  function loadActivePage() {
+    const page = pages.value.find((p) => p.id === currentPageId.value) || pages.value[0];
+    if (!page) {
+      nodes.value = [];
+      edges.value = [];
+      viewport.value = { x: 0, y: 0, zoom: 1 };
+      return;
+    }
+    nodes.value = (page.nodes as any[]).map(normalizeNode);
+    edges.value = (page.edges as any[]).map(normalizeEdge);
+    viewport.value = normalizeViewport(page.viewport);
+  }
+
+  function applyDetail(d: DiagramDetail) {
+    currentDiagramId.value = d.id;
+    currentName.value = d.name;
+    const data = normalizePages(d.data);
+    pages.value = data.pages;
+    currentPageId.value = data.currentPageId;
+    loadActivePage();
+    selection.value = { nodeId: null, edgeId: null };
+    selectedNodeIds.value = [];
+    selectedEdgeIds.value = [];
+    dirty.value = false;
+  }
+
   function toDiagramData(): DiagramData {
-    return { ...serialize(), viewport: { ...viewport.value } };
+    syncActivePage();
+    return {
+      currentPageId: currentPageId.value,
+      pages: pages.value.map((p) => ({
+        id: p.id,
+        name: p.name,
+        nodes: (p.nodes as any[]).map(cleanNode),
+        edges: (p.edges as any[]).map(cleanEdge),
+        viewport: { ...p.viewport },
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      })),
+    };
   }
 
   // ===== 保存 =====
@@ -227,45 +380,7 @@ export const useDiagramStore = defineStore('diagram', () => {
     try {
       const d = await apiFetch(id);
       suppress = true;
-      currentDiagramId.value = d.id;
-      currentName.value = d.name;
-      nodes.value = (d.data.nodes || []).map((n) => ({
-        id: String(n.id),
-        type: (SHAPE_BY_TYPE[n.type as string] ? n.type : 'rect') as string,
-        position: { x: Number(n.position?.x) || 0, y: Number(n.position?.y) || 0 },
-        data: {
-          label: String(n.data?.label ?? ''),
-          ...(n.data?.fill ? { fill: n.data.fill } : {}),
-          ...(n.data?.stroke ? { stroke: n.data.stroke } : {}),
-          ...(n.data?.textColor ? { textColor: n.data.textColor } : {}),
-          ...(n.data?.width ? { width: n.data.width } : {}),
-          ...(n.data?.height ? { height: n.data.height } : {}),
-        },
-      }));
-      edges.value = (d.data.edges || []).map((e) => ({
-        id: String(e.id || newId('e')),
-        source: String(e.source),
-        target: String(e.target),
-        sourceHandle: e.sourceHandle ?? undefined,
-        targetHandle: e.targetHandle ?? undefined,
-        type: 'custom',
-        label: e.label == null ? undefined : String(e.label),
-        markerEnd: edgeMarker(e.data),
-        data: {
-          ...(typeof e.data?.lineWidth === 'number' ? { lineWidth: e.data.lineWidth } : {}),
-          ...(typeof e.data?.dashed === 'boolean' ? { dashed: e.data.dashed } : {}),
-          ...(typeof e.data?.arrow === 'boolean' ? { arrow: e.data.arrow } : {}),
-          ...(typeof e.data?.color === 'string' ? { color: e.data.color } : {}),
-          ...(typeof e.data?.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(e.data.lineType)
-            ? { lineType: e.data.lineType }
-            : {}),
-        },
-      }));
-      viewport.value = d.data.viewport || { x: 0, y: 0, zoom: 1 };
-      selection.value = { nodeId: null, edgeId: null };
-      selectedNodeIds.value = [];
-      selectedEdgeIds.value = [];
-      dirty.value = false;
+      applyDetail(d);
       // 等 VueFlow 消费完这批节点再解除屏蔽，避免其内部 augment 触发空保存
       await Promise.resolve();
       suppress = false;
@@ -279,15 +394,7 @@ export const useDiagramStore = defineStore('diagram', () => {
     try {
       const d = await apiCreate(name);
       suppress = true;
-      currentDiagramId.value = d.id;
-      currentName.value = d.name;
-      nodes.value = [];
-      edges.value = [];
-      viewport.value = { x: 0, y: 0, zoom: 1 };
-      selection.value = { nodeId: null, edgeId: null };
-      selectedNodeIds.value = [];
-      selectedEdgeIds.value = [];
-      dirty.value = false;
+      applyDetail(d);
       await Promise.resolve();
       suppress = false;
       await loadList();
@@ -298,6 +405,77 @@ export const useDiagramStore = defineStore('diagram', () => {
       suppress = false;
       return null;
     }
+  }
+
+  // ===== 多页管理 =====
+  /** 切换激活页：先把当前页内容同步回 pages，再加载目标页 */
+  function setActivePage(id: string) {
+    if (!id || id === currentPageId.value) return;
+    syncActivePage();
+    currentPageId.value = id;
+    loadActivePage();
+    selection.value = { nodeId: null, edgeId: null };
+    selectedNodeIds.value = [];
+    selectedEdgeIds.value = [];
+    dirty.value = false;
+    touch();
+  }
+
+  /** 新增空白页并激活 */
+  function addPage(name?: string) {
+    syncActivePage();
+    const id = newId('p');
+    const now = new Date().toISOString();
+    pages.value = [
+      ...pages.value,
+      {
+        id,
+        name: name?.trim() || `页面 ${pages.value.length + 1}`,
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+    currentPageId.value = id;
+    loadActivePage();
+    selection.value = { nodeId: null, edgeId: null };
+    selectedNodeIds.value = [];
+    selectedEdgeIds.value = [];
+    dirty.value = false;
+    touch();
+  }
+
+  function renamePage(id: string, name: string) {
+    pages.value = pages.value.map((p) => (p.id === id ? { ...p, name } : p));
+    touch();
+  }
+
+  function removePage(id: string) {
+    if (pages.value.length <= 1) {
+      notify('至少保留一页', 'error');
+      return;
+    }
+    const idx = pages.value.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    pages.value = pages.value.filter((p) => p.id !== id);
+    if (currentPageId.value === id) {
+      const next = pages.value[Math.max(0, idx - 1)] || pages.value[0];
+      currentPageId.value = next.id;
+      loadActivePage();
+    }
+    touch();
+  }
+
+  /** 拖拽重排页面顺序（from/to 为目标数组下标） */
+  function movePage(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= pages.value.length || to >= pages.value.length) return;
+    const arr = [...pages.value];
+    const [m] = arr.splice(from, 1);
+    arr.splice(to, 0, m);
+    pages.value = arr;
+    touch();
   }
 
   async function remove(id: number) {
@@ -928,6 +1106,9 @@ export const useDiagramStore = defineStore('diagram', () => {
     isEditing,
     canUndo,
     canRedo,
+    // 多页
+    pages,
+    currentPageId,
     // derived
     nodeCount,
     selectedNode,
@@ -961,6 +1142,11 @@ export const useDiagramStore = defineStore('diagram', () => {
     autoLayout,
     alignNodes,
     distributeNodes,
+    setActivePage,
+    addPage,
+    renamePage,
+    removePage,
+    movePage,
     exportToSVG,
   };
 });

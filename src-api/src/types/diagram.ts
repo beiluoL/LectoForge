@@ -50,11 +50,27 @@ export interface DiagramEdge {
   };
 }
 
-/** 整图快照：nodes + edges + 视口 */
-export interface DiagramData {
+/** 多页画布中的单页（页面切换 / 新增 / 重命名 / 拖拽排序基于此结构） */
+export interface DiagramPage {
+  id: string;
+  name: string;
   nodes: DiagramNode[];
   edges: DiagramEdge[];
   viewport: { x: number; y: number; zoom: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 整图快照：多页结构。
+ * - currentPageId：当前激活页；
+ * - pages：页面数组（≥1）。
+ * ⚠️ 旧版单页数据 `{ nodes, edges, viewport }` 在 diagramService.parseData 中自动
+ *    包成单页，前端无需感知迁移；新写入一律为多页。
+ */
+export interface DiagramData {
+  currentPageId: string;
+  pages: DiagramPage[];
 }
 
 /** 库表行（wb_diagram），data 为 JSON 字符串 */

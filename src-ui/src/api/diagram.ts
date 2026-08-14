@@ -36,11 +36,21 @@ export interface DiagramEdge {
   };
 }
 
-/** 整图快照 */
-export interface DiagramData {
+/** 多页画布中的单页 */
+export interface DiagramPage {
+  id: string;
+  name: string;
   nodes: DiagramNode[];
   edges: DiagramEdge[];
   viewport: { x: number; y: number; zoom: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 整图快照：多页结构（currentPageId + pages）。旧单页 {nodes,edges,viewport} 由 store 兼容。 */
+export interface DiagramData {
+  currentPageId: string;
+  pages: DiagramPage[];
 }
 
 /** 列表项（不随列表返回完整 data，只回节点数） */
