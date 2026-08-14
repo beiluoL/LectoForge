@@ -6,6 +6,61 @@
 
 ---
 
+## 任务勾选状态（实时同步 · 最后更新 2026-08-14）
+
+> 本区块为各子任务的勾选总览，详细验收标准见下方各任务表。代码分支与提交见文末「进度记录」。
+> 图例：✅ 已实现（typecheck + build 绿，待 `tauri dev` 真机验收）/ ⬜ 未开始。
+
+### Phase 1
+- [x] **P1-T1** 工程改造：依赖迁移与 X6 初始化骨架（`48ccf57`）
+  - [x] P1-T1.1 移除 VueFlow 全家桶、安装 X6 及 12 插件（锁 2.x）
+  - [x] P1-T1.2 `useGraph` composable 封装 new Graph
+  - [x] P1-T1.3 `graphConfig.ts` 默认插件配置
+  - [x] P1-T1.4 `vue-shapes.ts` 最小 test-vue-node
+- [x] **P1-T2** 节点与连线重写（保留 shapeDefs 视觉）（`0741235`）
+  - [x] P1-T2.1 `shapeFactory.ts` 11 形状注册
+  - [x] P1-T2.2 自定义节点 contenteditable + 四向 ports + resizer
+  - [x] P1-T2.3 `edgeFactory.ts` 3 线型 + 命中区 24px
+  - [x] P1-T2.4 连线升级 waypoint + 6 箭头 + 锚点吸附
+- [x] **P1-T3** 核心编辑能力对齐（`45db0ce`）
+  - [x] P1-T3.1 撤销重做（x6-plugin-history）
+  - [x] P1-T3.2 复制粘贴（x6-plugin-clipboard）
+  - [x] P1-T3.3 批量对齐与分布（batchUpdate 1 步）
+  - [x] P1-T3.4 自动布局（@dagrejs/dagre TB/LR）
+  - [x] P1-T3.5 多页系统迁移（fromJSON 切换）
+- [x] **P1-T4** 工具栏与属性面板适配 + 富文本升级（本次提交）
+  - [x] P1-T4.1 顶栏 `DiagramToolbar.vue`（按钮改调 graph/composable，选中态 disabled 联动）
+  - [x] P1-T4.2 右侧「绘图」面板（网格/页面/背景/连接点/参考线）
+  - [x] P1-T4.3 右侧「样式·节点」面板（富文本 + 填充/描边/圆角/旋转/阴影/渐变/草图）
+  - [x] P1-T4.4 右侧「样式·连线」面板（线型/线宽/虚线/箭头/线色/标签位置）
+- [ ] **P1-T5** 高级功能迁移
+  - [ ] P1-T5.1 自由画笔（方案 B 文档级监听器）
+  - [ ] P1-T5.2 模板迁移为 X6 cells
+  - [ ] P1-T5.3 AI 生成对接（X6 cells + type guard）
+  - [ ] P1-T5.4 导出升级 PNG/SVG/PDF
+  - [ ] P1-T5.5 序列化/持久化重写 + 旧数据迁移
+
+### Phase 2
+- [ ] **P2-T1** 专业形状库扩展（50+ 形状）
+- [ ] **P2-T2** 容器/泳道/分组/图层/大纲
+- [ ] **P2-T3** 版本历史 + 查找替换 + 参考线
+- [ ] **P2-T4** draw.io XML 导入导出 + PDF 完善
+- [ ] **P2-T5** 图片节点 + 超链接 + Tooltip
+
+---
+
+## 进度记录（提交哈希 · 均未推送）
+
+| 任务 | 分支 | 提交 | 状态 |
+|---|---|---|---|
+| P1-T1 | feature/x6-P1-T1 | `48ccf57` | ✅ 已本地提交 |
+| P1-T2 | feature/x6-P1-T1 | `0741235` | ✅ 已本地提交 |
+| P1-T3 | feature/x6-P1-T1 | `45db0ce` | ✅ 已本地提交 |
+| 自由画笔方案 B 决策 | feature/x6-P1-T1 | `36a685a` | ✅ docs only |
+| P1-T4 | feature/x6-P1-T1 | （待提交） | 🟡 已实现待提交 |
+
+---
+
 ## 总览：工期与依赖总览
 
 ```

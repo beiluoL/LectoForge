@@ -166,12 +166,59 @@ function buildConfig(type: DiagramShapeType): any {
 
 let registered = false
 
-/** 幂等注册全部 11 种 X6 原生形状 */
+/** 无边框文本节点（顶栏「插入文本」用）：仅 label，body 透明 */
+const TEXT_CONFIG = {
+  inherit: 'rect',
+  markup: [
+    { tag: 'rect', selector: 'body' },
+    { tag: 'text', selector: 'label' },
+  ],
+  attrs: {
+    body: { fill: 'transparent', stroke: 'transparent', strokeWidth: 0 },
+    label: { ...LABEL_BASE, textWrap: null, textAnchor: 'start', textVerticalAnchor: 'middle', refX: 8 },
+  },
+  ports: PORTS,
+}
+
+/** 表格节点（顶栏「插入表格」用）：表头分隔线 + 两行两列占位 */
+const TABLE_CONFIG = {
+  inherit: 'rect',
+  markup: [
+    { tag: 'rect', selector: 'body' },
+    { tag: 'line', selector: 'headerLine' },
+    { tag: 'line', selector: 'colLine' },
+    { tag: 'text', selector: 'label' },
+  ],
+  attrs: {
+    body: bodyAttrs({ rx: 2 }),
+    headerLine: { refX: 0, refY: 28, refX2: '100%', refY2: 28, stroke: '#475569', strokeWidth: 1 },
+    colLine: { refX1: '50%', refY1: 28, refX2: '50%', refY2: '100%', stroke: '#475569', strokeWidth: 1 },
+    label: { ...LABEL_BASE, refX: '50%', refY: 14, textVerticalAnchor: 'middle', text: '表格' },
+  },
+  ports: PORTS,
+}
+
+/** 页面底图（绘图面板设置页面尺寸时绘制，置于最底层、不可选中、不进序列化） */
+const PAGE_CONFIG = {
+  inherit: 'rect',
+  markup: [
+    { tag: 'rect', selector: 'body' },
+  ],
+  attrs: {
+    body: { fill: '#FFFFFF', stroke: '#cbd5e1', strokeWidth: 1 },
+  },
+  zIndex: -1,
+}
+
+/** 幂等注册全部 11 种 X6 原生形状 + 3 种工具形状 */
 export function registerDiagramShapes(): void {
   if (registered) return
   for (const s of SHAPES) {
     const name = `diagram-${s.type}`
     Graph.registerNode(name, buildConfig(s.type), true)
   }
+  Graph.registerNode('diagram-text', TEXT_CONFIG as any, true)
+  Graph.registerNode('diagram-table', TABLE_CONFIG as any, true)
+  Graph.registerNode('diagram-page', PAGE_CONFIG as any, true)
   registered = true
 }

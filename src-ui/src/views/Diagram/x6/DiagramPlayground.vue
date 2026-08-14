@@ -1,32 +1,21 @@
 <template>
   <div class="x6-pg">
-    <div v-if="graphReady" class="x6-pg-toolbar">
-      <button :disabled="!canUndo" @click="undo" title="⌘Z">↶ 撤销</button>
-      <button :disabled="!canRedo" @click="redo" title="⌘⇧Z">↷ 重做</button>
-      <span v-if="historySize" class="step">步数 {{ historySize }}</span>
-      <span class="sep"></span>
-      <button @click="copySel">复制</button>
-      <button @click="pasteSel">粘贴</button>
-      <button @click="deleteSel">删除</button>
-      <span class="sep"></span>
-      <span class="grp">对齐</span>
-      <button @click="align('left')">左</button>
-      <button @click="align('right')">右</button>
-      <button @click="align('top')">上</button>
-      <button @click="align('bottom')">下</button>
-      <button @click="align('hcenter')">水平中</button>
-      <button @click="align('vcenter')">垂直中</button>
-      <span class="sep"></span>
-      <span class="grp">分布</span>
-      <button @click="distribute('hdistribute')">水平</button>
-      <button @click="distribute('vdistribute')">垂直</button>
-      <span class="sep"></span>
-      <span class="grp">布局</span>
-      <button @click="layout('TB')">纵向</button>
-      <button @click="layout('LR')">横向</button>
-    </div>
+    <DiagramToolbar
+      v-if="graphReady"
+      :properties-open="propertiesOpen"
+      @toggle-properties="propertiesOpen = !propertiesOpen"
+      @fullscreen="toggleFullscreen"
+    />
 
-    <div ref="containerRef" class="x6-pg-canvas"></div>
+    <div class="x6-pg-main">
+      <div
+        ref="containerRef"
+        class="x6-pg-canvas"
+        :style="{ background: ctxCanvasBg }"
+      ></div>
+
+      <DiagramProperties v-if="graphReady && propertiesOpen" />
+    </div>
 
     <div v-if="graphReady" class="x6-pg-pages">
       <button
@@ -45,20 +34,38 @@
 <script setup lang="ts">
 /**
  * X6 方案 B 隐藏验证台（路由 /diagram-x6-playground）。
- * 覆盖 P1-T2（11 形状 + 3 线型渲染/编辑/连线/resize）+ P1-T3（撤销重做 / 复制粘贴 / 对齐分布 / 自动布局 / 多页）。
+ * 覆盖 P1-T2（11 形状 + 3 线型渲染/编辑/连线/resize）+ P1-T3（撤销重做 / 复制粘贴 / 对齐分布 / 自动布局 / 多页）
+ * + P1-T4（顶栏 DiagramToolbar + 右侧绘图/样式面板）。
  * 不替换现有 /diagram（Vue Flow），仅本地验证。
  */
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, provide } from 'vue'
 import { useGraph } from './useGraph'
 import { SHAPES } from '../shapeDefs'
 import { buildEdgeMetadata } from './edgeFactory'
 import { alignNodes, distributeNodes, type AlignMode, type DistributeMode } from './useArrange'
 import { autoLayout } from './useAutoLayout'
 import { usePages } from './usePages'
+import { X6_CTX_KEY, type X6Context } from './context'
+import DiagramToolbar from './DiagramToolbar.vue'
+import DiagramProperties from './DiagramProperties.vue'
 
 const containerRef = ref<HTMLElement | null>(null)
+const canvasBg = ref('#f8fafc')
+const propertiesOpen = ref(true)
+
 const { graph, graphReady, canUndo, canRedo, historySize } = useGraph({ containerRef })
 const { pages, currentPageId, ensureInit, switchPage, addPage } = usePages(graph)
+
+// 向工具栏 / 属性面板下发 graph 引用与撤销状态（方案 B 解耦：子组件只消费，不持有）
+provide(X6_CTX_KEY, {
+  graph,
+  graphReady,
+  canUndo,
+  canRedo,
+  historySize,
+  canvasBg,
+} as X6Context)
+const ctxCanvasBg = canvasBg
 
 watch(graphReady, async (ready) => {
   if (!ready || !graph.value) return
@@ -143,37 +150,11 @@ watch(graphReady, async (ready) => {
   g.zoomToFit({ padding: 40, maxScale: 1 })
 })
 
-// ===== 工具栏动作（P1-T3 验证）=====
-function undo() {
-  graph.value?.undo()
-}
-function redo() {
-  graph.value?.redo()
-}
-function copySel() {
-  const c = graph.value?.getSelectedCells()
-  if (c && c.length && graph.value) graph.value.copy(c)
-}
-function pasteSel() {
-  const gg = graph.value
-  if (gg && !gg.isClipboardEmpty()) {
-    const p = gg.paste({ offset: 24 })
-    gg.cleanSelection()
-    gg.select(p)
-  }
-}
-function deleteSel() {
-  const c = graph.value?.getSelectedCells()
-  if (c && c.length && graph.value) graph.value.removeCells(c)
-}
-function align(m: AlignMode) {
-  if (graph.value) alignNodes(graph.value, m)
-}
-function distribute(m: DistributeMode) {
-  if (graph.value) distributeNodes(graph.value, m)
-}
-function layout(dir: 'TB' | 'LR') {
-  if (graph.value) autoLayout(graph.value, dir)
+function toggleFullscreen() {
+  const el = containerRef.value
+  if (!el) return
+  if (document.fullscreenElement) document.exitFullscreen()
+  else el.requestFullscreen?.()
 }
 </script>
 
@@ -185,46 +166,10 @@ function layout(dir: 'TB' | 'LR') {
   height: 100%;
   background: var(--kb-background, #f8fafc);
 }
-.x6-pg-toolbar {
-  flex-shrink: 0;
+.x6-pg-main {
+  flex: 1 1 auto;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--kb-border, #e2e8f0);
-  background: var(--kb-background, #fff);
-}
-.x6-pg-toolbar button {
-  font-size: 12px;
-  padding: 4px 10px;
-  border: 1px solid var(--kb-border, #cbd5e1);
-  border-radius: 6px;
-  background: var(--kb-muted, #f1f5f9);
-  color: var(--kb-foreground, #0f172a);
-  cursor: pointer;
-}
-.x6-pg-toolbar button:hover:not(:disabled) {
-  border-color: var(--kb-primary, #3b6fe0);
-  color: var(--kb-primary, #3b6fe0);
-}
-.x6-pg-toolbar button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.x6-pg-toolbar .sep {
-  width: 1px;
-  height: 18px;
-  background: var(--kb-border, #e2e8f0);
-  margin: 0 2px;
-}
-.x6-pg-toolbar .grp {
-  font-size: 11px;
-  color: var(--kb-muted-foreground, #64748b);
-}
-.x6-pg-toolbar .step {
-  font-size: 11px;
-  color: var(--kb-muted-foreground, #64748b);
+  min-height: 0;
 }
 .x6-pg-canvas {
   position: relative;
