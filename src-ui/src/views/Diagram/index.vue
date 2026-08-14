@@ -2,7 +2,11 @@
   <div class="lf-root">
     <DiagramToolbar @export-png="onExportPng" @fit="onFit" @auto-layout="onAutoLayout" @ai-generate="aiModalOpen = true" />
     <div class="lf-body">
-      <DiagramLibrary />
+      <DiagramLibrary
+        @shape-drag-start="onShapeDragStart"
+        @shape-drag-move="onShapeDragMove"
+        @shape-drag-end="onShapeDragEnd"
+      />
       <div ref="centerEl" class="lf-center">
         <DiagramCanvas ref="canvasRef" @context-menu="onContextMenu" @fit="onFit" />
       </div>
@@ -11,6 +15,9 @@
     <DiagramBottomBar />
     <DiagramContextMenu v-model="menuOpen" :payload="menuPayload" @fit="onFit" />
     <DiagramAiModal v-if="aiModalOpen" @close="aiModalOpen = false" @generated="onAiGenerated" />
+
+    <!-- 图形库拖拽时的浮动预览 -->
+    <div v-if="ghost.show" class="lf-drag-ghost" :style="{ left: ghost.x + 'px', top: ghost.y + 'px' }">{{ ghost.label }}</div>
   </div>
 </template>
 
@@ -24,7 +31,7 @@
  *
  * 进入页面：先拉列表，自动打开「最近编辑」的图；若还没有任何图，则新建一个空白图。
  */
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 
 import { useDiagramStore } from '@/store/diagram-store';
@@ -44,6 +51,9 @@ const menuOpen = ref(false);
 const menuPayload = ref<CanvasContextMenuPayload | null>(null);
 const aiModalOpen = ref(false);
 
+// 图形库指针拖拽的浮动预览状态（由 DiagramLibrary 的拖拽事件驱动）
+const ghost = reactive({ show: false, x: 0, y: 0, label: '' });
+
 /** 切换页面后重新适应视口（节点/边已随 store 切换刷新） */
 watch(
   () => store.currentPageId,
@@ -55,6 +65,41 @@ function onContextMenu(payload: CanvasContextMenuPayload) {
   payload.event.preventDefault?.();
   menuPayload.value = payload;
   menuOpen.value = true;
+}
+
+// ===================== 图形库 → 画布 指针拖拽编排 =====================
+function isOverCanvas(x: number, y: number): boolean {
+  const el = document.querySelector('.lf-canvas') as HTMLElement | null;
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+function onShapeDragStart(p: { type: string; label: string; x: number; y: number }) {
+  ghost.show = true;
+  ghost.label = p.label;
+  ghost.x = p.x;
+  ghost.y = p.y;
+  document.body.classList.add('lf-dragging-shape');
+}
+
+function onShapeDragMove(p: { x: number; y: number }) {
+  ghost.x = p.x;
+  ghost.y = p.y;
+  document.querySelector('.lf-canvas')?.classList.toggle('is-drop-target', isOverCanvas(p.x, p.y));
+}
+
+function onShapeDragEnd(p: { type: string; label: string; x: number; y: number }) {
+  ghost.show = false;
+  document.body.classList.remove('lf-dragging-shape');
+  const el = document.querySelector('.lf-canvas') as HTMLElement | null;
+  if (el) {
+    const r = el.getBoundingClientRect();
+    if (isOverCanvas(p.x, p.y)) {
+      canvasRef.value?.addNodeAtClient(p.x, p.y, p.type);
+    }
+    el.classList.remove('is-drop-target');
+  }
 }
 
 function onExportPng() {
@@ -159,5 +204,25 @@ onBeforeUnmount(() => {
   min-width: 0;
   position: relative;
   background: var(--kb-background, #fff);
+}
+/* 图形库拖拽时的浮动预览（跟随指针） */
+.lf-drag-ghost {
+  position: fixed;
+  z-index: 200;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--kb-primary, #3b6fe0);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  opacity: 0.95;
+}
+/* 拖拽进行中：禁用文本选择、统一光标 */
+:global(body.lf-dragging-shape) {
+  user-select: none;
+  cursor: grabbing;
 }
 </style>

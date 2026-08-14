@@ -8,41 +8,40 @@
           ref="menuEl"
           class="lf-context-menu"
           :style="{ left: `${x}px`, top: `${y}px` }"
-          @mouseleave="close"
         >
         <!-- 画布空白 -->
         <template v-if="payload?.kind === 'pane'">
           <p class="lf-context-title">在此处添加</p>
           <div class="lf-context-grid">
-            <button v-for="s in shapeButtons" :key="s.type" type="button" class="lf-context-grid-item" :title="s.label" @click="addShape(s.type)">
+            <button v-for="s in shapeButtons" :key="s.type" type="button" class="lf-context-grid-item" v-tip="s.label" @click="addShape(s.type)">
               <span class="lf-context-shape-dot" :style="{ background: s.isFill ? brush.fill : 'transparent', borderColor: brush.stroke }" />
               <span class="lf-context-grid-label">{{ s.label }}</span>
             </button>
           </div>
           <div class="lf-context-divider" />
           <button type="button" class="lf-context-item" @click="fitView">
-            <Icon name="maximize" size="xs" /> 适应屏幕
+            <Icon name="maximize" size="xs" /> <span class="lf-context-label">适应屏幕</span>
           </button>
           <button type="button" class="lf-context-item" @click="autoLayout">
-            <Icon name="layout" size="xs" /> 自动布局
+            <Icon name="layout" size="xs" /> <span class="lf-context-label">自动布局</span>
           </button>
         </template>
 
         <!-- 节点 -->
         <template v-if="payload?.kind === 'node'">
           <p class="lf-context-title">节点操作</p>
-          <button type="button" class="lf-context-item" @click="copyNode">
-            <Icon name="copy" size="xs" /> 复制
-          </button>
           <button type="button" class="lf-context-item" @click="editText">
-            <Icon name="pencil" size="xs" /> 编辑文字
+            <Icon name="pencil" size="xs" /> <span class="lf-context-label">编辑文字</span>
+            <span class="lf-context-shortcut">⏎</span>
+          </button>
+          <button type="button" class="lf-context-item" @click="copyNode">
+            <Icon name="copy" size="xs" /> <span class="lf-context-label">复制</span>
+            <span class="lf-context-shortcut">⌘C</span>
           </button>
           <div class="lf-context-divider" />
-          <button type="button" class="lf-context-item" @click="fitView">
-            <Icon name="maximize" size="xs" /> 适应屏幕
-          </button>
           <button type="button" class="lf-context-item is-danger" @click="deleteSelected">
-            <Icon name="trash-2" size="xs" /> 删除
+            <Icon name="trash-2" size="xs" /> <span class="lf-context-label">删除</span>
+            <span class="lf-context-shortcut">Del</span>
           </button>
         </template>
 
@@ -50,13 +49,20 @@
         <template v-if="payload?.kind === 'edge'">
           <p class="lf-context-title">连线操作</p>
           <button type="button" class="lf-context-item" @click="editEdgeText">
-            <Icon name="pencil" size="xs" /> 编辑文字
+            <Icon name="pencil" size="xs" /> <span class="lf-context-label">编辑文字</span>
+            <span class="lf-context-shortcut">⏎</span>
+          </button>
+          <button type="button" class="lf-context-item" @click="copyEdge">
+            <Icon name="copy" size="xs" /> <span class="lf-context-label">复制</span>
+            <span class="lf-context-shortcut">⌘C</span>
           </button>
           <button type="button" class="lf-context-item" @click="fitView">
-            <Icon name="maximize" size="xs" /> 适应屏幕
+            <Icon name="maximize" size="xs" /> <span class="lf-context-label">适应屏幕</span>
           </button>
+          <div class="lf-context-divider" />
           <button type="button" class="lf-context-item is-danger" @click="deleteSelected">
-            <Icon name="trash-2" size="xs" /> 删除
+            <Icon name="trash-2" size="xs" /> <span class="lf-context-label">删除</span>
+            <span class="lf-context-shortcut">Del</span>
           </button>
         </template>
       </div>
@@ -140,6 +146,15 @@ function copyNode() {
   close();
 }
 
+function copyEdge() {
+  const id = props.payload?.edgeId;
+  if (!id) return;
+  store.setSelected([], [id]);
+  store.copyToClipboard();
+  store.pasteFromClipboard();
+  close();
+}
+
 function editText() {
   const id = props.payload?.nodeId;
   if (!id) return;
@@ -192,12 +207,12 @@ function autoLayout() {
   position: fixed;
   z-index: 100;
   pointer-events: auto;
-  min-width: 172px;
+  min-width: 184px;
   padding: 6px 0;
   background: var(--kb-popover, #fff);
   border: 1px solid var(--kb-border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
   font-size: 13px;
   color: var(--kb-foreground);
 }
@@ -263,11 +278,24 @@ function autoLayout() {
   cursor: pointer;
   transition: background 0.12s;
 }
+.lf-context-label {
+  flex: 1;
+  white-space: nowrap;
+}
+.lf-context-shortcut {
+  margin-left: 16px;
+  font-size: 11px;
+  color: var(--kb-muted-foreground);
+  letter-spacing: 0.3px;
+}
 .lf-context-item:hover {
   background: var(--kb-muted, #f1f5f9);
 }
 .lf-context-item.is-danger {
   color: var(--kb-destructive, #dc2626);
+}
+.lf-context-item.is-danger .lf-context-shortcut {
+  color: color-mix(in srgb, var(--kb-destructive) 70%, var(--kb-muted-foreground));
 }
 .lf-context-item.is-danger:hover {
   background: color-mix(in srgb, var(--kb-destructive) 10%, transparent);

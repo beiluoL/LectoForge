@@ -6,7 +6,7 @@
   >
     <!-- 收起态：仅留一条竖条 + 展开入口 -->
     <template v-if="collapsed">
-      <button class="lf-lib-rail-btn" title="展开图形库" @click="collapsed = false">
+      <button class="lf-lib-rail-btn" v-tip="'展开图形库'" @click="collapsed = false">
         <Icon name="chevron-right" size="sm" />
       </button>
     </template>
@@ -14,7 +14,7 @@
     <template v-else>
       <div class="lf-library-head">
         <p class="lf-library-title">图形库</p>
-        <button class="lf-lib-collapse" title="收起图形库" @click="collapsed = true">
+        <button class="lf-lib-collapse" v-tip="'收起图形库'" @click="collapsed = true">
           <Icon name="chevron-left" size="sm" />
         </button>
       </div>
@@ -24,7 +24,7 @@
         <button
           type="button"
           class="lf-group-head"
-          :title="expanded[grp.key] ? '折叠分组' : '展开分组'"
+          v-tip="expanded[grp.key] ? '折叠分组' : '展开分组'"
           @click="toggleGroup(grp.key)"
         >
           <Icon :name="expanded[grp.key] ? 'chevron-down' : 'chevron-right'" size="xs" />
@@ -36,10 +36,8 @@
             :key="s.type"
             type="button"
             class="lf-shape-item"
-            draggable="true"
-            :title="`拖入画布，或点击添加：${s.label}`"
-            @dragstart="onDragStart(s.type, $event)"
-            @click="onClick(s.type)"
+            v-tip="`拖入画布，或点击添加：${s.label}`"
+            @pointerdown="onShapePointerDown(s.type, s.label, $event)"
           >
             <svg class="lf-shape-preview" :viewBox="`0 0 ${pw} ${ph}`" width="56" height="36">
               <template v-if="s.spec.tag === 'rect'">
@@ -66,7 +64,7 @@
       </div>
 
       <!-- 右缘分隔条：左右拖拽调整宽度（最小/最大限制） -->
-      <div class="lf-lib-resizer" title="拖动调整图形库宽度" @pointerdown.prevent="startResize" />
+      <div class="lf-lib-resizer" v-tip="'拖动调整图形库宽度'" @pointerdown.prevent="startResize" />
     </template>
   </aside>
 </template>
@@ -86,6 +84,12 @@ import { computed, reactive, ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useDiagramStore } from '@/store/diagram-store';
 import { buildShape, SHAPES, type ShapeDef } from '../shapeDefs';
+
+const emit = defineEmits<{
+  (e: 'shape-drag-start', payload: { type: string; label: string; x: number; y: number }): void;
+  (e: 'shape-drag-move', payload: { x: number; y: number }): void;
+  (e: 'shape-drag-end', payload: { type: string; label: string; x: number; y: number }): void;
+}>();
 
 const store = useDiagramStore();
 
@@ -120,13 +124,45 @@ function toggleGroup(key: string) {
   expanded[key] = !expanded[key];
 }
 
-function onDragStart(type: string, e: DragEvent) {
-  e.dataTransfer?.setData('application/diagram-shape', type);
-  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+// ===================== 指针拖拽（替代 HTML5 DnD：WKWebView / 部分 WebView 的
+// HTML5 拖放 API 不可靠，拖到画布常“没反应”。改用 pointer 事件自管拖拽流程）=====================
+// 按下图形 → 移动超过阈值即开始拖拽（浮动预览跟随指针）→ 松开：
+//   · 落在画布内 → 由 index.vue 在落点创建节点；
+//   · 未超阈值（视为点击）→ 由 store 在视图中心添加。
+let dragPending: { type: string; label: string; x: number; y: number } | null = null;
+let dragMoved = false;
+const DRAG_THRESHOLD = 5;
+
+function onShapePointerDown(type: string, label: string, e: PointerEvent) {
+  dragPending = { type, label, x: e.clientX, y: e.clientY };
+  dragMoved = false;
+  window.addEventListener('pointermove', onShapePointerMove);
+  window.addEventListener('pointerup', onShapePointerUp);
 }
 
-function onClick(type: string) {
-  store.queueAddAtCenter(type);
+function onShapePointerMove(e: PointerEvent) {
+  if (!dragPending) return;
+  if (!dragMoved) {
+    const dx = e.clientX - dragPending.x;
+    const dy = e.clientY - dragPending.y;
+    if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+      dragMoved = true;
+      emit('shape-drag-start', { ...dragPending, x: e.clientX, y: e.clientY });
+    }
+  }
+  if (dragMoved) emit('shape-drag-move', { x: e.clientX, y: e.clientY });
+}
+
+function onShapePointerUp(e: PointerEvent) {
+  window.removeEventListener('pointermove', onShapePointerMove);
+  window.removeEventListener('pointerup', onShapePointerUp);
+  if (!dragPending) return;
+  if (dragMoved) {
+    emit('shape-drag-end', { ...dragPending, x: e.clientX, y: e.clientY });
+  } else {
+    store.queueAddAtCenter(dragPending.type);
+  }
+  dragPending = null;
 }
 
 // ===================== 分隔条拖拽调宽 =====================

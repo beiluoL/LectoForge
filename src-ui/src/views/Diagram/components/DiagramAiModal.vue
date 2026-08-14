@@ -3,7 +3,7 @@
     <div class="lf-ai-card">
       <div class="lf-ai-head">
         <p class="lf-ai-title">✨ AI 生成流程图</p>
-        <button class="kb-btn kb-btn-icon" title="关闭" @click="emit('close')">
+        <button class="kb-btn kb-btn-icon" v-tip="'关闭'" @click="emit('close')">
           <Icon name="x" size="sm" />
         </button>
       </div>

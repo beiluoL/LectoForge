@@ -2,11 +2,11 @@
   <div class="lf-toolbar">
     <!-- 图文件切换 -->
     <div class="lf-tools">
-      <select class="kb-select kb-select-sm" :value="currentDiagramId ?? ''" @change="onSwitch" title="切换流程图">
+      <select class="kb-select kb-select-sm" :value="currentDiagramId ?? ''" @change="onSwitch" v-tip="'切换流程图'">
         <option value="" disabled>选择流程图…</option>
         <option v-for="d in diagrams" :key="d.id" :value="d.id">{{ d.name }}</option>
       </select>
-      <button class="kb-btn kb-btn-sm kb-btn-icon" title="删除此流程图" :disabled="!currentDiagramId" @click="onDelete">
+      <button class="kb-btn kb-btn-sm kb-btn-icon" v-tip="'删除此流程图'" :disabled="!currentDiagramId" @click="onDelete">
         <Icon name="trash-2" size="sm" />
       </button>
     </div>
@@ -15,16 +15,16 @@
 
     <!-- 文件操作 -->
     <div class="lf-tools">
-      <button class="kb-btn kb-btn-sm" title="新建流程图" @click="onNew">
+      <button class="kb-btn kb-btn-sm" v-tip="'新建流程图'" @click="onNew">
         <Icon name="file-plus" size="sm" /> 新建
       </button>
-      <button class="kb-btn kb-btn-sm" title="立即保存" :disabled="isSaving" @click="onSave">
+      <button class="kb-btn kb-btn-sm" v-tip="'立即保存'" :disabled="isSaving" @click="onSave">
         <Icon name="save" size="sm" /> {{ isSaving ? '保存中' : dirty ? '保存*' : '保存' }}
       </button>
-      <button class="kb-btn kb-btn-sm" title="导出 PNG" @click="emit('export-png')">
+      <button class="kb-btn kb-btn-sm" v-tip="'导出 PNG'" @click="emit('export-png')">
         <Icon name="image" size="sm" /> PNG
       </button>
-      <button class="kb-btn kb-btn-sm" title="导出 SVG" @click="store.exportToSVG()">
+      <button class="kb-btn kb-btn-sm" v-tip="'导出 SVG'" @click="store.exportToSVG()">
         <Icon name="file-image" size="sm" /> SVG
       </button>
     </div>
@@ -33,15 +33,15 @@
 
     <!-- AI 生成 / 自由画笔 -->
     <div class="lf-tools">
-      <button class="kb-btn kb-btn-sm lf-ai-btn" :disabled="!currentDiagramId" @click="emit('ai-generate')" title="AI 生成流程图">
+      <button class="kb-btn kb-btn-sm lf-ai-btn" :disabled="!currentDiagramId" @click="emit('ai-generate')" v-tip="'AI 生成流程图'">
         <Icon name="sparkles" size="xs" /> AI 生成
       </button>
-      <button class="kb-btn kb-btn-sm" :class="{ 'is-active': penMode }" @click="togglePen" title="自由画笔">
+      <button class="kb-btn kb-btn-sm" :class="{ 'is-active': penMode }" @click="togglePen" v-tip="'自由画笔'">
         <Icon name="pencil" size="xs" /> 画笔
       </button>
       <template v-if="penMode">
-        <input type="color" class="lf-pen-color" :value="penBrush.color" title="画笔颜色" @input="onPenColor($event, false)" @change="onPenColor($event, true)" />
-        <input type="number" min="1" max="24" class="lf-pen-width" :value="penBrush.width" title="画笔线宽" @change="onPenWidth" />
+        <input type="color" class="lf-pen-color" :value="penBrush.color" v-tip="'画笔颜色'" @input="onPenColor($event, false)" @change="onPenColor($event, true)" />
+        <input type="number" min="1" max="24" class="lf-pen-width" :value="penBrush.width" v-tip="'画笔线宽'" @change="onPenWidth" />
       </template>
     </div>
 
@@ -63,7 +63,7 @@
 
     <!-- 批量对齐 / 分布（需选中 ≥2 节点） -->
     <div class="lf-tools lf-align">
-      <button class="kb-btn kb-btn-sm" :disabled="selectedNodeIds.length < 2" @click="showAlign = !showAlign" title="对齐与分布">
+      <button class="kb-btn kb-btn-sm" :disabled="selectedNodeIds.length < 2" @click="showAlign = !showAlign" v-tip="'对齐与分布'">
         对齐
       </button>
       <div v-if="showAlign" class="lf-align-menu" @mouseleave="showAlign = false">
@@ -84,7 +84,7 @@
 
     <!-- 排版：文本色 / 填充色 / 描边色（应用到选中节点，同时作为新节点的默认笔刷） -->
     <div class="lf-tools">
-      <label class="lf-color" title="文本色">
+      <label class="lf-color" v-tip="'文本色'">
         <span class="lf-color-dot" :style="{ background: selectedNode?.data?.textColor || brush.textColor }">A</span>
         <input
           type="color"
@@ -93,7 +93,7 @@
           @change="onColor('textColor', $event, true)"
         />
       </label>
-      <label class="lf-color" title="填充色">
+      <label class="lf-color" v-tip="'填充色'">
         <span class="lf-color-dot" :style="{ background: selectedNode?.data?.fill || brush.fill }">▣</span>
         <input
           type="color"
@@ -102,7 +102,7 @@
           @change="onColor('fill', $event, true)"
         />
       </label>
-      <label class="lf-color" title="描边色">
+      <label class="lf-color" v-tip="'描边色'">
         <span class="lf-color-dot" :style="{ background: selectedNode?.data?.stroke || brush.stroke }">◯</span>
         <input
           type="color"
@@ -117,22 +117,22 @@
 
     <!-- 图层：撤销 / 重做 / 复制 / 删除 / 适应屏幕 / 自动布局 -->
     <div class="lf-tools">
-      <button class="kb-btn kb-btn-icon" title="撤销" :disabled="!canUndo" @click="store.undo()">
+      <button class="kb-btn kb-btn-icon" v-tip="'撤销'" :disabled="!canUndo" @click="store.undo()">
         <Icon name="undo-2" size="sm" />
       </button>
-      <button class="kb-btn kb-btn-icon" title="重做" :disabled="!canRedo" @click="store.redo()">
+      <button class="kb-btn kb-btn-icon" v-tip="'重做'" :disabled="!canRedo" @click="store.redo()">
         <Icon name="redo-2" size="sm" />
       </button>
-      <button class="kb-btn kb-btn-icon" title="复制选中" :disabled="!hasSelection" @click="store.copyToClipboard()">
+      <button class="kb-btn kb-btn-icon" v-tip="'复制选中'" :disabled="!hasSelection" @click="store.copyToClipboard()">
         <Icon name="copy" size="sm" />
       </button>
-      <button class="kb-btn kb-btn-icon" title="删除选中" :disabled="!hasSelection" @click="store.removeSelected()">
+      <button class="kb-btn kb-btn-icon" v-tip="'删除选中'" :disabled="!hasSelection" @click="store.removeSelected()">
         <Icon name="trash-2" size="sm" />
       </button>
-      <button class="kb-btn kb-btn-icon" title="适应屏幕" @click="emit('fit')">
+      <button class="kb-btn kb-btn-icon" v-tip="'适应屏幕'" @click="emit('fit')">
         <Icon name="maximize" size="sm" />
       </button>
-      <button class="kb-btn kb-btn-icon" title="自动布局" :disabled="!nodeCount" @click="emit('auto-layout')">
+      <button class="kb-btn kb-btn-icon" v-tip="'自动布局'" :disabled="!nodeCount" @click="emit('auto-layout')">
         <Icon name="layout" size="sm" />
       </button>
     </div>
@@ -145,7 +145,7 @@
       :value="currentName"
       spellcheck="false"
       @change="onRename"
-      title="流程图名称"
+      v-tip="'流程图名称'"
     />
   </div>
 </template>

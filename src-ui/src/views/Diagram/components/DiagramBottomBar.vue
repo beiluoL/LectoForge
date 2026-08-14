@@ -7,7 +7,7 @@
         class="lf-page-tab"
         :class="{ 'is-active': p.id === currentPageId, 'is-dragging': dragIndex === i }"
         draggable="true"
-        :title="p.name"
+        v-tip="p.name"
         @click="onSwitch(p.id)"
         @dragstart="onDragStart(i, $event)"
         @dragover.prevent="onDragOver(i)"
@@ -29,14 +29,14 @@
         <button
           v-if="pages.length > 1"
           class="lf-page-del"
-          title="删除此页"
+          v-tip="'删除此页'"
           @click.stop="onDelete(p.id)"
         >
           <Icon name="x" size="xs" />
         </button>
       </div>
 
-      <button class="lf-page-add" title="新增页面" @click="onAdd">
+      <button class="lf-page-add" v-tip="'新增页面'" @click="onAdd">
         <Icon name="plus" size="xs" /> 页面
       </button>
     </div>

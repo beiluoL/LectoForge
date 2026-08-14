@@ -13,10 +13,10 @@
       <template v-if="!editing">
         <span class="lf-edge-label-text">{{ label || '＋' }}</span>
         <div v-if="isSelected" class="lf-edge-actions">
-          <button type="button" class="lf-edge-btn" title="编辑文字" @click.stop="startEdit">
+          <button type="button" class="lf-edge-btn" v-tip="'编辑文字'" @click.stop="startEdit">
             <Icon name="pencil" size="xs" />
           </button>
-          <button type="button" class="lf-edge-btn is-danger" title="删除连线" @click.stop="del">
+          <button type="button" class="lf-edge-btn is-danger" v-tip="'删除连线'" @click.stop="del">
             <Icon name="trash-2" size="xs" />
           </button>
         </div>

@@ -389,7 +389,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown);
 });
 
-defineExpose({ fitNow, exportPng });
+/** 由 index.vue 在「图形库指针拖拽落点」时调用：把屏幕坐标换算成画布流坐标并添加节点。 */
+function addNodeAtClient(clientX: number, clientY: number, type: string) {
+  const position = screenToFlowCoordinate({ x: clientX, y: clientY });
+  store.addNode(type as any, position);
+}
+
+defineExpose({ fitNow, exportPng, addNodeAtClient });
 </script>
 
 <style scoped>
@@ -399,7 +405,8 @@ defineExpose({ fitNow, exportPng });
   height: 100%;
   overflow: hidden;
 }
-.lf-canvas.is-drag-over::after {
+.lf-canvas.is-drag-over::after,
+.lf-canvas.is-drop-target::after {
   content: '';
   position: absolute;
   inset: 8px;

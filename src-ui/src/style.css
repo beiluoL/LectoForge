@@ -727,6 +727,30 @@ svg {
     justify-content: center;
   }
 
+  /* 自定义悬浮提示（替代原生 title，因 Tauri/WKWebView 不显示原生 title） */
+  .app-tooltip {
+    position: fixed;
+    z-index: 9999;
+    max-width: 240px;
+    padding: 5px 9px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #fff;
+    background: rgba(15, 23, 42, 0.92);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .app-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   .kb-input {
     display: block;
     width: 100%;
