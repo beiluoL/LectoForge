@@ -209,6 +209,14 @@ const routes: RouteRecordRaw[] = [
     meta: { layout: 'c', fullscreen: true, fill: true },
   },
   {
+    // [开发验证] X6 内核 playground：方案 B（AntV X6 自研升级）迁移用，非正式编辑器，
+    // 不在任何导航入口展示；用于验证 X6 在 Vue3 + Tauri 环境下能正常挂载/渲染/撤销。
+    path: '/diagram-x6-playground',
+    name: 'DiagramX6Playground',
+    component: () => import('@/views/Diagram/x6/DiagramPlayground.vue'),
+    meta: { layout: 'c', fullscreen: true },
+  },
+  {
     // 知识库问答（RAG）：检索文档库 + 康奈尔笔记后由 AI 作答。
     // 挂在顶层 /ai-chat（不进 /workbench），与 /library、/interview 等同理，
     // 避免顶栏 isActive 用 startsWith 时被「工作台」误吞高亮。
