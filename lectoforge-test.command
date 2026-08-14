@@ -9,8 +9,9 @@
 #  设计约束（资源友好）：
 #  - 纯 bash，无额外依赖、无常驻进程；
 #  - 启动前先检测端口(5173/8787)占用，占用则终止对应进程再重启；
-#  - 编译前优先清理旧开发缓存；开发模式不生成打包文件，故仅清理 vite/dist 等不被复用的缓存；
-#  - 退出时(Ctrl+C)清理 src-ui/dist、.vite 等冗余中间文件，避免磁盘浪费；
+#  - 编译前仅清理 vite 增量缓存(.vite)；src-ui/dist 是 tauri_build 编译期校验的【必需资源】，
+#    不可删除（删了会导致 build.rs panic、窗口不弹），缺失时自动构建补齐；
+#  - 退出时(Ctrl+C)仅清理 .vite 冗余缓存，保留 src-ui/dist 与 target/debug 以便下次快速启动；
 #  - 不碰全局缓存(~/.npm ~/.cargo 等)。
 # ============================================================
 
@@ -55,6 +56,20 @@ detect_packaging() {
   echo "     • src-tauri/target/debug （开发与调试用，保留以便增量重编）"
 }
 
+# 确保 tauri dev 编译期必需、但可能被误删/全新 clone 时缺失的资源路径存在。
+# tauri.conf.json 的 bundle.resources 含 "../src-ui/dist": "web"，build.rs 的
+# tauri_build::try_build().unwrap() 会在 tauri dev 阶段校验它必须存在，否则直接 panic：
+#   "resource path `../src-ui/dist` doesn't exist" → 编译失败 → 窗口永不弹出。
+# 开发模式实际由 vite 实时服务(5173)提供前端，dist 仅用于满足构建期校验，故缺失即补建。
+ensure_dev_inputs() {
+  if [ ! -d src-ui/dist ]; then
+    echo "   🔨 src-ui/dist 缺失，构建前端以满足 tauri_build 资源校验..."
+    (cd src-ui && npm run build)
+  else
+    echo "   ✔  src-ui/dist 存在，跳过构建"
+  fi
+}
+
 set -e
 
 # 进入本脚本所在目录（兼容从 Finder 双击，此时 cwd 默认是用户家目录）
@@ -77,25 +92,31 @@ pkill -f "tsx watch" 2>/dev/null || true
 pkill -f "vite" 2>/dev/null || true
 sleep 2
 
-# 2) 编译前：检测产物类型并清理旧开发缓存（开发模式不打包，只清理不被复用的 vite/dist 等）
+# 2) 编译前：检测产物类型并清理旧开发缓存（开发模式不打包，只清理不被复用的 vite 增量缓存）
 echo ""
 echo "🧹 [编译前] 清理旧开发缓存..."
 detect_packaging
 echo "   清理不被复用的旧缓存（仅项目内）:"
-rm_cache src-ui/dist                  # dev 用 vite 实时服务，不依赖 dist
-rm_cache src-ui/node_modules/.vite    # vite 增量缓存，可重建
+# ⚠️ 注意：src-ui/dist 是 tauri_build 编译期校验的【必需资源】，绝不能删！
+#   tauri.conf.json 的 bundle.resources 含 "../src-ui/dist": "web"，build.rs 的
+#   tauri_build::try_build().unwrap() 会在 tauri dev 阶段校验它必须存在，
+#   删了不重建会直接 panic（"resource path ../src-ui/dist doesn't exist"），窗口永不弹出。
+#   开发模式实际由 vite 实时服务(5173)提供前端，dist 仅用于满足构建期校验。
+rm_cache src-ui/node_modules/.vite    # 仅删 vite 增量缓存，可安全重建
 # 注：target/debug 是调试重编缓存，保留以支撑增量编译（避免因全量重编再次占满磁盘）
 if [ "${FRESH:-0}" = "1" ]; then
   echo "   FRESH=1：同时删除 target/debug 进行全量重编"
   rm_cache src-tauri/target/debug
 fi
-echo "   ✅ 旧缓存已清理，开始启动开发环境。"
+# 确保 tauri_build 校验所需的资源路径存在（缺失则补建，避免 build.rs panic）
+ensure_dev_inputs
+echo "   ✅ 旧缓存已清理，必需资源已就位，开始启动开发环境。"
 
 # 退出时(Ctrl+C)清理冗余中间文件，避免磁盘浪费
 cleanup_on_exit() {
   echo ""
   echo "🧹 [退出] 清理不被复用的中间文件..."
-  rm_cache src-ui/dist
+  echo "   ✔  跳过 src-ui/dist（tauri_build 必需资源，保留以便下次直接启动）"
   rm_cache src-ui/node_modules/.vite
   echo "   （保留 target/debug 以便下次增量重编）"
 }
@@ -153,5 +174,15 @@ echo "   测试结束后按 Ctrl+C 停止，脚本会自动清理冗余中间文
 echo "   （开发日志实时写入: $LOG）"
 echo ""
 
-# 保持前台运行，方便查看实时日志；Ctrl+C 会连同 tauri 一起停止，并触发 cleanup_on_exit
-wait "$DEV_PID"
+# 保持运行并监控 Rust 编译结果：一旦编译失败（build.rs panic / cargo error）立即给出
+# 明确报错，而不是静默退出让用户误以为“启动成功但窗口没弹”。正常情况会一直阻塞到 Ctrl+C。
+while kill -0 "$DEV_PID" 2>/dev/null; do
+  if grep -qiE "panicked at build.rs|build failed, waiting|error: could not compile" "$LOG" 2>/dev/null; then
+    echo ""
+    echo "❌ Rust 编译失败，窗口无法弹出。tauri_build / cargo 关键错误："
+    grep -iE "panicked at|resource path|doesn't exist|build failed|could not compile" "$LOG" 2>/dev/null | tail -10
+    echo "   完整日志: $LOG"
+    break
+  fi
+  sleep 3
+done
