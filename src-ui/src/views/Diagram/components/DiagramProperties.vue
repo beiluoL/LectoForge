@@ -20,17 +20,38 @@
       <textarea class="kb-input lf-textarea" rows="2" :value="node.data?.label" @change="setNode('label', $event)" />
 
       <label class="lf-block-label">填充色</label>
-      <input type="color" class="lf-color-input" :value="node.data?.fill || '#FFFFFF'" @input="setNode('fill', $event)" />
+      <input
+        type="color"
+        class="lf-color-input"
+        :value="node.data?.fill || '#FFFFFF'"
+        @input="setNodeColor('fill', $event, false)"
+        @change="setNodeColor('fill', $event, true)"
+      />
 
       <label class="lf-block-label">边框色</label>
-      <input type="color" class="lf-color-input" :value="node.data?.stroke || '#475569'" @input="setNode('stroke', $event)" />
+      <input
+        type="color"
+        class="lf-color-input"
+        :value="node.data?.stroke || '#475569'"
+        @input="setNodeColor('stroke', $event, false)"
+        @change="setNodeColor('stroke', $event, true)"
+      />
 
       <label class="lf-block-label">文字色</label>
-      <input type="color" class="lf-color-input" :value="node.data?.textColor || '#0F172A'" @input="setNode('textColor', $event)" />
+      <input
+        type="color"
+        class="lf-color-input"
+        :value="node.data?.textColor || '#0F172A'"
+        @input="setNodeColor('textColor', $event, false)"
+        @change="setNodeColor('textColor', $event, true)"
+      />
     </template>
 
     <template v-else-if="edge">
       <p class="lf-props-title">连线属性</p>
+
+      <label class="lf-block-label">文本</label>
+      <input type="text" class="kb-input" :value="edge.label || ''" @change="setEdge('label', $event)" />
 
       <label class="lf-block-label">线宽</label>
       <input type="number" min="0.5" step="0.5" class="kb-input" :value="edge.data?.lineWidth || 1.6" @change="setEdge('lineWidth', $event)" />
@@ -45,7 +66,13 @@
       </label>
 
       <label class="lf-block-label">线色</label>
-      <input type="color" class="lf-color-input" :value="edge.data?.color || '#475569'" @input="setEdge('color', $event)" />
+      <input
+        type="color"
+        class="lf-color-input"
+        :value="edge.data?.color || '#475569'"
+        @input="setEdgeColor('color', $event, false)"
+        @change="setEdgeColor('color', $event, true)"
+      />
     </template>
 
     <p v-else class="lf-props-empty">选中一个节点或连线<br />即可在此编辑属性</p>
@@ -56,7 +83,8 @@
 /**
  * 右栏属性面板：根据当前选中元素联动显示。
  * - 节点：X / Y / 宽 / 高 / 文本 / 填充色 / 边框色 / 文字色；
- * - 连线：线宽 / 虚线 / 箭头 / 线色。
+ * - 连线：文本 / 线宽 / 虚线 / 箭头 / 线色。
+ * 颜色输入拖动时实时预览但不写入历史，松手 @change 时只落一条历史。
  * 所有改动经 store.patchNode / patchEdge 落库（含撤销快照 + 防抖保存）。
  */
 import { storeToRefs } from 'pinia';
@@ -74,10 +102,20 @@ function setNode(field: string, e: Event) {
   const val = (e.target as HTMLInputElement | HTMLTextAreaElement).value;
   store.patchNode(node.value.id, { [field]: field === 'label' ? val : Number(val) });
 }
+function setNodeColor(field: string, e: Event, history: boolean) {
+  if (!node.value) return;
+  const val = (e.target as HTMLInputElement).value;
+  store.patchNode(node.value.id, { [field]: val }, { history });
+}
 function setEdge(field: string, e: Event) {
   if (!edge.value) return;
   const val = (e.target as HTMLInputElement).value;
-  store.patchEdge(edge.value.id, { [field]: field === 'color' ? val : Number(val) });
+  store.patchEdge(edge.value.id, { [field]: field === 'color' || field === 'label' ? val : Number(val) });
+}
+function setEdgeColor(field: string, e: Event, history: boolean) {
+  if (!edge.value) return;
+  const val = (e.target as HTMLInputElement).value;
+  store.patchEdge(edge.value.id, { [field]: val }, { history });
 }
 function setEdgeFlag(field: 'dashed' | 'arrow', e: Event) {
   if (!edge.value) return;

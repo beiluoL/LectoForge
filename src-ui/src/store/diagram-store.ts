@@ -10,11 +10,13 @@
  *   才触发 touch，避免 VueFlow 内部 augment 节点时产生无意义空保存；
  * - 新建节点的默认填充 / 描边 / 文字色来自 brush（工具栏排版区可控）；
  * - 列表（diagrams）与当前图（currentDiagramId）分离：切换文档先 loadDiagram 再画。
+ * - patchNode/patchEdge 改为原地修改，保留 VueFlow 运行时字段；历史栈只存业务字段快照。
  *
  * ID 不可变：defineStore 第一参数 'diagram' 是 store 唯一标识，永不修改。
  */
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import dagre from '@dagrejs/dagre';
 
 import {
   createDiagram as apiCreate,
@@ -31,6 +33,10 @@ import type { BrushState, EdgeLineType, SelectionState } from '@/views/Diagram/t
 
 /** 防抖保存间隔（ms） */
 const SAVE_DEBOUNCE = 2000;
+/** 撤销历史深度上限 */
+const HISTORY_LIMIT = 50;
+/** 复制/粘贴偏移量 */
+const CLIPBOARD_OFFSET = 24;
 
 let seq = 0;
 function newId(prefix: string): string {
@@ -59,6 +65,9 @@ export const useDiagramStore = defineStore('diagram', () => {
 
   // ===== 交互态 =====
   const selection = ref<SelectionState>({ nodeId: null, edgeId: null });
+  /** VueFlow 内部多选与 store 单选的桥接：所有当前选中的节点/边 id */
+  const selectedNodeIds = ref<string[]>([]);
+  const selectedEdgeIds = ref<string[]>([]);
   const isSaving = ref(false);
   const dirty = ref(false);
   const brush = ref<BrushState>({ ...DEFAULT_BRUSH });
@@ -67,48 +76,14 @@ export const useDiagramStore = defineStore('diagram', () => {
   const pendingShape = ref<string | null>(null);
   /** 是否正在编辑某节点文字：为真时屏蔽 Delete/Backspace 的节点删除，避免误删 */
   const isEditing = ref(false);
+  /** 复制剪贴板（内存级，非系统剪贴板） */
+  const clipboard = ref<{ nodes: any[]; edges: any[] } | null>(null);
 
   /** 撤销 / 重做：快照式历史（VueFlow core 无内建 history） */
   const past = ref<string[]>([]);
   const future = ref<string[]>([]);
-  const HISTORY_LIMIT = 50;
   const canUndo = computed(() => past.value.length > 0);
   const canRedo = computed(() => future.value.length > 0);
-
-  function snapshot(): string {
-    return JSON.stringify({ nodes: nodes.value, edges: edges.value });
-  }
-  /** 在结构性改动前调用，记录当前状态 */
-  function pushHistory() {
-    past.value.push(snapshot());
-    if (past.value.length > HISTORY_LIMIT) past.value.shift();
-    future.value = [];
-  }
-  function restore(json: string) {
-    try {
-      const s = JSON.parse(json);
-      nodes.value = Array.isArray(s.nodes) ? s.nodes : [];
-      edges.value = Array.isArray(s.edges) ? s.edges : [];
-    } catch {
-      /* 损坏快照直接忽略 */
-    }
-  }
-  function undo() {
-    if (!past.value.length) return;
-    future.value.push(snapshot());
-    restore(past.value.pop() as string);
-    touch();
-  }
-  function redo() {
-    if (!future.value.length) return;
-    past.value.push(snapshot());
-    restore(future.value.pop() as string);
-    touch();
-  }
-
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  /** 载入 / 初始化期间屏蔽 watch，避免 VueFlow augment 节点触发无意义保存 */
-  let suppress = false;
 
   // ===== 派生 =====
   const nodeCount = computed(() => nodes.value.length);
@@ -118,47 +93,63 @@ export const useDiagramStore = defineStore('diagram', () => {
   const selectedEdge = computed(() =>
     selection.value.edgeId ? (edges.value.find((e) => e.id === selection.value.edgeId) as any) || null : null,
   );
+  const hasSelection = computed(() => selectedNodeIds.value.length > 0 || selectedEdgeIds.value.length > 0);
+
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 载入 / 初始化期间屏蔽 touch，避免 VueFlow augment 节点触发无意义保存 */
+  let suppress = false;
 
   // ===== 序列化（只留业务字段）=====
+  function cleanNode(n: any): DiagramNode {
+    const d = (n?.data && typeof n.data === 'object' ? n.data : {}) as Record<string, unknown>;
+    const data: Record<string, unknown> = { label: String(d.label ?? '') };
+    if (typeof d.fill === 'string') data.fill = d.fill;
+    if (typeof d.stroke === 'string') data.stroke = d.stroke;
+    if (typeof d.textColor === 'string') data.textColor = d.textColor;
+    if (typeof d.width === 'number') data.width = d.width;
+    if (typeof d.height === 'number') data.height = d.height;
+    return {
+      id: String(n?.id ?? ''),
+      type: n?.type ?? null,
+      position: { x: Math.round(n?.position?.x ?? 0), y: Math.round(n?.position?.y ?? 0) },
+      data: data as DiagramNode['data'],
+    };
+  }
+
+  function cleanEdge(e: any): DiagramEdge {
+    const d = (e?.data && typeof e.data === 'object' ? e.data : {}) as Record<string, unknown>;
+    const data: Record<string, unknown> = {};
+    if (typeof d.lineWidth === 'number') data.lineWidth = d.lineWidth;
+    if (typeof d.dashed === 'boolean') data.dashed = d.dashed;
+    if (typeof d.arrow === 'boolean') data.arrow = d.arrow;
+    if (typeof d.color === 'string') data.color = d.color;
+    return {
+      id: String(e?.id ?? ''),
+      source: String(e?.source ?? ''),
+      target: String(e?.target ?? ''),
+      sourceHandle: e?.sourceHandle ?? undefined,
+      targetHandle: e?.targetHandle ?? undefined,
+      type: e?.type ?? null,
+      label: e?.label == null ? null : String(e.label),
+      data: data as DiagramEdge['data'],
+    };
+  }
+
+  /** 供 toDiagramData / snapshot 共用 */
+  function serialize(): { nodes: DiagramNode[]; edges: DiagramEdge[] } {
+    return {
+      nodes: nodes.value.map(cleanNode),
+      edges: edges.value.map(cleanEdge),
+    };
+  }
+
   function toDiagramData(): DiagramData {
-    const cleanNodes: DiagramNode[] = nodes.value.map((n: any) => {
-      const d = (n?.data && typeof n.data === 'object' ? n.data : {}) as Record<string, unknown>;
-      const data: Record<string, unknown> = { label: String(d.label ?? '') };
-      if (typeof d.fill === 'string') data.fill = d.fill;
-      if (typeof d.stroke === 'string') data.stroke = d.stroke;
-      if (typeof d.textColor === 'string') data.textColor = d.textColor;
-      if (typeof d.width === 'number') data.width = d.width;
-      if (typeof d.height === 'number') data.height = d.height;
-      return {
-        id: String(n?.id ?? ''),
-        type: n?.type ?? null,
-        position: { x: Math.round(n?.position?.x ?? 0), y: Math.round(n?.position?.y ?? 0) },
-        data: data as DiagramNode['data'],
-      };
-    });
-    const cleanEdges: DiagramEdge[] = edges.value.map((e: any) => {
-      const d = (e?.data && typeof e.data === 'object' ? e.data : {}) as Record<string, unknown>;
-      const data: Record<string, unknown> = {};
-      if (typeof d.lineWidth === 'number') data.lineWidth = d.lineWidth;
-      if (typeof d.dashed === 'boolean') data.dashed = d.dashed;
-      if (typeof d.arrow === 'boolean') data.arrow = d.arrow;
-      if (typeof d.color === 'string') data.color = d.color;
-      return {
-        id: String(e?.id ?? ''),
-        source: String(e?.source ?? ''),
-        target: String(e?.target ?? ''),
-        sourceHandle: e?.sourceHandle ?? undefined,
-        targetHandle: e?.targetHandle ?? undefined,
-        type: e?.type ?? null,
-        label: e?.label == null ? null : String(e.label),
-        data: data as DiagramEdge['data'],
-      };
-    });
-    return { nodes: cleanNodes, edges: cleanEdges, viewport: { ...viewport.value } };
+    return { ...serialize(), viewport: { ...viewport.value } };
   }
 
   // ===== 保存 =====
   function touch() {
+    if (suppress) return;
     dirty.value = true;
     scheduleSave();
   }
@@ -253,12 +244,15 @@ export const useDiagramStore = defineStore('diagram', () => {
       }));
       viewport.value = d.data.viewport || { x: 0, y: 0, zoom: 1 };
       selection.value = { nodeId: null, edgeId: null };
+      selectedNodeIds.value = [];
+      selectedEdgeIds.value = [];
       dirty.value = false;
       // 等 VueFlow 消费完这批节点再解除屏蔽，避免其内部 augment 触发空保存
       await Promise.resolve();
       suppress = false;
     } catch (e) {
       notify(e instanceof Error ? e.message : '图表加载失败', 'error');
+      suppress = false;
     }
   }
 
@@ -272,6 +266,8 @@ export const useDiagramStore = defineStore('diagram', () => {
       edges.value = [];
       viewport.value = { x: 0, y: 0, zoom: 1 };
       selection.value = { nodeId: null, edgeId: null };
+      selectedNodeIds.value = [];
+      selectedEdgeIds.value = [];
       dirty.value = false;
       await Promise.resolve();
       suppress = false;
@@ -280,6 +276,7 @@ export const useDiagramStore = defineStore('diagram', () => {
       return d.id;
     } catch (e) {
       notify(e instanceof Error ? e.message : '新建失败', 'error');
+      suppress = false;
       return null;
     }
   }
@@ -291,12 +288,51 @@ export const useDiagramStore = defineStore('diagram', () => {
         currentDiagramId.value = null;
         nodes.value = [];
         edges.value = [];
+        selection.value = { nodeId: null, edgeId: null };
+        selectedNodeIds.value = [];
+        selectedEdgeIds.value = [];
       }
       await loadList();
       notify('已删除流程图', 'success');
     } catch (e) {
       notify(e instanceof Error ? e.message : '删除失败', 'error');
     }
+  }
+
+  // ===== 历史（快照式）=====
+  function snapshot(): string {
+    return JSON.stringify(serialize());
+  }
+
+  /** 在结构性改动前调用，记录当前状态 */
+  function pushHistory() {
+    past.value.push(snapshot());
+    if (past.value.length > HISTORY_LIMIT) past.value.shift();
+    future.value = [];
+  }
+
+  function restore(json: string) {
+    try {
+      const s = JSON.parse(json);
+      nodes.value = Array.isArray(s.nodes) ? s.nodes : [];
+      edges.value = Array.isArray(s.edges) ? s.edges : [];
+    } catch {
+      /* 损坏快照直接忽略 */
+    }
+  }
+
+  function undo() {
+    if (!past.value.length) return;
+    future.value.push(snapshot());
+    restore(past.value.pop() as string);
+    touch();
+  }
+
+  function redo() {
+    if (!future.value.length) return;
+    past.value.push(snapshot());
+    restore(future.value.pop() as string);
+    touch();
   }
 
   // ===== 节点 / 边编辑 =====
@@ -331,74 +367,95 @@ export const useDiagramStore = defineStore('diagram', () => {
     pendingShape.value = null;
   }
 
-  function patchNode(id: string, patch: Record<string, unknown>) {
-    pushHistory();
-    nodes.value = nodes.value.map((n: any) => {
-      if (n.id !== id) return n;
-      const next: any = { ...n };
-      if (patch.x !== undefined || patch.y !== undefined) {
-        next.position = {
-          x: patch.x !== undefined ? Number(patch.x) : n.position.x,
-          y: patch.y !== undefined ? Number(patch.y) : n.position.y,
-        };
-      }
-      if (patch.label !== undefined || patch.fill !== undefined || patch.stroke !== undefined || patch.textColor !== undefined || patch.width !== undefined || patch.height !== undefined) {
-        next.data = {
-          ...(n.data || {}),
-          ...(patch.label !== undefined ? { label: String(patch.label) } : {}),
-          ...(patch.fill !== undefined ? { fill: String(patch.fill) } : {}),
-          ...(patch.stroke !== undefined ? { stroke: String(patch.stroke) } : {}),
-          ...(patch.textColor !== undefined ? { textColor: String(patch.textColor) } : {}),
-          ...(patch.width !== undefined ? { width: Number(patch.width) } : {}),
-          ...(patch.height !== undefined ? { height: Number(patch.height) } : {}),
-        };
-      }
-      return next;
-    });
+  function patchNode(id: string, patch: Record<string, unknown>, opts?: { history?: boolean }) {
+    if (opts?.history !== false) pushHistory();
+    const n = nodes.value.find((x: any) => x.id === id);
+    if (!n) return;
+    if (patch.x !== undefined || patch.y !== undefined) {
+      n.position = {
+        x: patch.x !== undefined ? Number(patch.x) : n.position.x,
+        y: patch.y !== undefined ? Number(patch.y) : n.position.y,
+      };
+    }
+    if (
+      patch.label !== undefined ||
+      patch.fill !== undefined ||
+      patch.stroke !== undefined ||
+      patch.textColor !== undefined ||
+      patch.width !== undefined ||
+      patch.height !== undefined
+    ) {
+      n.data = {
+        ...(n.data || {}),
+        ...(patch.label !== undefined ? { label: String(patch.label) } : {}),
+        ...(patch.fill !== undefined ? { fill: String(patch.fill) } : {}),
+        ...(patch.stroke !== undefined ? { stroke: String(patch.stroke) } : {}),
+        ...(patch.textColor !== undefined ? { textColor: String(patch.textColor) } : {}),
+        ...(patch.width !== undefined ? { width: Number(patch.width) } : {}),
+        ...(patch.height !== undefined ? { height: Number(patch.height) } : {}),
+      };
+    }
     touch();
   }
 
-  function patchEdge(id: string, patch: Record<string, unknown>) {
-    pushHistory();
-    edges.value = edges.value.map((e: any) => {
-      if (e.id !== id) return e;
-      const next: any = { ...e };
-      if (patch.label !== undefined) next.label = String(patch.label);
-      if (patch.lineWidth !== undefined || patch.dashed !== undefined || patch.arrow !== undefined || patch.color !== undefined) {
-        next.data = {
-          ...(e.data || {}),
-          ...(patch.lineWidth !== undefined ? { lineWidth: Number(patch.lineWidth) } : {}),
-          ...(patch.dashed !== undefined ? { dashed: Boolean(patch.dashed) } : {}),
-          ...(patch.arrow !== undefined ? { arrow: Boolean(patch.arrow) } : {}),
-          ...(patch.color !== undefined ? { color: String(patch.color) } : {}),
-        };
-      }
-      return next;
-    });
+  function patchEdge(id: string, patch: Record<string, unknown>, opts?: { history?: boolean }) {
+    if (opts?.history !== false) pushHistory();
+    const e = edges.value.find((x: any) => x.id === id);
+    if (!e) return;
+    if (patch.label !== undefined) e.label = String(patch.label);
+    if (patch.lineWidth !== undefined || patch.dashed !== undefined || patch.arrow !== undefined || patch.color !== undefined) {
+      e.data = {
+        ...(e.data || {}),
+        ...(patch.lineWidth !== undefined ? { lineWidth: Number(patch.lineWidth) } : {}),
+        ...(patch.dashed !== undefined ? { dashed: Boolean(patch.dashed) } : {}),
+        ...(patch.arrow !== undefined ? { arrow: Boolean(patch.arrow) } : {}),
+        ...(patch.color !== undefined ? { color: String(patch.color) } : {}),
+      };
+    }
     touch();
   }
 
   /** 通用入口：按 id 路由到节点或边（属性面板调用） */
-  function updateElement(id: string, patch: Record<string, unknown>) {
-    if (nodes.value.some((n: any) => n.id === id)) patchNode(id, patch);
-    else if (edges.value.some((e: any) => e.id === id)) patchEdge(id, patch);
+  function updateElement(id: string, patch: Record<string, unknown>, opts?: { history?: boolean }) {
+    if (nodes.value.some((n: any) => n.id === id)) patchNode(id, patch, opts);
+    else if (edges.value.some((e: any) => e.id === id)) patchEdge(id, patch, opts);
   }
 
-  function removeSelected() {
-    pushHistory();
-    if (selection.value.nodeId) {
-      const id = selection.value.nodeId;
-      nodes.value = nodes.value.filter((n: any) => n.id !== id);
-      // 同时删掉连到该节点的边
-      edges.value = edges.value.filter((e: any) => e.source !== id && e.target !== id);
-      selection.value = { nodeId: null, edgeId: null };
-      touch();
-    } else if (selection.value.edgeId) {
-      const id = selection.value.edgeId;
-      edges.value = edges.value.filter((e: any) => e.id !== id);
-      selection.value = { nodeId: null, edgeId: null };
-      touch();
+  function deleteElements(ids: string[]) {
+    const nodeIds = new Set<string>();
+    const edgeIds = new Set<string>();
+    for (const id of ids) {
+      if (nodes.value.some((n: any) => n.id === id)) nodeIds.add(id);
+      else if (edges.value.some((e: any) => e.id === id)) edgeIds.add(id);
     }
+    if (!nodeIds.size && !edgeIds.size) return;
+    pushHistory();
+    if (nodeIds.size) {
+      nodes.value = nodes.value.filter((n: any) => !nodeIds.has(n.id));
+      // 同时删掉连到被删节点的边
+      edges.value = edges.value.filter((e: any) => !nodeIds.has(e.source) && !nodeIds.has(e.target));
+    }
+    if (edgeIds.size) {
+      edges.value = edges.value.filter((e: any) => !edgeIds.has(e.id));
+    }
+    // 清选择
+    if (selection.value.nodeId && (nodeIds.has(selection.value.nodeId) || edgeIds.has(selection.value.nodeId))) {
+      selection.value.nodeId = null;
+    }
+    if (selection.value.edgeId && edgeIds.has(selection.value.edgeId)) {
+      selection.value.edgeId = null;
+    }
+    selectedNodeIds.value = selectedNodeIds.value.filter((id) => !nodeIds.has(id));
+    selectedEdgeIds.value = selectedEdgeIds.value.filter((id) => !edgeIds.has(id));
+    touch();
+  }
+
+  /** 兼容旧入口：工具栏「删除选中」走统一 deleteElements */
+  function removeSelected() {
+    const ids: string[] = [];
+    if (selection.value.nodeId) ids.push(selection.value.nodeId);
+    if (selection.value.edgeId) ids.push(selection.value.edgeId);
+    if (ids.length) deleteElements(ids);
   }
 
   function rename(name: string) {
@@ -415,34 +472,112 @@ export const useDiagramStore = defineStore('diagram', () => {
     selection.value = { nodeId, edgeId };
   }
 
+  /** 与 VueFlow 内部多选同步 */
+  function setSelected(nodeIds: string[], edgeIds: string[]) {
+    selectedNodeIds.value = nodeIds;
+    selectedEdgeIds.value = edgeIds;
+    selection.value = {
+      nodeId: nodeIds[0] ?? null,
+      edgeId: edgeIds[0] ?? null,
+    };
+  }
+
   function setEditing(v: boolean) {
     isEditing.value = v;
   }
 
-  // ===== 导出 =====
-  async function exportToPNG(target: HTMLElement, filename?: string) {
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(target, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
+  // ===== 复制 / 粘贴 =====
+  function copyToClipboard() {
+    if (!selectedNodeIds.value.length && !selectedEdgeIds.value.length) return;
+    const nodeIdMap = new Map<string, string>();
+    const copiedNodes = selectedNodeIds.value
+      .map((id) => nodes.value.find((n: any) => n.id === id))
+      .filter(Boolean)
+      .map((n: any) => {
+        const newNodeId = newId('n');
+        nodeIdMap.set(n.id, newNodeId);
+        return {
+          ...n,
+          id: newNodeId,
+          position: { x: n.position.x + CLIPBOARD_OFFSET, y: n.position.y + CLIPBOARD_OFFSET },
+          selected: false,
+        };
       });
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${(filename || currentName.value || '流程图').replace(/[\\/:*?"<>|]/g, '_')}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        notify('已导出 PNG', 'success');
-      });
-    } catch (e) {
-      notify(e instanceof Error ? e.message : '导出 PNG 失败', 'error');
-    }
+    const copiedEdges = selectedEdgeIds.value
+      .map((id) => edges.value.find((e: any) => e.id === id))
+      .filter((e: any) => nodeIdMap.has(e.source) && nodeIdMap.has(e.target))
+      .map((e: any) => ({
+        ...e,
+        id: newId('e'),
+        source: nodeIdMap.get(e.source),
+        target: nodeIdMap.get(e.target),
+        selected: false,
+      }));
+    clipboard.value = { nodes: copiedNodes, edges: copiedEdges };
   }
 
+  function pasteFromClipboard() {
+    if (!clipboard.value) return;
+    const { nodes: copiedNodes, edges: copiedEdges } = clipboard.value;
+    if (!copiedNodes.length) return;
+    pushHistory();
+    const nodeIdMap = new Map<string, string>();
+    const pastedNodes = copiedNodes.map((n: any) => {
+      const newNodeId = newId('n');
+      nodeIdMap.set(n.id, newNodeId);
+      return {
+        ...n,
+        id: newNodeId,
+        position: { x: n.position.x + CLIPBOARD_OFFSET, y: n.position.y + CLIPBOARD_OFFSET },
+        selected: false,
+      };
+    });
+    const pastedEdges = copiedEdges.map((e: any) => ({
+      ...e,
+      id: newId('e'),
+      source: nodeIdMap.get(e.source),
+      target: nodeIdMap.get(e.target),
+      selected: false,
+    }));
+    nodes.value = [...nodes.value, ...pastedNodes];
+    edges.value = [...edges.value, ...pastedEdges];
+    setSelected(
+      pastedNodes.map((n: any) => n.id),
+      pastedEdges.map((e: any) => e.id),
+    );
+    touch();
+  }
+
+  // ===== 自动布局 =====
+  function autoLayout(dir: 'TB' | 'LR' = 'TB') {
+    if (!nodes.value.length) return;
+    pushHistory();
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: dir, nodesep: 40, ranksep: 60, marginx: 20, marginy: 20 });
+    g.setDefaultEdgeLabel(() => ({}));
+    for (const n of nodes.value as any[]) {
+      const w = Number(n.data?.width) || shapeOf(n.type).defaultWidth;
+      const h = Number(n.data?.height) || shapeOf(n.type).defaultHeight;
+      g.setNode(n.id, { width: w, height: h });
+    }
+    for (const e of edges.value as any[]) {
+      g.setEdge(e.source, e.target);
+    }
+    dagre.layout(g);
+    for (const n of nodes.value as any[]) {
+      const nodeWithPosition = g.node(n.id);
+      if (!nodeWithPosition) continue;
+      const w = Number(n.data?.width) || shapeOf(n.type).defaultWidth;
+      const h = Number(n.data?.height) || shapeOf(n.type).defaultHeight;
+      n.position = {
+        x: Math.round(nodeWithPosition.x - w / 2),
+        y: Math.round(nodeWithPosition.y - h / 2),
+      };
+    }
+    touch();
+  }
+
+  // ===== 导出 =====
   /**
    * 导出 SVG（基于当前 nodes/edges 的几何信息重新绘制，不依赖画布 DOM 像素）。
    * 节点按外形画矩形 / 椭圆 / 菱形 / 六边形 / 便签 / UML；边按源→目标中心连线并带箭头。
@@ -451,8 +586,35 @@ export const useDiagramStore = defineStore('diagram', () => {
   function exportToSVG(filename?: string) {
     try {
       const ns = 'http://www.w3.org/2000/svg';
-      const W = 1600;
-      const H = 1000;
+      const padding = 40;
+
+      // 计算全图 bbox
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const n of nodes.value as any[]) {
+        const def = shapeOf(n.type);
+        const w = Number(n.data?.width) || def.defaultWidth;
+        const h = Number(n.data?.height) || def.defaultHeight;
+        const x = Number(n.position?.x) || 0;
+        const y = Number(n.position?.y) || 0;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x + w);
+        maxY = Math.max(maxY, y + h);
+      }
+      if (!nodes.value.length) {
+        minX = 0;
+        minY = 0;
+        maxX = 400;
+        maxY = 300;
+      }
+      const W = Math.max(1, Math.ceil(maxX - minX + padding * 2));
+      const H = Math.max(1, Math.ceil(maxY - minY + padding * 2));
+      const offX = -minX + padding;
+      const offY = -minY + padding;
+
       const svg = document.createElementNS(ns, 'svg');
       svg.setAttribute('xmlns', ns);
       svg.setAttribute('width', String(W));
@@ -466,52 +628,113 @@ export const useDiagramStore = defineStore('diagram', () => {
       svg.appendChild(bg);
 
       const defs = document.createElementNS(ns, 'defs');
-      defs.innerHTML =
-        '<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>';
       svg.appendChild(defs);
+
+      // 动态创建 marker 的辅助函数
+      function ensureArrowMarker(color: string) {
+        const markerId = `arrow-${color.replace('#', '')}`;
+        if (document.getElementById(markerId)) return markerId;
+        const marker = document.createElementNS(ns, 'marker');
+        marker.setAttribute('id', markerId);
+        marker.setAttribute('viewBox', '0 0 10 10');
+        marker.setAttribute('refX', '9');
+        marker.setAttribute('refY', '5');
+        marker.setAttribute('markerWidth', '7');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('orient', 'auto-start-reverse');
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', 'M0,0 L10,5 L0,10 z');
+        path.setAttribute('fill', color);
+        marker.appendChild(path);
+        defs.appendChild(marker);
+        return markerId;
+      }
+
+      const nodeCenter = (id: string) => {
+        const n = (nodes.value as any[]).find((m) => m.id === id);
+        if (!n) return null;
+        const w = Number(n.data?.width) || shapeOf(n.type).defaultWidth;
+        const h = Number(n.data?.height) || shapeOf(n.type).defaultHeight;
+        return { x: (Number(n.position?.x) || 0) + w / 2 + offX, y: (Number(n.position?.y) || 0) + h / 2 + offY };
+      };
+
+      // 边
+      for (const e of edges.value as any[]) {
+        const s = nodeCenter(e.source);
+        const t = nodeCenter(e.target);
+        if (!s || !t) continue;
+        const color = String(e.data?.color || '#475569');
+        const lineWidth = Number(e.data?.lineWidth || 1.6);
+        const type = e.type || edgeLineType.value;
+        const path = document.createElementNS(ns, 'path');
+        let d = '';
+        if (type === 'straight') {
+          d = `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
+        } else if (type === 'bezier') {
+          const c1x = s.x + (t.x - s.x) * 0.5;
+          const c1y = s.y;
+          const c2x = s.x + (t.x - s.x) * 0.5;
+          const c2y = t.y;
+          d = `M ${s.x} ${s.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${t.x} ${t.y}`;
+        } else {
+          // smoothstep：折线，先水平再垂直
+          const midX = (s.x + t.x) / 2;
+          d = `M ${s.x} ${s.y} L ${midX} ${s.y} L ${midX} ${t.y} L ${t.x} ${t.y}`;
+        }
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', color);
+        path.setAttribute('stroke-width', String(lineWidth));
+        if (e.data?.dashed) path.setAttribute('stroke-dasharray', '6 4');
+        if (e.data?.arrow !== false) path.setAttribute('marker-end', `url(#${ensureArrowMarker(color)})`);
+        svg.appendChild(path);
+      }
 
       // 节点
       for (const n of nodes.value as any[]) {
         const def = shapeOf(n.type);
         const w = Number(n.data?.width) || def.defaultWidth;
         const h = Number(n.data?.height) || def.defaultHeight;
-        const x = Number(n.position?.x) || 0;
-        const y = Number(n.position?.y) || 0;
+        const x = (Number(n.position?.x) || 0) + offX;
+        const y = (Number(n.position?.y) || 0) + offY;
         const fill = String(n.data?.fill || '#FFFFFF');
         const stroke = String(n.data?.stroke || '#475569');
         const label = String(n.data?.label || '');
         const cx = x + w / 2;
         const cy = y + h / 2;
-        let el: SVGElement;
+        const rx = def.render === 'stadium' ? h / 2 : def.render === 'rounded' ? 12 : 2;
+
+        const group = document.createElementNS(ns, 'g');
+
+        let shapeEl: SVGElement;
         if (def.render === 'ellipse') {
-          el = document.createElementNS(ns, 'ellipse');
-          (el as SVGEllipseElement).setAttribute('cx', String(cx));
-          (el as SVGEllipseElement).setAttribute('cy', String(cy));
-          (el as SVGEllipseElement).setAttribute('rx', String(w / 2));
-          (el as SVGEllipseElement).setAttribute('ry', String(h / 2));
+          shapeEl = document.createElementNS(ns, 'ellipse');
+          (shapeEl as SVGEllipseElement).setAttribute('cx', String(cx));
+          (shapeEl as SVGEllipseElement).setAttribute('cy', String(cy));
+          (shapeEl as SVGEllipseElement).setAttribute('rx', String(w / 2));
+          (shapeEl as SVGEllipseElement).setAttribute('ry', String(h / 2));
         } else if (def.render === 'diamond') {
-          el = document.createElementNS(ns, 'polygon');
-          (el as SVGPolygonElement).setAttribute('points', `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`);
+          shapeEl = document.createElementNS(ns, 'polygon');
+          (shapeEl as SVGPolygonElement).setAttribute('points', `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`);
         } else if (def.render === 'hexagon') {
-          el = document.createElementNS(ns, 'polygon');
-          (el as SVGPolygonElement).setAttribute(
+          shapeEl = document.createElementNS(ns, 'polygon');
+          (shapeEl as SVGPolygonElement).setAttribute(
             'points',
             `${x + w * 0.18},${y} ${x + w * 0.82},${y} ${x + w},${cy} ${x + w * 0.82},${y + h} ${x + w * 0.18},${y + h} ${x},${cy}`,
           );
         } else if (def.render === 'note') {
-          el = document.createElementNS(ns, 'polygon');
-          (el as SVGPolygonElement).setAttribute(
+          shapeEl = document.createElementNS(ns, 'polygon');
+          (shapeEl as SVGPolygonElement).setAttribute(
             'points',
             `${x},${y} ${x + w - 22},${y} ${x + w},${y + 22} ${x + w},${y + h} ${x},${y + h}`,
           );
         } else {
-          el = document.createElementNS(ns, 'rect');
-          (el as SVGRectElement).setAttribute('x', String(x));
-          (el as SVGRectElement).setAttribute('y', String(y));
-          (el as SVGRectElement).setAttribute('width', String(w));
-          (el as SVGRectElement).setAttribute('height', String(h));
-          const rx = def.render === 'stadium' ? h / 2 : def.render === 'rounded' ? 12 : 2;
-          (el as SVGRectElement).setAttribute('rx', String(rx));
+          shapeEl = document.createElementNS(ns, 'rect');
+          (shapeEl as SVGRectElement).setAttribute('x', String(x));
+          (shapeEl as SVGRectElement).setAttribute('y', String(y));
+          (shapeEl as SVGRectElement).setAttribute('width', String(w));
+          (shapeEl as SVGRectElement).setAttribute('height', String(h));
+          (shapeEl as SVGRectElement).setAttribute('rx', String(rx));
           if (def.render === 'uml') {
             const header = document.createElementNS(ns, 'rect');
             header.setAttribute('x', String(x));
@@ -520,47 +743,49 @@ export const useDiagramStore = defineStore('diagram', () => {
             header.setAttribute('height', '24');
             header.setAttribute('rx', String(rx));
             header.setAttribute('fill', stroke);
-            svg.appendChild(header);
+            group.appendChild(header);
           }
         }
-        el.setAttribute('fill', fill);
-        el.setAttribute('stroke', stroke);
-        el.setAttribute('stroke-width', '1.5');
-        svg.appendChild(el);
+        shapeEl.setAttribute('fill', fill);
+        shapeEl.setAttribute('stroke', stroke);
+        shapeEl.setAttribute('stroke-width', '1.5');
+        group.appendChild(shapeEl);
 
-        const text = document.createElementNS(ns, 'text');
-        text.setAttribute('x', String(cx));
-        text.setAttribute('y', String(cy));
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('dominant-baseline', 'central');
-        text.setAttribute('font-size', '14');
-        text.setAttribute('fill', String(n.data?.textColor || '#0F172A'));
-        text.textContent = label;
-        svg.appendChild(text);
-      }
-
-      // 边
-      const nodeCenter = (id: string) => {
-        const n = (nodes.value as any[]).find((m) => m.id === id);
-        if (!n) return null;
-        const w = Number(n.data?.width) || shapeOf(n.type).defaultWidth;
-        const h = Number(n.data?.height) || shapeOf(n.type).defaultHeight;
-        return { x: Number(n.position?.x) + w / 2, y: Number(n.position?.y) + h / 2 };
-      };
-      for (const e of edges.value as any[]) {
-        const s = nodeCenter(e.source);
-        const t = nodeCenter(e.target);
-        if (!s || !t) continue;
-        const line = document.createElementNS(ns, 'line');
-        line.setAttribute('x1', String(s.x));
-        line.setAttribute('y1', String(s.y));
-        line.setAttribute('x2', String(t.x));
-        line.setAttribute('y2', String(t.y));
-        line.setAttribute('stroke', String(e.data?.color || '#475569'));
-        line.setAttribute('stroke-width', String(e.data?.lineWidth || 1.6));
-        if (e.data?.dashed) line.setAttribute('stroke-dasharray', '6 4');
-        if (e.data?.arrow !== false) line.setAttribute('marker-end', 'url(#arrow)');
-        svg.appendChild(line);
+        // 文本按词换行
+        const textColor = String(n.data?.textColor || '#0F172A');
+        const words = label.split(/\s+/);
+        const lineHeight = 16;
+        const maxLineChars = Math.max(4, Math.floor((w - 16) / 8));
+        const lines: string[] = [];
+        let currentLine = '';
+        for (const word of words) {
+          if (!word) continue;
+          if ((currentLine + ' ' + word).trim().length > maxLineChars && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = currentLine ? `${currentLine} ${word}` : word;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        if (!lines.length && label) lines.push(label);
+        if (!lines.length) lines.push('');
+        const startY = cy - ((lines.length - 1) * lineHeight) / 2 + 2;
+        const textEl = document.createElementNS(ns, 'text');
+        textEl.setAttribute('x', String(cx));
+        textEl.setAttribute('y', String(startY));
+        textEl.setAttribute('text-anchor', 'middle');
+        textEl.setAttribute('font-size', '14');
+        textEl.setAttribute('fill', textColor);
+        lines.forEach((line, i) => {
+          const tspan = document.createElementNS(ns, 'tspan');
+          tspan.setAttribute('x', String(cx));
+          tspan.setAttribute('dy', i === 0 ? '0' : String(lineHeight));
+          tspan.textContent = line;
+          textEl.appendChild(tspan);
+        });
+        group.appendChild(textEl);
+        svg.appendChild(group);
       }
 
       const xml = new XMLSerializer().serializeToString(svg);
@@ -587,6 +812,8 @@ export const useDiagramStore = defineStore('diagram', () => {
     edges,
     viewport,
     selection,
+    selectedNodeIds,
+    selectedEdgeIds,
     isSaving,
     dirty,
     brush,
@@ -599,6 +826,7 @@ export const useDiagramStore = defineStore('diagram', () => {
     nodeCount,
     selectedNode,
     selectedEdge,
+    hasSelection,
     // actions
     loadList,
     loadDiagram,
@@ -609,10 +837,12 @@ export const useDiagramStore = defineStore('diagram', () => {
     patchNode,
     patchEdge,
     updateElement,
+    deleteElements,
     removeSelected,
     rename,
     setViewport,
     setSelection,
+    setSelected,
     setEditing,
     pushHistory,
     undo,
@@ -620,7 +850,9 @@ export const useDiagramStore = defineStore('diagram', () => {
     touch,
     saveDiagram,
     remove,
-    exportToPNG,
+    copyToClipboard,
+    pasteFromClipboard,
+    autoLayout,
     exportToSVG,
   };
 });

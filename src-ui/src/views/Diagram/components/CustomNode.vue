@@ -4,6 +4,17 @@
     :class="{ 'is-selected': selected }"
     :style="{ width: `${w}px`, height: `${h}px` }"
   >
+    <NodeResizer
+      v-if="!editing"
+      :is-visible="selected"
+      :min-width="60"
+      :min-height="36"
+      :line-style="{ stroke: 'var(--kb-primary)' }"
+      :handle-style="{ fill: 'var(--kb-primary)' }"
+      @resize="onResize"
+      @resize-end="onResizeEnd"
+    />
+
     <!-- 形状描边（真实像素坐标，避免拉伸导致描边不均） -->
     <svg class="lf-node-shape" :width="w" :height="h" :viewBox="`0 0 ${w} ${h}`">
       <template v-if="spec.tag === 'rect'">
@@ -92,8 +103,11 @@
  * - 双击进入 contenteditable 改文字，失焦 / Enter 落库（store.patchNode），
  *   编辑态 @mousedown.stop 阻止 vue-flow 把「选字」当成「拖节点」。
  */
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
+import { NodeResizer } from '@vue-flow/node-resizer';
+
+import '@vue-flow/node-resizer/dist/style.css';
 
 import { useDiagramStore } from '@/store/diagram-store';
 import { buildShape, shapeOf } from '../shapeDefs';
@@ -157,6 +171,28 @@ function onKeydown(e: KeyboardEvent) {
     store.setEditing(false);
   }
 }
+
+function onResize({ params }: { params: { width: number; height: number } }) {
+  store.patchNode(props.id, { width: Math.round(params.width), height: Math.round(params.height) }, { history: false });
+}
+
+function onResizeEnd({ params }: { params: { width: number; height: number } }) {
+  store.patchNode(props.id, { width: Math.round(params.width), height: Math.round(params.height) }, { history: true });
+}
+
+function onEditNodeEvent(e: Event) {
+  const custom = e as CustomEvent;
+  if (custom.detail?.id === props.id && !editing.value) {
+    startEdit();
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('diagram:edit-node', onEditNodeEvent);
+});
+onUnmounted(() => {
+  window.removeEventListener('diagram:edit-node', onEditNodeEvent);
+});
 </script>
 
 <style scoped>
