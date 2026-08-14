@@ -210,6 +210,25 @@ const PAGE_CONFIG = {
   zIndex: -1,
 }
 
+/** 自由画笔节点（P1-T5.1）：path 用相对坐标（节点左上角为原点），bg 透明承载命中区 */
+const DRAWING_CONFIG = {
+  inherit: 'rect',
+  markup: [
+    { tag: 'rect', selector: 'bg' },
+    { tag: 'path', selector: 'body' },
+  ],
+  attrs: {
+    bg: { fill: 'transparent', stroke: 'transparent' },
+    body: {
+      fill: 'none',
+      stroke: '#475569',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+  },
+}
+
 /** 幂等注册全部 11 种 X6 原生形状 + 3 种工具形状 */
 export function registerDiagramShapes(): void {
   if (registered) return
@@ -220,5 +239,6 @@ export function registerDiagramShapes(): void {
   Graph.registerNode('diagram-text', TEXT_CONFIG as any, true)
   Graph.registerNode('diagram-table', TABLE_CONFIG as any, true)
   Graph.registerNode('diagram-page', PAGE_CONFIG as any, true)
+  Graph.registerNode('diagram-drawing', DRAWING_CONFIG as any, true)
   registered = true
 }

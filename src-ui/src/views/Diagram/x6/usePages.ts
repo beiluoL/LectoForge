@@ -79,5 +79,17 @@ export function usePages(graph: Ref<Graph | null>) {
     pages.value = pages.value.map((p) => (p.id === id ? { ...p, name: trimmed || p.name } : p))
   }
 
-  return { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage }
+  /** 序列化：先写回当前页，再返回完整 pages（含当前页最新内容），供持久化落库 */
+  function serialize(): DiagramPageData[] {
+    snapshotCurrent()
+    return pages.value
+  }
+
+  /** 载入已持久化的多页（打开文档 / 旧数据迁移时用） */
+  function loadPages(data: DiagramPageData[], currentId: string) {
+    pages.value = data
+    currentPageId.value = currentId
+  }
+
+  return { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage, serialize, loadPages }
 }

@@ -62,6 +62,22 @@
 
     <span class="x6-toolbar-sep"></span>
 
+    <!-- 高级功能：画笔 / 模板 / AI / 导出 -->
+    <button class="kb-btn kb-btn-sm" :class="{ 'is-active': props.penOn }" title="自由画笔（方案 B）" @click="emit('pen-toggle')">✏ 画笔</button>
+    <button class="kb-btn kb-btn-sm" @click="emit('open-templates')">▦ 模板</button>
+    <button class="kb-btn kb-btn-sm" @click="emit('open-ai')">✨ AI</button>
+    <label class="x6-toolbar-select">
+      <span>导出</span>
+      <select :value="''" @change="(e) => onExport((e.target as HTMLSelectElement).value)">
+        <option value="" disabled>格式</option>
+        <option value="png">PNG</option>
+        <option value="svg">SVG</option>
+        <option value="pdf">PDF</option>
+      </select>
+    </label>
+
+    <span class="x6-toolbar-sep"></span>
+
     <button class="kb-btn kb-btn-sm" @click="emit('fullscreen')" title="全屏">⛶ 全屏</button>
     <button class="kb-btn kb-btn-sm" :class="{ 'is-active': props.propertiesOpen }" @click="emit('toggle-properties')">
       ⚙ 格式
@@ -81,9 +97,21 @@ import { useSelection } from './useSelection'
 import { edgeConnectorRouter, buildEdgeMarker } from './edgeFactory'
 import type { ArrowStyle } from './types'
 import type { EdgeLineType } from '../types'
+import type { ExportFormat } from './useGraphExport'
 
-const props = defineProps<{ propertiesOpen?: boolean }>()
-const emit = defineEmits<{ (e: 'toggle-properties'): void; (e: 'fullscreen'): void }>()
+const props = defineProps<{ propertiesOpen?: boolean; penOn?: boolean }>()
+const emit = defineEmits<{
+  (e: 'toggle-properties'): void
+  (e: 'fullscreen'): void
+  (e: 'pen-toggle'): void
+  (e: 'open-templates'): void
+  (e: 'open-ai'): void
+  (e: 'export', format: ExportFormat): void
+}>()
+
+function onExport(format: string) {
+  if (format === 'png' || format === 'svg' || format === 'pdf') emit('export', format)
+}
 
 const ctx = inject(X6_CTX_KEY) as X6Context
 const sel = useSelection(ctx.graph)

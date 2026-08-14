@@ -71,7 +71,8 @@ export function useGraph(params: UseGraphParams) {
 
     // ===== 选中态工具：节点加 transform（resize/rotate），边加 vertices+segments（拐点编辑） =====
     g.on('node:selected', ({ node }: any) => {
-      node.addTools('transform')
+      // 自由画笔节点（diagram-drawing）只移动、不缩放/旋转，避免 path d 不随尺寸缩放导致错位
+      if (!node.getShape().endsWith('-drawing')) node.addTools('transform')
     })
     g.on('node:unselected', ({ node }: any) => {
       node.removeTools()
