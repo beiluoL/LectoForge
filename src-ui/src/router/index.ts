@@ -103,7 +103,8 @@ const routes: RouteRecordRaw[] = [
     name: 'Tasks',
     component: () => import('@/views/Tasks/index.vue'),
     // fullscreen：铺满宽度（取消居中）；fill：额外撑满高度 + 内部自管滚动，
-    // 消除透明窗口底部间隙。fill 仅任务清单使用，其他 fullscreen 页面仍走"铺满宽度 + 原生滚动"。
+    // 消除透明窗口底部间隙。fill 目前用于「任务清单 / AI 对话 / 日历」三类需要铺满整屏的页面，
+    // 其余 fullscreen 页面仍走"铺满宽度 + 原生滚动"（px-4 py-6 内边距）。
     meta: { layout: 'c', fullscreen: true, fill: true },
   },
   {
@@ -147,7 +148,8 @@ const routes: RouteRecordRaw[] = [
     path: '/calendar',
     name: 'Calendar',
     component: () => import('@/views/Calendar/index.vue'),
-    meta: { layout: 'c', fullscreen: true },
+    // fill：与任务清单一致，铺满整屏、内部自管滚动，去除四周内边距
+    meta: { layout: 'c', fullscreen: true, fill: true },
   },
   {
     path: '/workbench/palace',
@@ -204,6 +206,15 @@ const routes: RouteRecordRaw[] = [
     name: 'AiChat',
     component: () => import('@/views/AiChat/index.vue'),
     meta: { layout: 'c', fullscreen: true },
+  },
+  {
+    // AI 助手 / 多轮对话（对标 DeepSeek 网页端）：会话管理 + 流式多轮 + Markdown + 消息反馈 + 悬浮大纲。
+    // 与 /ai-chat 同源挂在顶层，避免顶栏 isActive 被「工作台」误吞高亮。
+    path: '/ai-assistant',
+    name: 'AiAssistant',
+    component: () => import('@/views/AiAssistant/index.vue'),
+    // fill：与任务清单一致，铺满整屏、内部自管滚动，去除四周内边距
+    meta: { layout: 'c', fullscreen: true, fill: true },
   },
   {
     // 离线模拟面试 / 语音通话：全屏沉浸式，顶栏保留（非 standalone）。

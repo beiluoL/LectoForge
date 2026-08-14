@@ -6,6 +6,8 @@
  * 因此绝大多数 VO 都是纯计算产物，不含持久化副作用。
  */
 
+import type { RagSource } from './rag';
+
 /**
  * AI 业务失败载荷。Service 层不接触 FastifyReply，只回报「失败成什么样」，
  * 由 Controller 统一翻译成 { code, message, aiCode } 的 HTTP 响应。
@@ -369,4 +371,54 @@ export interface MindmapToStoryVO extends AiMeta {
   storyContent: string;
   /** 文章标题 */
   title: string;
+}
+
+// ===================== AI 助手 / 多轮对话 =====================
+
+/** 会话列表 / 详情 VO（GET /api/ai-assistant/conversations） */
+export interface AiConversationVO {
+  id: number;
+  userId: number;
+  title: string;
+  /** 0 未置顶 / 1 置顶 */
+  pinned: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 单条消息 VO（GET /api/ai-assistant/conversations/:id/messages） */
+export interface AiMessageVO {
+  id: number;
+  conversationId: number;
+  role: 'user' | 'assistant';
+  content: string;
+  rating: 'like' | 'dislike' | 'none';
+  /** 知识库来源（已反序列化的 RagSource[]），无引用则为 null */
+  sourceRefs: RagSource[] | null;
+  createdAt: string;
+}
+
+/** POST /api/ai-assistant/conversations 入参 */
+export interface CreateConversationDTO {
+  title?: string;
+}
+
+/** PUT /api/ai-assistant/conversations/:id 入参 */
+export interface UpdateConversationDTO {
+  title?: string;
+  /** 0 / 1 切换置顶 */
+  pinned?: number;
+}
+
+/** POST /api/ai-assistant/messages/:id/rating 入参 */
+export interface RateMessageDTO {
+  rating: 'like' | 'dislike' | 'none';
+}
+
+/** POST /api/ai-assistant/chat/completions 入参 */
+export interface ChatCompletionsDTO {
+  /** 已有的会话 id；不传则由服务端新建会话 */
+  conversationId?: number;
+  /** 用户本轮提问 */
+  query: string;
 }

@@ -14,6 +14,12 @@ export interface AiProviderPreset {
   label: string
   baseUrl: string
   model: string
+  /** 该服务商支持的常用模型列表 */
+  models: string[]
+  /** 如何获取 API Key 的简短引导 */
+  helpText: string
+  /** 直达注册/控制台的外部链接 */
+  signupUrl: string
 }
 
 /** 服务端返回的安全配置视图（apiKey 仅返回掩码） */

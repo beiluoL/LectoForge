@@ -66,7 +66,7 @@ interface NoteHit {
 }
 
 /** 送入 Prompt 的来源块（已编号，模型据此引用） */
-interface RagContextBlock {
+export interface RagContextBlock {
   index: number;
   sourceType: 'doc' | 'note';
   title: string;
@@ -467,8 +467,8 @@ function buildContextBlocks(docHits: DocHit[], noteHits: NoteHit[]): RagContextB
   }));
 }
 
-/** 把来源块拼成 Prompt 用的上下文字符串（供模型引用与照抄 link/行号） */
-function assembleContext(blocks: RagContextBlock[]): string {
+/** 把来源块拼成 Prompt 用的上下文字符串（供模型引用与照抄 link/行号）。导出供 AI 助手复用。 */
+export function assembleContext(blocks: RagContextBlock[]): string {
   return blocks
     .map((b) => {
       const lines = [
@@ -504,6 +504,17 @@ function handleMultimodalQuery(question: string, imageText?: string): string {
     '',
     '请结合上述图片文字内容，回答用户提问。',
   ].join('\n');
+}
+
+/**
+ * 供 AI 助手复用：给定查询，返回检索上下文块（向量优先，关键词降级）。
+ * 与 askRag 内部使用的检索逻辑完全一致，只是这里只吐出「来源块」，
+ * 不强制模型输出 JSON，便于多轮自由对话时把知识库材料作为参考上下文注入。
+ */
+export async function retrieveRagContext(query: string): Promise<RagContextBlock[]> {
+  const vectorBlocks = await vectorRetrieve(query);
+  if (vectorBlocks && vectorBlocks.length) return vectorBlocks;
+  return buildContextBlocks(retrieveDocsKeyword(query), retrieveNotesKeyword(query));
 }
 
 /**

@@ -49,13 +49,13 @@
       <p class="lf-hint">修改后建议重启应用生效；迁移既有数据请手动拷贝。</p>
     </section>
 
-    <!-- ============ 卡片 2：AI 模型配置（合并原 /settings/ai 全部功能） ============ -->
+    <!-- ============ 卡片 2：AI 模型配置（多服务商接入 + 开箱即用） ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
         <Icon name="bot" :size="18" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">AI 模型服务</h2>
-          <p class="lf-card-desc">配置一次，全局生效。所有 AI 能力均为可选增强，不配置也不影响原有功能。</p>
+          <p class="lf-card-desc">选择服务商、粘贴 API Key 即可使用。所有 AI 能力均为可选增强，不配置也不影响原有功能。</p>
         </div>
         <span class="lf-status" :class="statusClass">
           <i class="lf-status-dot"></i>{{ statusText }}
@@ -68,21 +68,41 @@
         <span class="lf-switch-label">启用 AI 增强功能</span>
       </label>
 
-      <!-- 2 列网格：左列服务商/网关/Key，右列模型/温度/超时 -->
+      <!-- 服务商选择：一键切换，自动填充 baseUrl / 推荐模型 -->
+      <div class="lf-provider-list" role="radiogroup" aria-label="选择模型服务商">
+        <button
+          v-for="p in presets"
+          :key="p.value"
+          type="button"
+          class="lf-provider-chip"
+          :class="{ active: form.provider === p.value }"
+          :aria-checked="form.provider === p.value"
+          @click="selectProvider(p.value)"
+        >
+          <span class="lf-provider-name">{{ p.label }}</span>
+          <span v-if="p.value === 'deepseek'" class="lf-provider-tag">推荐</span>
+        </button>
+      </div>
+
+      <!-- 当前选中服务商的帮助引导 -->
+      <div v-if="currentPreset" class="lf-help-panel">
+        <Icon name="circle-help" :size="16" />
+        <div class="lf-help-body">
+          <p class="lf-help-text">{{ currentPreset.helpText }}</p>
+          <a
+            v-if="currentPreset.signupUrl"
+            :href="currentPreset.signupUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="lf-help-link"
+          >
+            <Icon name="external-link" :size="12" /> 直达注册 / 获取 API Key
+          </a>
+        </div>
+      </div>
+
+      <!-- 核心配置：API Key + 模型 + 高级折叠 -->
       <div class="lf-grid2">
-        <div class="lf-field lf-span-2">
-          <label class="kb-label">服务商</label>
-          <select v-model="form.provider" class="kb-input" @change="applyPreset">
-            <option v-for="p in presets" :key="p.value" :value="p.value">{{ p.label }}</option>
-          </select>
-        </div>
-
-        <div class="lf-field lf-span-2">
-          <label class="kb-label">API 网关地址</label>
-          <input v-model="form.baseUrl" class="kb-input" placeholder="https://api.deepseek.com/v1" spellcheck="false" />
-          <p class="lf-field-hint">填到 /v1 为止，不要带 /chat/completions。</p>
-        </div>
-
         <div class="lf-field lf-span-2">
           <label class="kb-label">API Key</label>
           <div class="lf-key-row">
@@ -106,8 +126,21 @@
         </div>
 
         <div class="lf-field">
-          <label class="kb-label">模型名称</label>
-          <input v-model="form.model" class="kb-input" placeholder="deepseek-chat" spellcheck="false" />
+          <label class="kb-label">模型</label>
+          <div class="lf-model-row">
+            <select v-if="currentPreset?.models?.length" v-model="form.model" class="kb-input">
+              <option v-for="m in currentPreset.models" :key="m" :value="m">{{ m }}</option>
+              <option value="__custom__">自定义模型名…</option>
+            </select>
+            <input v-else v-model="form.model" class="kb-input" placeholder="输入模型名" spellcheck="false" />
+            <input
+              v-if="form.model === '__custom__' || !currentPreset?.models?.length"
+              v-model="customModel"
+              class="kb-input"
+              placeholder="输入模型名"
+              spellcheck="false"
+            />
+          </div>
         </div>
 
         <div class="lf-field">
@@ -128,9 +161,22 @@
           />
           <p class="lf-field-hint">越低越稳定。评分类任务建议 0.1~0.3。</p>
         </div>
+
+        <!-- 高级：自定义 baseUrl -->
+        <div class="lf-field lf-span-2">
+          <button type="button" class="lf-advanced-toggle" @click="showAdvanced = !showAdvanced">
+            <Icon :name="showAdvanced ? 'chevron-up' : 'chevron-down'" :size="14" />
+            {{ showAdvanced ? '收起高级设置' : '展开高级设置（API 网关地址）' }}
+          </button>
+          <div v-if="showAdvanced" class="lf-advanced-body">
+            <label class="kb-label">API 网关地址</label>
+            <input v-model="form.baseUrl" class="kb-input" placeholder="https://api.deepseek.com/v1" spellcheck="false" />
+            <p class="lf-field-hint">默认已按服务商自动填充，通常无需修改。填到 /v1 为止，不要带 /chat/completions。</p>
+          </div>
+        </div>
       </div>
 
-      <!-- 操作栏：测试连通性 + 保存设置（统一保存数据目录 + AI 全量配置） -->
+      <!-- 操作栏：测试连通性 + 保存设置 -->
       <div class="lf-actions">
         <button class="kb-btn kb-btn-sm" :disabled="testing" @click="onTest">
           <Icon :name="testing ? 'loader' : 'plug-zap'" :size="14" :class="testing ? 'lf-spin' : ''" />
@@ -779,6 +825,13 @@ async function removeTtsVoice(id: string) {
 
 const presets = ref<AiProviderPreset[]>([])
 const embedPresets = ref<AiProviderPreset[]>([])
+const showAdvanced = ref(false)
+const customModel = ref('')
+
+/** 当前选中服务商的预设 */
+const currentPreset = computed<AiProviderPreset | undefined>(() =>
+  presets.value.find((p) => p.value === form.provider),
+)
 
 /** 已保存配置的安全视图（掩码 + 状态），不持有明文 */
 const saved = reactive({
@@ -898,11 +951,31 @@ onBeforeRouteLeave(async () => {
   return await confirmDialog('设置有未保存的修改，确定离开吗？未保存的改动将丢失。')
 })
 
+/** 解析表单中实际生效的模型名（处理「自定义模型名」选项） */
+function resolveModel(): string {
+  if (form.model === '__custom__') return customModel.value.trim()
+  return form.model.trim()
+}
+
 function applyPreset() {
-  const p = presets.value.find((x) => x.value === form.provider)
-  if (!p || !p.baseUrl) return
-  form.baseUrl = p.baseUrl
-  form.model = p.model
+  const p = currentPreset.value
+  if (!p) return
+  if (p.baseUrl) form.baseUrl = p.baseUrl
+  if (p.models?.length && p.models.includes(p.model)) {
+    form.model = p.model
+    customModel.value = ''
+  } else if (p.model) {
+    form.model = '__custom__'
+    customModel.value = p.model
+  } else {
+    form.model = '__custom__'
+    customModel.value = ''
+  }
+}
+
+function selectProvider(value: string) {
+  form.provider = value
+  applyPreset()
 }
 
 function applyEmbeddingPreset() {
@@ -932,7 +1005,15 @@ function syncAiForm(cfg: AiConfigVO) {
   form.enabled = cfg.enabled
   form.provider = cfg.provider
   form.baseUrl = cfg.baseUrl
-  form.model = cfg.model
+  // 模型：若在服务商预设列表中则直接选；否则落入「自定义」
+  const p = presets.value.find((x) => x.value === cfg.provider)
+  if (p?.models?.length && p.models.includes(cfg.model)) {
+    form.model = cfg.model
+    customModel.value = ''
+  } else {
+    form.model = '__custom__'
+    customModel.value = cfg.model || ''
+  }
   form.temperature = cfg.temperature
   form.apiKey = ''
   form.embeddingsApiKey = ''
@@ -942,6 +1023,7 @@ function syncAiForm(cfg: AiConfigVO) {
   form.localLlmUrl = cfg.provider === 'local' ? cfg.baseUrl : ''
   form.whisperUrl = cfg.whisperUrl || ''
   form.whisperModel = cfg.whisperModel || ''
+  showAdvanced.value = false
 }
 
 onMounted(async () => {
@@ -1002,8 +1084,9 @@ async function pickDirectory() {
 
 async function onTest() {
   if (testing.value) return
-  if (!form.baseUrl.trim() || (!form.model.trim() && form.enabled)) {
-    notify('请先填写 API 地址与模型名再测试', 'info')
+  const model = resolveModel()
+  if (!form.baseUrl.trim() || (!model && form.enabled)) {
+    notify('请先选择或填写模型名再测试', 'info')
     return
   }
   testing.value = true
@@ -1013,7 +1096,7 @@ async function onTest() {
       enabled: form.enabled,
       provider: form.provider,
       baseUrl: form.baseUrl.trim(),
-      model: form.model.trim(),
+      model,
       apiKey: form.apiKey.trim() || undefined,
       temperature: form.temperature,
       timeoutMs: Math.round(form.timeoutSec * 1000),
@@ -1032,12 +1115,17 @@ async function onTest() {
  */
 async function saveAll() {
   if (saving.value) return
+  const model = resolveModel()
+  if (form.enabled && (!form.baseUrl.trim() || !model)) {
+    notify('请填写 API 网关地址与模型名后再保存', 'warning')
+    return
+  }
   saving.value = true
   try {
     // 1) 数据目录：同步到 store 后走 POST /config/init
     appStore.updateSettings({
       dataDir: form.dataDir.trim(),
-      ai: { apiUrl: form.baseUrl.trim(), apiKey: form.apiKey, model: form.model.trim() },
+      ai: { apiUrl: form.baseUrl.trim(), apiKey: form.apiKey, model },
     })
     await appStore.saveSettings()
 
@@ -1046,7 +1134,7 @@ async function saveAll() {
       enabled: form.enabled,
       provider: form.provider,
       baseUrl: form.baseUrl.trim(),
-      model: form.model.trim(),
+      model,
       apiKey: form.apiKey.trim() || undefined,
       temperature: form.temperature,
       timeoutMs: Math.round(form.timeoutSec * 1000),
@@ -1323,6 +1411,30 @@ function formatTime(secs: number): string {
 .lf-test-result { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--kb-fs-caption, .75rem); }
 .lf-test-result.is-ok { color: var(--kb-accent); }
 .lf-test-result.is-fail { color: var(--kb-destructive); }
+
+/* 服务商选择卡片 */
+.lf-provider-list { display: flex; flex-wrap: wrap; gap: .5rem; margin: .25rem 0 .75rem; }
+.lf-provider-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .7rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md, 10px); background: var(--kb-card); color: var(--kb-foreground); font-size: var(--kb-fs-body-sm, .8125rem); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.lf-provider-chip:hover { border-color: var(--kb-primary); }
+.lf-provider-chip.active { border-color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 10%, transparent); color: var(--kb-primary); font-weight: 600; }
+.lf-provider-tag { font-size: var(--kb-fs-caption, .7rem); padding: .05rem .35rem; border-radius: 999px; background: var(--kb-primary); color: var(--kb-primary-foreground); }
+
+/* 帮助引导面板 */
+.lf-help-panel { display: flex; align-items: flex-start; gap: .625rem; padding: .75rem .9rem; border-radius: var(--kb-radius-md, 10px); background: color-mix(in srgb, var(--kb-primary) 8%, transparent); border: 1px solid color-mix(in srgb, var(--kb-primary) 22%, transparent); margin-bottom: .75rem; }
+.lf-help-panel :deep(svg) { flex-shrink: 0; color: var(--kb-primary); margin-top: .15rem; }
+.lf-help-body { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.lf-help-text { margin: 0; font-size: var(--kb-fs-body-sm, .8125rem); color: var(--kb-foreground); line-height: 1.5; }
+.lf-help-link { display: inline-flex; align-items: center; gap: .3rem; font-size: var(--kb-fs-body-sm, .8125rem); font-weight: 600; color: var(--kb-primary); text-decoration: none; }
+.lf-help-link:hover { text-decoration: underline; }
+
+/* 模型选择行 */
+.lf-model-row { display: flex; align-items: center; gap: .5rem; }
+.lf-model-row .kb-input { flex: 1; min-width: 0; }
+
+/* 高级设置折叠 */
+.lf-advanced-toggle { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .5rem; margin: .25rem 0; border: none; background: transparent; color: var(--kb-muted-foreground); font-size: var(--kb-fs-body-sm, .8125rem); cursor: pointer; }
+.lf-advanced-toggle:hover { color: var(--kb-primary); }
+.lf-advanced-body { display: flex; flex-direction: column; gap: .35rem; }
 
 /* 向量化服务子区 */
 .lf-embed { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--kb-border); }

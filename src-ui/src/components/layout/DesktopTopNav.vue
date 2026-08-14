@@ -381,20 +381,20 @@ const navItems: NavItem[] = [
   // 思维导图沿用 share-2：lucide 没有 mindmap 这个图标名，写了会 fallback 成空 SVG。
   { kind: 'leaf', key: 'mindmap', path: '/mindmap', label: '思维导图', icon: 'share-2', collapse: true },
 
-  /* ---- 🧠 AI 助手（知识库问答 + 模拟面试 + 题库管理 统一入口）----
+  /* ---- 🧠 AI 助手（多轮对话 + 模拟面试 + 题库管理 统一入口）----
    * 父级下拉、不挂独立路由（path: undefined），仅作容器；高亮靠 match 覆盖三个子路径。
-   * 子项：知识库问答(/ai-chat) · 模拟面试(/interview) · 题库管理(/interview-bank)。
+   * 子项：AI 对话(/ai-assistant) · 模拟面试(/interview) · 题库管理(/interview-bank)。
    * 之前独立的「模拟面试」父级入口已并入此处，避免顶栏出现两个 AI 相关下拉。 */
   {
     kind: 'group',
     key: 'ai',
     label: 'AI 助手',
     icon: 'brain-circuit',
-    match: ['/ai-chat', '/interview', '/interview-bank', '/daily-report'],
+    match: ['/ai-assistant', '/interview', '/interview-bank', '/daily-report'],
     dividerBefore: true,
     collapse: true,
     children: [
-      { path: '/ai-chat', label: '知识库问答', icon: 'message-circle' },
+      { path: '/ai-assistant', label: 'AI 对话', icon: 'message-circle' },
       { path: '/interview', label: '模拟面试', icon: 'mic' },
       { path: '/interview-bank', label: '题库管理', icon: 'database' },
       { path: '/daily-report', label: '学习日报', icon: 'calendar-clock' },

@@ -15,8 +15,8 @@ import { getAiConfigPath } from './paths';
  *    保证「没有 AI 也能照常用」的离线优先原则。
  */
 
-/** 支持的服务商预设 */
-export type LlmProvider = 'deepseek' | 'openai' | 'custom' | 'local';
+/** 支持的服务商预设键。用 string 而非 union，方便未来新增厂商时不改类型。 */
+export type LlmProvider = string;
 
 export interface LlmConfig {
   /** 总开关，关闭后所有 AI 端点直接返回未启用 */
@@ -42,14 +42,102 @@ export interface LlmConfig {
   embeddingsModel: string;
 }
 
-/** 服务商预设，供前端下拉选择时一键填充 */
-export const PROVIDER_PRESETS: Record<LlmProvider, { label: string; baseUrl: string; model: string }> = {
-  deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  custom: { label: '自定义（OpenAI 兼容）', baseUrl: '', model: '' },
+/** 单个服务商预设的完整视图 */
+export interface ProviderPreset {
+  label: string;
+  /** OpenAI 兼容的 API 根地址 */
+  baseUrl: string;
+  /** 默认/推荐模型 */
+  model: string;
+  /** 该服务商支持的常用模型列表（供前端下拉） */
+  models: string[];
+  /** 简短帮助：如何获取 API Key */
+  helpText: string;
+  /** 直达注册/控制台链接 */
+  signupUrl: string;
+}
+
+/** 服务商预设，供前端一键填充。所有接口均走 OpenAI 兼容 /chat/completions，后端零特殊逻辑。 */
+export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
+  deepseek: {
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-chat',
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+    helpText: '访问 DeepSeek 开放平台 → 注册账号 → 在「API Keys」页面创建密钥。新用户通常有免费额度。',
+    signupUrl: 'https://platform.deepseek.com/api_keys',
+  },
+  openai: {
+    label: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+    helpText: '访问 OpenAI 平台 → 注册并绑定支付方式 → 在「API keys」页面创建 Secret key。',
+    signupUrl: 'https://platform.openai.com/api-keys',
+  },
+  siliconflow: {
+    label: 'SiliconFlow（硅动科技）',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    model: 'deepseek-ai/DeepSeek-V3',
+    models: [
+      'deepseek-ai/DeepSeek-V3',
+      'deepseek-ai/DeepSeek-R1',
+      'Qwen/Qwen2.5-72B-Instruct',
+      'meta-llama/Llama-3.3-70B-Instruct',
+      'THUDM/glm-4-9b-chat',
+    ],
+    helpText: '访问 SiliconFlow 控制台 → 微信/手机注册 → 在「API 密钥」页面复制 Key。新用户赠送大量 Token。',
+    signupUrl: 'https://cloud.siliconflow.cn/account/ak',
+  },
+  moonshot: {
+    label: 'Moonshot AI（Kimi）',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    model: 'moonshot-v1-8k',
+    models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+    helpText: '访问 Moonshot 开放平台 → 注册账号 → 在「API Key 管理」页面创建密钥。',
+    signupUrl: 'https://platform.moonshot.cn/console/api-keys',
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'openai/gpt-4o-mini',
+    models: ['openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-1.5-flash'],
+    helpText: '访问 OpenRouter → 用邮箱注册 → 在「Keys」页面创建 API Key，即可调用全球主流模型。',
+    signupUrl: 'https://openrouter.ai/keys',
+  },
+  qwen: {
+    label: '通义千问（阿里云）',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-turbo',
+    models: ['qwen-turbo', 'qwen-plus', 'qwen-max', 'qwen-coder-plus'],
+    helpText: '访问阿里云百炼/灵积控制台 → 开通 DashScope → 在「API-KEY 管理」页面创建 Key。',
+    signupUrl: 'https://dashscope.console.aliyun.com/apiKey',
+  },
+  yi: {
+    label: '零一万物',
+    baseUrl: 'https://api.lingyiwanwu.com/v1',
+    model: 'yi-large',
+    models: ['yi-large', 'yi-medium', 'yi-spark', 'yi-vision'],
+    helpText: '访问零一万物开放平台 → 注册账号 → 在「API Keys」页面创建密钥。',
+    signupUrl: 'https://platform.lingyiwanwu.com/apikeys',
+  },
   // 本地推理（Ollama / LM Studio）：走 OpenAI 兼容端点，常无 API Key，model 由用户在设置页填写。
-  // Phase 2 仅需在「AI 设置」把 provider 切到 local 即可离线运行，业务代码零改动。
-  local: { label: '本地(Ollama)', baseUrl: 'http://localhost:11434/v1', model: '' },
+  local: {
+    label: '本地模型（Ollama / LM Studio）',
+    baseUrl: 'http://localhost:11434/v1',
+    model: '',
+    models: [],
+    helpText: '安装 Ollama 后执行 `ollama pull llama3` 等命令拉取模型，默认 OpenAI 兼容地址为 http://localhost:11434/v1，通常无需 API Key。',
+    signupUrl: 'https://ollama.com/library',
+  },
+  custom: {
+    label: '自定义（OpenAI 兼容）',
+    baseUrl: '',
+    model: '',
+    models: [],
+    helpText: '任何兼容 OpenAI /chat/completions 协议的网关或代理均可使用，填写完整 baseUrl 与模型名即可。',
+    signupUrl: '',
+  },
 };
 
 /** 向量化服务商预设（与聊天服务解耦，可独立配置） */
@@ -205,6 +293,11 @@ export function maskKey(key: string): string {
 
 /** 对外暴露的安全配置视图（不含明文 Key） */
 export function publicConfig(cfg = readConfig()) {
+  // 本地模型允许无 API Key
+  const configured =
+    cfg.provider === 'local'
+      ? !!(cfg.baseUrl && cfg.model)
+      : !!(cfg.apiKey && cfg.baseUrl && cfg.model);
   return {
     enabled: cfg.enabled,
     provider: cfg.provider,
@@ -213,7 +306,7 @@ export function publicConfig(cfg = readConfig()) {
     temperature: cfg.temperature,
     timeoutMs: cfg.timeoutMs,
     apiKeyMask: maskKey(cfg.apiKey),
-    configured: !!cfg.apiKey && !!cfg.baseUrl && !!cfg.model,
+    configured,
     embeddingsModel: cfg.embeddingsModel,
     embeddingsConfigured: !!cfg.embeddingsBaseUrl && !!cfg.embeddingsApiKey && !!cfg.embeddingsModel,
   };

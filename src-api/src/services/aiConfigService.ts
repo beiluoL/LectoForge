@@ -23,6 +23,11 @@ export function getConfigWithPresets() {
   };
 }
 
+/** 读取某个服务商的完整预设（用于前端切换时回填帮助文案与模型列表） */
+export function getProviderPreset(provider: string) {
+  return PROVIDER_PRESETS[provider] || null;
+}
+
 /** 保存 AI 配置。apiKey 留空表示保持原值，传 null 表示清空。 */
 export function updateConfig(patch: Partial<LlmConfig> & { apiKey?: string | null }) {
   const saved = saveConfig(patch);

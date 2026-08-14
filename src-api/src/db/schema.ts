@@ -470,3 +470,38 @@ export const wbQaBank = sqliteTable('wb_qa_bank', {
   /** 排序位，越小越靠前；NULL 表示按入库时间 */
   idx: integer('idx'),
 });
+
+// ===== AI 助手 / 多轮对话（对标 DeepSeek 网页端体验）=====
+// 会话表 + 消息表，全部走 better-sqlite3 同步 API，删除会话时事务级联删消息。
+// createdAt / updatedAt 用 TEXT(ISO) 与项目其它表保持一致，便于排序与展示。
+export const wbAiConversation = sqliteTable('wb_ai_conversation', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().default(1),
+  title: text('title').notNull().default('新对话'),
+  /** 置顶标记：0 未置顶，1 置顶；列表按 pinned 降序、updated_at 降序排列 */
+  pinned: integer('pinned').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const wbAiMessage = sqliteTable(
+  'wb_ai_message',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** 所属会话 id（逻辑外键，关联 wb_ai_conversation.id，级联删除由 Service 事务维护） */
+    conversationId: integer('conversation_id').notNull(),
+    /** 'user' 用户提问 / 'assistant' AI 回答 */
+    role: text('role').notNull(),
+    /** 消息正文（Markdown，AI 回答含代码块等富文本） */
+    content: text('content').notNull(),
+    /** 知识库检索来源（RagSource[] 的 JSON 字符串），可空；无引用时存 NULL */
+    sourceRefs: text('source_refs'),
+    /** 消息评分：'like' 赞 / 'dislike' 踩 / 'none' 无（默认） */
+    rating: text('rating').notNull().default('none'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => ({
+    // 按会话拉取消息走「会话 + 时间」复合索引，避免全表扫描
+    convIdx: index('idx_wb_ai_message_conv').on(t.conversationId, t.createdAt),
+  }),
+);

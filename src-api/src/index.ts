@@ -15,6 +15,7 @@ import overview from './routes/overview';
 import categories from './routes/categories';
 import migration from './routes/migration';
 import ai from './routes/ai';
+import aiAssistant from './routes/ai-assistant';
 import library from './routes/library';
 import mindmaps, { mindmapAiRoutes } from './routes/mindmap';
 import config from './routes/config';
@@ -202,6 +203,11 @@ app.register(backup, { prefix: '/api' });
 
 // ===== AI 能力路由（独立前缀，不侵入既有 workbench 契约，未配置 Key 时整体降级）=====
 app.register(ai, { prefix: '/api/ai' });
+
+/* ===== AI 助手 / 多轮对话（对标 DeepSeek 网页端：会话管理 + 流式多轮 + RAG 上下文）=====
+ * 独立前缀 /api/ai-assistant：会话/消息落本地 SQLite（wb_ai_conversation / wb_ai_message），
+ * SSE 流式端点复用 RAG 检索，与 /api/ai/rag/ask 共用同一套知识库能力。 */
+app.register(aiAssistant, { prefix: '/api/ai-assistant' });
 
 /* ===== 文档库路由（Obsidian 式本地 Markdown 笔记，直接读写用户磁盘）=====
  * 独立前缀 /api/library：这里的 "notes" 指磁盘上的 .md 文件，

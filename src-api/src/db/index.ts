@@ -351,6 +351,29 @@ CREATE TABLE IF NOT EXISTS wb_qa_bank (
   idx INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_wb_qa_bank_source ON wb_qa_bank (source_type);
+
+/* ===== AI 助手 / 多轮对话（对标 DeepSeek 网页端体验）=====
+ * 列名与 schema.ts 的 wbAiConversation / wbAiMessage 严格对齐（drizzle 走蛇形）。
+ * 排序索引 (pinned DESC, updated_at DESC) 直接吃 service 的「置顶在前 + 倒序」语义。 */
+CREATE TABLE IF NOT EXISTS wb_ai_conversation (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL DEFAULT '新对话',
+  pinned INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_ai_conversation_sort ON wb_ai_conversation (pinned DESC, updated_at DESC);
+CREATE TABLE IF NOT EXISTS wb_ai_message (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source_refs TEXT,
+  rating TEXT NOT NULL DEFAULT 'none',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_ai_message_conv ON wb_ai_message (conversation_id, created_at);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====
