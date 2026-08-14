@@ -1441,7 +1441,11 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const iconClass = computed(() => {
-  return props.class
+  // 基础类 lf-icon：防止图标在 flex 行内被压缩为 0 宽度（导致“图标不显示”），
+  // 并在行内场景下与相邻文字中线对齐。
+  const base = ['lf-icon']
+  if (props.class) base.push(props.class as never)
+  return base
 })
 
 /* ======================================================================

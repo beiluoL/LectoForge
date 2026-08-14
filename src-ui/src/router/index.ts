@@ -205,7 +205,8 @@ const routes: RouteRecordRaw[] = [
     path: '/diagram',
     name: 'Diagram',
     component: () => import('@/views/Diagram/index.vue'),
-    meta: { layout: 'c', fullscreen: true },
+    // fill：铺满整屏、内部自管滚动，去除四周内边距，让流程图画布占满视口
+    meta: { layout: 'c', fullscreen: true, fill: true },
   },
   {
     // 知识库问答（RAG）：检索文档库 + 康奈尔笔记后由 AI 作答。

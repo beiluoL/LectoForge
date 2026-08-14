@@ -35,9 +35,9 @@
       @nodes-change="onNodesChange"
       @edges-change="onEdgesChange"
       @move-end="onMoveEnd"
-      @pane-context-menu="(e: any) => emit('context-menu', { kind: 'pane', event: e.event, flowPos: screenToFlowCoordinate({ x: e.event.clientX, y: e.event.clientY }) })"
-      @node-context-menu="(e: any) => emit('context-menu', { kind: 'node', event: e.event, nodeId: e.node.id, flowPos: screenToFlowCoordinate({ x: e.event.clientX, y: e.event.clientY }) })"
-      @edge-context-menu="(e: any) => emit('context-menu', { kind: 'edge', event: e.event, edgeId: e.edge.id, flowPos: screenToFlowCoordinate({ x: e.event.clientX, y: e.event.clientY }) })"
+      @pane-context-menu="(e: any) => { e.event.preventDefault(); emit('context-menu', { kind: 'pane', event: e.event, flowPos: screenToFlowCoordinate({ x: e.event.clientX, y: e.event.clientY }) }) }"
+      @node-context-menu="(e: any) => { e.event.preventDefault(); emit('context-menu', { kind: 'node', event: e.event, nodeId: e.node.id, flowPos: screenToFlowCoordinate({ x: e.event.clientX, y: e.event.clientY }) }) }"
+      @edge-context-menu="(e: any) => { e.event.preventDefault(); emit('context-menu', { kind: 'edge', event: e.event, edgeId: e.edge.id, flowPos: screenToFlowCoordinate({ x: e.event.clientX, y: e.event.clientY }) }) }"
     >
       <Background :gap="16" :size="1.4" pattern-color="var(--kb-border)" />
       <Controls position="bottom-right" :show-interactive="false" />

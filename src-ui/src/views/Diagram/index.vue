@@ -51,6 +51,8 @@ watch(
 );
 
 function onContextMenu(payload: CanvasContextMenuPayload) {
+  // 二次保险：确保浏览器原生右键菜单被抑制（与 DiagramCanvas 内的 preventDefault 配合）
+  payload.event.preventDefault?.();
   menuPayload.value = payload;
   menuOpen.value = true;
 }

@@ -1,13 +1,15 @@
 <template>
   <Teleport to="body">
     <Transition name="lf-menu">
-      <div
-        v-if="modelValue"
-        ref="menuEl"
-        class="lf-context-menu"
-        :style="{ left: `${x}px`, top: `${y}px` }"
-        @mouseleave="close"
-      >
+      <div v-if="modelValue" class="lf-context-wrap">
+        <!-- 透明遮罩：覆盖全屏，左键/右键点击空白处即关闭菜单（保证“点击空白处关闭”） -->
+        <div class="lf-context-backdrop" @click="close" @contextmenu.prevent="close" />
+        <div
+          ref="menuEl"
+          class="lf-context-menu"
+          :style="{ left: `${x}px`, top: `${y}px` }"
+          @mouseleave="close"
+        >
         <!-- 画布空白 -->
         <template v-if="payload?.kind === 'pane'">
           <p class="lf-context-title">在此处添加</p>
@@ -57,6 +59,7 @@
             <Icon name="trash-2" size="xs" /> 删除
           </button>
         </template>
+      </div>
       </div>
     </Transition>
   </Teleport>
@@ -174,9 +177,21 @@ function autoLayout() {
 </script>
 
 <style scoped>
+.lf-context-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+.lf-context-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
 .lf-context-menu {
   position: fixed;
   z-index: 100;
+  pointer-events: auto;
   min-width: 172px;
   padding: 6px 0;
   background: var(--kb-popover, #fff);

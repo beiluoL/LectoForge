@@ -708,6 +708,24 @@ svg {
     padding: 0 10px;
     font-size: var(--kb-fs-caption);
   }
+  /* 纯图标按钮：正方形、无水平内边距，保证图标居中且与文字按钮同高 */
+  .kb-btn-icon {
+    width: 34px;
+    padding: 0;
+  }
+  .kb-btn-sm.kb-btn-icon {
+    width: 28px;
+    padding: 0;
+  }
+  /* 图标基础表现：flex 子项中禁止被压缩（否则会缩成 0 宽导致“不显示”），
+     行内时与文字中线对齐；同时作为统一图标尺寸/对齐的锚点。 */
+  .lf-icon {
+    flex-shrink: 0;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   .kb-input {
     display: block;

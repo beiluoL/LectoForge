@@ -6,7 +6,7 @@
         <option value="" disabled>选择流程图…</option>
         <option v-for="d in diagrams" :key="d.id" :value="d.id">{{ d.name }}</option>
       </select>
-      <button class="kb-btn kb-btn-icon" title="删除此流程图" :disabled="!currentDiagramId" @click="onDelete">
+      <button class="kb-btn kb-btn-sm kb-btn-icon" title="删除此流程图" :disabled="!currentDiagramId" @click="onDelete">
         <Icon name="trash-2" size="sm" />
       </button>
     </div>
@@ -16,16 +16,16 @@
     <!-- 文件操作 -->
     <div class="lf-tools">
       <button class="kb-btn kb-btn-sm" title="新建流程图" @click="onNew">
-        <Icon name="file-plus" size="xs" /> 新建
+        <Icon name="file-plus" size="sm" /> 新建
       </button>
       <button class="kb-btn kb-btn-sm" title="立即保存" :disabled="isSaving" @click="onSave">
-        <Icon name="save" size="xs" /> {{ isSaving ? '保存中' : dirty ? '保存*' : '保存' }}
+        <Icon name="save" size="sm" /> {{ isSaving ? '保存中' : dirty ? '保存*' : '保存' }}
       </button>
       <button class="kb-btn kb-btn-sm" title="导出 PNG" @click="emit('export-png')">
-        <Icon name="image" size="xs" /> PNG
+        <Icon name="image" size="sm" /> PNG
       </button>
       <button class="kb-btn kb-btn-sm" title="导出 SVG" @click="store.exportToSVG()">
-        <Icon name="file-image" size="xs" /> SVG
+        <Icon name="file-image" size="sm" /> SVG
       </button>
     </div>
 

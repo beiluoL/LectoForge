@@ -1,44 +1,73 @@
 <template>
-  <aside class="lf-library">
-    <p class="lf-library-title">图形库</p>
-    <p class="lf-library-tip">拖到画布，或点击加到中心</p>
+  <aside
+    class="lf-library"
+    :class="{ 'is-collapsed': collapsed }"
+    :style="{ width: (collapsed ? RAIL_W : width) + 'px' }"
+  >
+    <!-- 收起态：仅留一条竖条 + 展开入口 -->
+    <template v-if="collapsed">
+      <button class="lf-lib-rail-btn" title="展开图形库" @click="collapsed = false">
+        <Icon name="chevron-right" size="sm" />
+      </button>
+    </template>
 
-    <div v-for="grp in groups" :key="grp.key" class="lf-group">
-      <p class="lf-group-title">{{ grp.label }}</p>
-      <div class="lf-group-grid">
-        <button
-          v-for="s in grp.items"
-          :key="s.type"
-          type="button"
-          class="lf-shape-item"
-          draggable="true"
-          :title="`拖入画布，或点击添加：${s.label}`"
-          @dragstart="onDragStart(s.type, $event)"
-          @click="onClick(s.type)"
-        >
-          <svg class="lf-shape-preview" :viewBox="`0 0 ${pw} ${ph}`" width="56" height="36">
-            <template v-if="s.spec.tag === 'rect'">
-              <rect x="1" y="1" :width="pw - 2" :height="ph - 2" :rx="s.spec.rx" fill="#fff" stroke="var(--kb-border)" stroke-width="1.5" />
-            </template>
-            <ellipse
-              v-else-if="s.spec.tag === 'ellipse'"
-              :cx="pw / 2" :cy="ph / 2" :rx="pw / 2 - 1" :ry="ph / 2 - 1"
-              fill="#fff" stroke="var(--kb-border)" stroke-width="1.5"
-            />
-            <polygon
-              v-else-if="s.spec.tag === 'polygon'"
-              :points="s.spec.points"
-              fill="#fff" stroke="var(--kb-border)" stroke-width="1.5" stroke-linejoin="round"
-            />
-            <template v-else>
-              <rect x="1" y="1" :width="pw - 2" :height="ph - 2" rx="2" fill="#fff" stroke="var(--kb-border)" stroke-width="1.5" />
-              <rect x="1" y="1" :width="pw - 2" :height="10" rx="2" fill="var(--kb-border)" />
-            </template>
-          </svg>
-          <span class="lf-shape-name">{{ s.label }}</span>
+    <template v-else>
+      <div class="lf-library-head">
+        <p class="lf-library-title">图形库</p>
+        <button class="lf-lib-collapse" title="收起图形库" @click="collapsed = true">
+          <Icon name="chevron-left" size="sm" />
         </button>
       </div>
-    </div>
+      <p class="lf-library-tip">拖到画布，或点击加到中心</p>
+
+      <div v-for="grp in groups" :key="grp.key" class="lf-group">
+        <button
+          type="button"
+          class="lf-group-head"
+          :title="expanded[grp.key] ? '折叠分组' : '展开分组'"
+          @click="toggleGroup(grp.key)"
+        >
+          <Icon :name="expanded[grp.key] ? 'chevron-down' : 'chevron-right'" size="xs" />
+          <span class="lf-group-label">{{ grp.label }}</span>
+        </button>
+        <div v-show="expanded[grp.key]" class="lf-group-grid">
+          <button
+            v-for="s in grp.items"
+            :key="s.type"
+            type="button"
+            class="lf-shape-item"
+            draggable="true"
+            :title="`拖入画布，或点击添加：${s.label}`"
+            @dragstart="onDragStart(s.type, $event)"
+            @click="onClick(s.type)"
+          >
+            <svg class="lf-shape-preview" :viewBox="`0 0 ${pw} ${ph}`" width="56" height="36">
+              <template v-if="s.spec.tag === 'rect'">
+                <rect x="1" y="1" :width="pw - 2" :height="ph - 2" :rx="s.spec.rx" fill="#fff" stroke="var(--kb-border)" stroke-width="1.5" />
+              </template>
+              <ellipse
+                v-else-if="s.spec.tag === 'ellipse'"
+                :cx="pw / 2" :cy="ph / 2" :rx="pw / 2 - 1" :ry="ph / 2 - 1"
+                fill="#fff" stroke="var(--kb-border)" stroke-width="1.5"
+              />
+              <polygon
+                v-else-if="s.spec.tag === 'polygon'"
+                :points="s.spec.points"
+                fill="#fff" stroke="var(--kb-border)" stroke-width="1.5" stroke-linejoin="round"
+              />
+              <template v-else>
+                <rect x="1" y="1" :width="pw - 2" :height="ph - 2" rx="2" fill="#fff" stroke="var(--kb-border)" stroke-width="1.5" />
+                <rect x="1" y="1" :width="pw - 2" :height="10" rx="2" fill="var(--kb-border)" />
+              </template>
+            </svg>
+            <span class="lf-shape-name">{{ s.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 右缘分隔条：左右拖拽调整宽度（最小/最大限制） -->
+      <div class="lf-lib-resizer" title="拖动调整图形库宽度" @pointerdown.prevent="startResize" />
+    </template>
   </aside>
 </template>
 
@@ -47,10 +76,14 @@
  * 左栏图形库。
  * - 拖拽：dragstart 写入 dataTransfer('application/diagram-shape', type)，由 DiagramCanvas 的
  *   @drop 读取并用 screenToFlowCoordinate 换算落点（已含 viewport 偏移，落点准确）；
- * - 点击：调 store.queueAddAtCenter，由 Canvas watch 在视图中心生成。
+ * - 点击：调 store.queueAddAtCenter，由 Canvas watch 在视图中心生成；
+ * - 分组折叠 / 展开：每个分组标题可点击切换；
+ * - 收起 / 展开：标题栏 « 收起为竖条（仅留展开入口），» 重新展开；
+ * - 宽度调节：右缘分隔条 pointer 拖拽，限定 [MIN_W, MAX_W]；向左拖到阈值以下自动收起。
  */
-import { computed } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
+import Icon from '@/components/ui/Icon.vue';
 import { useDiagramStore } from '@/store/diagram-store';
 import { buildShape, SHAPES, type ShapeDef } from '../shapeDefs';
 
@@ -58,6 +91,20 @@ const store = useDiagramStore();
 
 const pw = 56;
 const ph = 36;
+
+const MIN_W = 180;
+const MAX_W = 360;
+const RAIL_W = 28;
+// 拖拽宽度小于该值即判定为「向左收起」
+const COLLAPSE_THRESHOLD = 150;
+
+const width = ref(240);
+const collapsed = ref(false);
+const expanded = reactive<Record<string, boolean>>({
+  basic: true,
+  flow: true,
+  uml: true,
+});
 
 const groups = computed(() => {
   const map: Record<string, { key: string; label: string; items: (ShapeDef & { spec: ReturnType<typeof buildShape> })[] }> = {
@@ -69,6 +116,10 @@ const groups = computed(() => {
   return Object.values(map);
 });
 
+function toggleGroup(key: string) {
+  expanded[key] = !expanded[key];
+}
+
 function onDragStart(type: string, e: DragEvent) {
   e.dataTransfer?.setData('application/diagram-shape', type);
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
@@ -77,14 +128,45 @@ function onDragStart(type: string, e: DragEvent) {
 function onClick(type: string) {
   store.queueAddAtCenter(type);
 }
+
+// ===================== 分隔条拖拽调宽 =====================
+let resizing = false;
+let startX = 0;
+let startW = 0;
+
+function startResize(e: PointerEvent) {
+  resizing = true;
+  startX = e.clientX;
+  startW = width.value;
+  window.addEventListener('pointermove', onResizeMove);
+  window.addEventListener('pointerup', stopResize);
+}
+
+function onResizeMove(e: PointerEvent) {
+  if (!resizing) return;
+  const next = Math.min(MAX_W, Math.max(MIN_W, startW + (e.clientX - startX)));
+  if (next < COLLAPSE_THRESHOLD) {
+    collapsed.value = true;
+    stopResize();
+    return;
+  }
+  width.value = next;
+}
+
+function stopResize() {
+  resizing = false;
+  window.removeEventListener('pointermove', onResizeMove);
+  window.removeEventListener('pointerup', stopResize);
+}
 </script>
 
 <style scoped>
 .lf-library {
-  width: 240px;
+  position: relative;
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--kb-muted, #f8fafc);
   border-right: 1px solid var(--kb-border);
   padding: 12px;
@@ -93,10 +175,56 @@ function onClick(type: string) {
 :global(.dark) .lf-library {
   background: var(--kb-card, #1f1f1f);
 }
+/* 收起态：竖条，居中显示展开入口 */
+.lf-library.is-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  cursor: default;
+}
+.lf-lib-rail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 32px;
+  border: 1px solid var(--kb-border);
+  border-radius: 6px;
+  background: var(--kb-background, #fff);
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+}
+.lf-lib-rail-btn:hover {
+  color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary, #3b6fe0);
+}
+.lf-library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
 .lf-library-title {
   font-size: 13px;
   font-weight: 600;
   margin: 0;
+  color: var(--kb-foreground);
+}
+.lf-lib-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+}
+.lf-lib-collapse:hover {
+  background: var(--kb-muted, #e9eef5);
   color: var(--kb-foreground);
 }
 .lf-library-tip {
@@ -107,11 +235,26 @@ function onClick(type: string) {
 .lf-group {
   margin-bottom: 14px;
 }
-.lf-group-title {
+.lf-group-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 6px;
+  margin: 0 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kb-muted-foreground);
+  cursor: pointer;
+  text-align: left;
+}
+.lf-group-head:hover {
+  background: var(--kb-muted, #e9eef5);
+}
+.lf-group-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--kb-muted-foreground);
-  margin: 0 0 8px;
 }
 .lf-group-grid {
   display: grid;
@@ -144,5 +287,28 @@ function onClick(type: string) {
   font-size: 11px;
   color: var(--kb-foreground);
   text-align: center;
+}
+/* 右缘分隔条：拖拽调宽 */
+.lf-lib-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+}
+.lf-lib-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.12s;
+}
+.lf-lib-resizer:hover::after {
+  background: var(--kb-primary, #3b6fe0);
 }
 </style>
