@@ -4,7 +4,7 @@
 // - graph 实例【严禁】模块级单例 export，必须经此 composable 返回给组件消费，
 //   避免多处共享导致副作用 / 内存泄漏。
 // - 生命周期绑定 onMounted / onBeforeUnmount；卸载必须 graph.dispose()。
-import { onMounted, onBeforeUnmount, ref, shallowRef, type Ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, shallowRef, watch, type Ref } from 'vue'
 import { Graph } from '@antv/x6'
 import { History } from '@antv/x6-plugin-history'
 import { Keyboard } from '@antv/x6-plugin-keyboard'
@@ -19,6 +19,7 @@ import { createGraphOptions, HISTORY_STACK_SIZE } from './graphConfig'
 import { registerVueShapes } from './vue-shapes'
 import { registerDiagramShapes } from './shapeFactory'
 import { setupCellEditing } from './useCellEditing'
+import { setupHistoryBindings } from './useHistory'
 
 export interface UseGraphParams {
   containerRef: Ref<HTMLElement | null>
@@ -30,6 +31,10 @@ export function useGraph(params: UseGraphParams) {
   // 用 shallowRef：Graph 实例是可变对象，无需深度响应，避免 X6 内部频繁触发 Vue 响应式开销。
   const graph = shallowRef<Graph | null>(null)
   const graphReady = ref(false)
+  // 撤销/重做状态（X6 History 插件驱动，工具栏据此置灰按钮 / 显示步数）
+  const canUndo = ref(false)
+  const canRedo = ref(false)
+  const historySize = ref(0)
   let cleanupEditing: (() => void) | null = null
 
   onMounted(() => {
@@ -99,6 +104,14 @@ export function useGraph(params: UseGraphParams) {
     // ===== 双击编辑节点 / 边标签 =====
     cleanupEditing = setupCellEditing(g, containerRef.value)
 
+    // ===== 撤销/重做/复制/粘贴/删除 快捷键（History + Clipboard 插件接管）=====
+    const hb = setupHistoryBindings(g)
+    watch([hb.canUndo, hb.canRedo, hb.historySize], ([cu, cr, hs]) => {
+      canUndo.value = cu
+      canRedo.value = cr
+      historySize.value = hs
+    })
+
     graph.value = g
     graphReady.value = true
   })
@@ -110,5 +123,5 @@ export function useGraph(params: UseGraphParams) {
     graphReady.value = false
   })
 
-  return { graph, graphReady }
+  return { graph, graphReady, canUndo, canRedo, historySize }
 }
