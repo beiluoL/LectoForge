@@ -53,6 +53,13 @@
       <label class="lf-block-label">文本</label>
       <input type="text" class="kb-input" :value="edge.label || ''" @change="setEdge('label', $event)" />
 
+      <label class="lf-block-label">线型</label>
+      <select class="kb-select" :value="edge.data?.lineType || 'smoothstep'" @change="setEdgeLineType">
+        <option value="smoothstep">折线</option>
+        <option value="bezier">曲线</option>
+        <option value="straight">直线</option>
+      </select>
+
       <label class="lf-block-label">线宽</label>
       <input type="number" min="0.5" step="0.5" class="kb-input" :value="edge.data?.lineWidth || 1.6" @change="setEdge('lineWidth', $event)" />
 
@@ -116,6 +123,10 @@ function setEdgeColor(field: string, e: Event, history: boolean) {
   if (!edge.value) return;
   const val = (e.target as HTMLInputElement).value;
   store.patchEdge(edge.value.id, { [field]: val }, { history });
+}
+function setEdgeLineType(e: Event) {
+  if (!edge.value) return;
+  store.patchEdge(edge.value.id, { lineType: (e.target as HTMLSelectElement).value });
 }
 function setEdgeFlag(field: 'dashed' | 'arrow', e: Event) {
   if (!edge.value) return;

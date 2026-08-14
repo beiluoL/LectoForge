@@ -16,6 +16,7 @@
  */
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import { MarkerType } from '@vue-flow/core';
 import dagre from '@dagrejs/dagre';
 
 import {
@@ -123,13 +124,17 @@ export const useDiagramStore = defineStore('diagram', () => {
     if (typeof d.dashed === 'boolean') data.dashed = d.dashed;
     if (typeof d.arrow === 'boolean') data.arrow = d.arrow;
     if (typeof d.color === 'string') data.color = d.color;
+    if (typeof d.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(d.lineType as string)) {
+      data.lineType = d.lineType;
+    }
     return {
       id: String(e?.id ?? ''),
       source: String(e?.source ?? ''),
       target: String(e?.target ?? ''),
       sourceHandle: e?.sourceHandle ?? undefined,
       targetHandle: e?.targetHandle ?? undefined,
-      type: e?.type ?? null,
+      // 连线统一为自定义类型，真实线型存 data.lineType（由 CustomEdge 渲染）
+      type: 'custom',
       label: e?.label == null ? null : String(e.label),
       data: data as DiagramEdge['data'],
     };
@@ -141,6 +146,16 @@ export const useDiagramStore = defineStore('diagram', () => {
       nodes: nodes.value.map(cleanNode),
       edges: edges.value.map(cleanEdge),
     };
+  }
+
+  /**
+   * 由 edge.data 推出 VueFlow 的 markerEnd 配置（箭头对象）。
+   * VueFlow 会据此生成 marker 并把解析后的 url 字符串传给 CustomEdge 的 props.markerEnd，
+   * 再由 BaseEdge 渲染。落库不需要此字段（由 data.arrow/color 派生），故仅运行时挂载。
+   */
+  function edgeMarker(data: any): { type: MarkerType; color: string; width: number; height: number } | undefined {
+    if (!data || data.arrow === false) return undefined;
+    return { type: MarkerType.ArrowClosed, color: String(data?.color || '#475569'), width: 18, height: 18 };
   }
 
   function toDiagramData(): DiagramData {
@@ -233,13 +248,17 @@ export const useDiagramStore = defineStore('diagram', () => {
         target: String(e.target),
         sourceHandle: e.sourceHandle ?? undefined,
         targetHandle: e.targetHandle ?? undefined,
-        type: e.type || edgeLineType.value,
+        type: 'custom',
         label: e.label == null ? undefined : String(e.label),
+        markerEnd: edgeMarker(e.data),
         data: {
           ...(typeof e.data?.lineWidth === 'number' ? { lineWidth: e.data.lineWidth } : {}),
           ...(typeof e.data?.dashed === 'boolean' ? { dashed: e.data.dashed } : {}),
           ...(typeof e.data?.arrow === 'boolean' ? { arrow: e.data.arrow } : {}),
           ...(typeof e.data?.color === 'string' ? { color: e.data.color } : {}),
+          ...(typeof e.data?.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(e.data.lineType)
+            ? { lineType: e.data.lineType }
+            : {}),
         },
       }));
       viewport.value = d.data.viewport || { x: 0, y: 0, zoom: 1 };
@@ -403,7 +422,15 @@ export const useDiagramStore = defineStore('diagram', () => {
     const e = edges.value.find((x: any) => x.id === id);
     if (!e) return;
     if (patch.label !== undefined) e.label = String(patch.label);
-    if (patch.lineWidth !== undefined || patch.dashed !== undefined || patch.arrow !== undefined || patch.color !== undefined) {
+    if (patch.lineType !== undefined) {
+      e.data = { ...(e.data || {}), lineType: String(patch.lineType) };
+    }
+    if (
+      patch.lineWidth !== undefined ||
+      patch.dashed !== undefined ||
+      patch.arrow !== undefined ||
+      patch.color !== undefined
+    ) {
       e.data = {
         ...(e.data || {}),
         ...(patch.lineWidth !== undefined ? { lineWidth: Number(patch.lineWidth) } : {}),
@@ -411,6 +438,7 @@ export const useDiagramStore = defineStore('diagram', () => {
         ...(patch.arrow !== undefined ? { arrow: Boolean(patch.arrow) } : {}),
         ...(patch.color !== undefined ? { color: String(patch.color) } : {}),
       };
+      e.markerEnd = edgeMarker(e.data);
     }
     touch();
   }

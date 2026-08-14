@@ -47,6 +47,9 @@
         <!-- 边 -->
         <template v-if="payload?.kind === 'edge'">
           <p class="lf-context-title">连线操作</p>
+          <button type="button" class="lf-context-item" @click="editEdgeText">
+            <Icon name="pencil" size="xs" /> 编辑文字
+          </button>
           <button type="button" class="lf-context-item" @click="fitView">
             <Icon name="maximize" size="xs" /> 适应屏幕
           </button>
@@ -139,6 +142,14 @@ function editText() {
   if (!id) return;
   store.setSelection(id, null);
   window.dispatchEvent(new CustomEvent('diagram:edit-node', { detail: { id } }));
+  close();
+}
+
+function editEdgeText() {
+  const id = props.payload?.edgeId;
+  if (!id) return;
+  store.setSelection(null, id);
+  window.dispatchEvent(new CustomEvent('diagram:edit-edge', { detail: { id } }));
   close();
 }
 

@@ -2,13 +2,17 @@
   <div
     ref="canvasEl"
     class="lf-canvas"
+    :class="{ 'is-drag-over': isDragOver }"
     @drop="onDrop"
-    @dragover.prevent
+    @dragover.prevent="onDragOver"
+    @dragenter.prevent="onDragEnter"
+    @dragleave="onDragLeave"
   >
     <VueFlow
       v-model:nodes="nodes"
       v-model:edges="edges"
       :node-types="nodeTypes"
+      :edge-types="edgeTypes"
       :connection-mode="ConnectionMode.Loose"
       :delete-key-code="null"
       :default-edge-options="defaultEdgeOptions"
@@ -20,6 +24,7 @@
       @connect="onConnect"
       @node-click="onNodeClick"
       @edge-click="onEdgeClick"
+      @edge-double-click="onEdgeDoubleClick"
       @pane-click="onPaneClick"
       @node-drag-stop="onNodeDragStop"
       @nodes-change="onNodesChange"
@@ -80,6 +85,7 @@ import { notify } from '@/utils/toast';
 import { SHAPES } from '../shapeDefs';
 
 import CustomNode from './CustomNode.vue';
+import CustomEdge from './CustomEdge.vue';
 
 const store = useDiagramStore();
 const { nodes, edges, edgeLineType, pendingShape, isEditing, currentDiagramId, viewport } = storeToRefs(store);
@@ -90,12 +96,14 @@ const { addEdges, screenToFlowCoordinate, fitView, setViewport, getViewport, get
 // Object.fromEntries 的返回值 index 签名与 VueFlow 的 NodeTypes 不完全匹配，这里收窄为 any。
 const nodeTypes = Object.fromEntries(SHAPES.map((s) => [s.type, markRaw(CustomNode)])) as any;
 
+// 连线统一走自定义 CustomEdge：样式（线型/线宽/虚线/箭头/线色/文本）由 edge.data 驱动，
+// 在 CustomEdge 内部自行计算 path/style/markerEnd，无需父层装饰，也避免深监听无限循环。
+const edgeTypes = { custom: markRaw(CustomEdge) } as any;
+
 const canvasEl = ref<HTMLElement | null>(null);
 
 const defaultEdgeOptions = computed(() => ({
-  type: edgeLineType.value,
-  markerEnd: MarkerType.ArrowClosed,
-  style: { stroke: 'var(--kb-muted-foreground)', strokeWidth: 1.6 },
+  type: 'custom' as const,
 }));
 
 let seq = 0;
@@ -103,27 +111,6 @@ function newId(prefix: string): string {
   seq += 1;
   return `${prefix}_${Date.now().toString(36)}${seq.toString(36)}`;
 }
-
-// ===================== 边视觉装饰 =====================
-
-function decorateEdge(e: any) {
-  const d = e.data || {};
-  const color = String(d.color || '#475569');
-  e.style = {
-    stroke: color,
-    strokeWidth: Number(d.lineWidth || 1.6),
-    ...(d.dashed ? { strokeDasharray: '6 4' } : {}),
-  };
-  e.markerEnd = d.arrow === false ? undefined : { type: MarkerType.ArrowClosed, color, width: 18, height: 18 };
-}
-
-watch(
-  edges,
-  (list) => {
-    list.forEach(decorateEdge);
-  },
-  { deep: true },
-);
 
 // ===================== 连接 / 拖放 / 选择 =====================
 
@@ -145,8 +132,9 @@ function onConnect(params: Connection) {
     {
       ...params,
       id: newId('e'),
-      type: edgeLineType.value,
-      data: { arrow: true, lineWidth: 1.6, dashed: false, color: '#475569' },
+      type: 'custom',
+      data: { lineType: edgeLineType.value, arrow: true, lineWidth: 1.6, dashed: false, color: '#475569' },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#475569', width: 18, height: 18 },
     },
   ]);
   store.touch();
@@ -154,10 +142,29 @@ function onConnect(params: Connection) {
 
 function onDrop(e: DragEvent) {
   e.preventDefault();
+  isDragOver.value = false;
   const type = e.dataTransfer?.getData('application/diagram-shape');
   if (!type) return;
   const position = screenToFlowCoordinate({ x: e.clientX, y: e.clientY });
   store.addNode(type as any, position);
+}
+
+// 拖放高亮：进入/悬停画布时显示落点提示环，离开或落下后取消
+const isDragOver = ref(false);
+function onDragOver() {
+  isDragOver.value = true;
+}
+function onDragEnter() {
+  isDragOver.value = true;
+}
+function onDragLeave(e: DragEvent) {
+  // 只有真正离开画布容器（而非移到子元素）才取消高亮
+  const current = e.currentTarget as HTMLElement | null;
+  if (current && !current.contains(e.relatedTarget as Node)) isDragOver.value = false;
+}
+
+function onEdgeDoubleClick(e: { edge: { id: string } }) {
+  window.dispatchEvent(new CustomEvent('diagram:edit-edge', { detail: { id: e.edge.id } }));
 }
 
 function onNodeClick({ node }: { node: { id: string } }) {
@@ -329,6 +336,16 @@ defineExpose({ fitNow, exportPng });
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+.lf-canvas.is-drag-over::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed var(--kb-primary, #3b6fe0);
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.8;
 }
 .lf-empty {
   position: absolute;

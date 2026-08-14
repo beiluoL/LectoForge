@@ -108,6 +108,9 @@ function sanitizeData(input: unknown): DiagramData {
             ...(typeof rawData.dashed === 'boolean' ? { dashed: rawData.dashed } : {}),
             ...(typeof rawData.arrow === 'boolean' ? { arrow: rawData.arrow } : {}),
             ...(typeof rawData.color === 'string' ? { color: rawData.color } : {}),
+            ...(typeof rawData.lineType === 'string' && ['smoothstep', 'bezier', 'straight'].includes(rawData.lineType as string)
+              ? { lineType: rawData.lineType }
+              : {}),
           },
         };
       })
