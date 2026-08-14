@@ -30,6 +30,7 @@ import type { DiagramData, DiagramDetail, DiagramEdge, DiagramNode, DiagramPage,
 import { notify } from '@/utils/toast';
 
 import { SHAPE_BY_TYPE, shapeOf, type DiagramShapeType } from '@/views/Diagram/shapeDefs';
+import type { DiagramTemplate } from '@/views/Diagram/templates';
 import type { BrushState, EdgeLineType, SelectionState } from '@/views/Diagram/types';
 
 /** 防抖保存间隔（ms） */
@@ -959,6 +960,57 @@ export const useDiagramStore = defineStore('diagram', () => {
     touch();
   }
 
+  // ===== 模板库 =====
+  /**
+   * 一键套用预置骨架：用 newId 生成真实节点/边，模板 ref→realId 映射，
+   * 替换当前页内容（带一条历史，可撤销）。套用后由 index.vue 调 onFit 自适应视口。
+   * 若当前页非空，调用方应先 confirmDialog 询问是否替换，避免误清用户已有内容。
+   */
+  function applyTemplate(tpl: DiagramTemplate) {
+    pushHistory();
+    const idMap = new Map<string, string>();
+    const newNodes = tpl.nodes.map((tn) => {
+      const realId = newId('n');
+      idMap.set(tn.ref, realId);
+      const def = shapeOf(tn.type);
+      return {
+        id: realId,
+        type: tn.type,
+        position: { x: Math.round(tn.x), y: Math.round(tn.y) },
+        data: {
+          label: tn.label,
+          fill: brush.value.fill,
+          stroke: brush.value.stroke,
+          textColor: brush.value.textColor,
+          width: tn.width ?? def.defaultWidth,
+          height: tn.height ?? def.defaultHeight,
+        },
+      };
+    });
+    const newEdges = tpl.edges
+      .map((te) => {
+        const source = idMap.get(te.from);
+        const target = idMap.get(te.to);
+        if (!source || !target) return null;
+        return {
+          id: newId('e'),
+          source,
+          target,
+          type: 'custom' as const,
+          label: te.label == null ? null : te.label,
+          data: { lineType: edgeLineType.value, arrow: true, lineWidth: 1.6, dashed: false, color: '#475569' },
+        };
+      })
+      .filter(Boolean) as any[];
+    nodes.value = newNodes;
+    edges.value = newEdges;
+    selection.value = { nodeId: null, edgeId: null };
+    selectedNodeIds.value = [];
+    selectedEdgeIds.value = [];
+    dirty.value = true;
+    touch();
+  }
+
   // ===== 导出 =====
   /**
    * 导出 SVG（基于当前 nodes/edges 的几何信息重新绘制，不依赖画布 DOM 像素）。
@@ -1220,6 +1272,7 @@ export const useDiagramStore = defineStore('diagram', () => {
     loadDiagram,
     createNew,
     addNode,
+    applyTemplate,
     queueAddAtCenter,
     consumePending,
     patchNode,

@@ -14,6 +14,9 @@
       :node-types="nodeTypes"
       :edge-types="edgeTypes"
       :connection-mode="ConnectionMode.Loose"
+      :connection-line-type="ConnectionLineType.SmoothStep"
+      :connection-line-style="{ stroke: 'var(--kb-primary, #3b6fe0)', strokeWidth: 2 }"
+      :connection-radius="28"
       :delete-key-code="null"
       :default-edge-options="defaultEdgeOptions"
       :min-zoom="0.2"
@@ -89,6 +92,7 @@ import { storeToRefs } from 'pinia';
 
 import {
   ConnectionMode,
+  ConnectionLineType,
   MarkerType,
   VueFlow,
   useVueFlow,

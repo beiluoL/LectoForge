@@ -1,6 +1,6 @@
 <template>
   <div class="lf-root">
-    <DiagramToolbar @export-png="onExportPng" @fit="onFit" @auto-layout="onAutoLayout" @ai-generate="aiModalOpen = true" />
+    <DiagramToolbar @export-png="onExportPng" @fit="onFit" @auto-layout="onAutoLayout" @ai-generate="aiModalOpen = true" @open-template="templateModalOpen = true" />
     <div class="lf-body">
       <DiagramLibrary
         @shape-drag-start="onShapeDragStart"
@@ -15,6 +15,7 @@
     <DiagramBottomBar />
     <DiagramContextMenu v-model="menuOpen" :payload="menuPayload" @fit="onFit" />
     <DiagramAiModal v-if="aiModalOpen" @close="aiModalOpen = false" @generated="onAiGenerated" />
+    <DiagramTemplateModal v-if="templateModalOpen" @close="templateModalOpen = false" @applied="onTemplateApplied" />
 
     <!-- 图形库拖拽时的浮动预览 -->
     <div v-if="ghost.show" class="lf-drag-ghost" :style="{ left: ghost.x + 'px', top: ghost.y + 'px' }">{{ ghost.label }}</div>
@@ -42,6 +43,9 @@ import DiagramProperties from './components/DiagramProperties.vue';
 import DiagramToolbar from './components/DiagramToolbar.vue';
 import DiagramBottomBar from './components/DiagramBottomBar.vue';
 import DiagramAiModal from './components/DiagramAiModal.vue';
+import { confirmDialog } from '@/utils/toast';
+import type { DiagramTemplate } from './templates';
+import DiagramTemplateModal from './components/DiagramTemplateModal.vue';
 
 const store = useDiagramStore();
 const centerEl = ref<HTMLElement | null>(null);
@@ -50,6 +54,7 @@ const canvasRef = ref<InstanceType<typeof DiagramCanvas> | null>(null);
 const menuOpen = ref(false);
 const menuPayload = ref<CanvasContextMenuPayload | null>(null);
 const aiModalOpen = ref(false);
+const templateModalOpen = ref(false);
 
 // 图形库指针拖拽的浮动预览状态（由 DiagramLibrary 的拖拽事件驱动）
 const ghost = reactive({ show: false, x: 0, y: 0, label: '' });
@@ -115,6 +120,20 @@ function onAutoLayout() {
 
 function onAiGenerated(payload: { nodes: any[]; edges: any[]; layout: 'TB' | 'LR' }) {
   store.loadGenerated(payload.nodes, payload.edges, payload.layout);
+  onFit();
+}
+
+async function onTemplateApplied(tpl: DiagramTemplate) {
+  // 当前页非空时确认替换，避免误清用户已有内容
+  if (store.nodeCount > 0) {
+    const ok = await confirmDialog('套用模板会替换当前画布内容，确定继续？');
+    if (!ok) {
+      templateModalOpen.value = false;
+      return;
+    }
+  }
+  store.applyTemplate(tpl);
+  templateModalOpen.value = false;
   onFit();
 }
 

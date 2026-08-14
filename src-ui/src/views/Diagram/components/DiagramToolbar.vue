@@ -27,6 +27,9 @@
       <button class="kb-btn kb-btn-sm" v-tip="'导出 SVG'" @click="store.exportToSVG()">
         <Icon name="file-image" size="sm" /> SVG
       </button>
+      <button class="kb-btn kb-btn-sm lf-tpl-btn" v-tip="'模板库'" @click="emit('open-template')">
+        <Icon name="layout-template" size="sm" /> 模板
+      </button>
     </div>
 
     <span class="lf-sep" />
@@ -165,7 +168,7 @@ import Icon from '@/components/ui/Icon.vue';
 import { useDiagramStore } from '@/store/diagram-store';
 import { confirmDialog } from '@/utils/toast';
 
-const emit = defineEmits<{ (e: 'export-png'): void; (e: 'fit'): void; (e: 'auto-layout'): void; (e: 'ai-generate'): void }>();
+const emit = defineEmits<{ (e: 'export-png'): void; (e: 'fit'): void; (e: 'auto-layout'): void; (e: 'ai-generate'): void; (e: 'open-template'): void }>();
 
 const store = useDiagramStore();
 const { currentName, edgeLineType, brush, selectedNode, canUndo, canRedo, isSaving, dirty, diagrams, currentDiagramId, nodeCount, hasSelection, selectedNodeIds, penMode, penBrush } =
@@ -363,6 +366,9 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
 }
 .lf-ai-btn {
   color: var(--kb-primary, #3b6fe0);
+}
+.lf-tpl-btn {
+  color: var(--kb-foreground);
 }
 .kb-btn.is-active {
   background: var(--kb-primary, #3b6fe0);

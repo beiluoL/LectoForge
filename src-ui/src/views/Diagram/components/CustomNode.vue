@@ -237,9 +237,20 @@ onUnmounted(() => {
   stroke-width: 2.5;
 }
 .lf-handle {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   background: #fff;
   border: 1.5px solid var(--kb-primary, #3b6fe0);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.12s ease, background 0.12s ease;
+}
+/* ProcessOn / draw.io 风格：连接点默认隐藏，悬停或选中节点时淡入，避免画布杂乱 */
+.lf-node:hover .lf-handle,
+.lf-node.is-selected .lf-handle {
+  opacity: 1;
+}
+.lf-handle:hover {
+  background: var(--kb-primary, #3b6fe0);
+  transform: scale(1.25);
 }
 </style>

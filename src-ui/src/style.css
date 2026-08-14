@@ -751,6 +751,12 @@ svg {
     transform: translateY(0);
   }
 
+  /* 连线进行中的临时连接线（hover 拖拽创建连线时显示），与主色一致 */
+  .vue-flow__connection-path {
+    stroke: var(--kb-primary, #3b6fe0);
+    stroke-width: 2;
+  }
+
   .kb-input {
     display: block;
     width: 100%;
