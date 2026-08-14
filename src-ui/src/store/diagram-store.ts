@@ -86,6 +86,12 @@ export const useDiagramStore = defineStore('diagram', () => {
   /** 复制剪贴板（内存级，非系统剪贴板） */
   const clipboard = ref<{ nodes: any[]; edges: any[] } | null>(null);
 
+  // ===== 自由画笔 =====
+  /** 画笔模式：开启时画布禁用 VueFlow 默认选择/拖拽，改用 overlay 自由绘制 */
+  const penMode = ref(false);
+  /** 画笔笔刷（当前笔画颜色与线宽） */
+  const penBrush = ref<{ color: string; width: number }>({ color: '#1e293b', width: 3 });
+
   /** 撤销 / 重做：快照式历史（VueFlow core 无内建 history） */
   const past = ref<string[]>([]);
   const future = ref<string[]>([]);
@@ -220,7 +226,7 @@ export const useDiagramStore = defineStore('diagram', () => {
       : { x: 0, y: 0, zoom: 1 };
   }
 
-  /** 把任意 data（可能旧单页）规范成多页结构，旧图无需迁移即可打开 */
+  /** 把 data 规范成多页结构；非多页（损坏/空）一律回退空白多页（新功能，不做单页迁移） */
   function normalizePages(d: any): { currentPageId: string; pages: DiagramPage[] } {
     if (d && Array.isArray(d.pages) && d.pages.length) {
       const pages = d.pages.map(normalizePage);
@@ -229,14 +235,6 @@ export const useDiagramStore = defineStore('diagram', () => {
           ? d.currentPageId
           : pages[0].id;
       return { currentPageId, pages };
-    }
-    if (d && (Array.isArray(d.nodes) || Array.isArray(d.edges))) {
-      return {
-        currentPageId: 'p1',
-        pages: [
-          normalizePage({ id: 'p1', name: '页面 1', nodes: d.nodes || [], edges: d.edges || [], viewport: d.viewport }),
-        ],
-      };
     }
     const now = new Date().toISOString();
     return {
@@ -580,7 +578,9 @@ export const useDiagramStore = defineStore('diagram', () => {
       patch.stroke !== undefined ||
       patch.textColor !== undefined ||
       patch.width !== undefined ||
-      patch.height !== undefined
+      patch.height !== undefined ||
+      patch.pathColor !== undefined ||
+      patch.strokeWidth !== undefined
     ) {
       n.data = {
         ...(n.data || {}),
@@ -590,6 +590,8 @@ export const useDiagramStore = defineStore('diagram', () => {
         ...(patch.textColor !== undefined ? { textColor: String(patch.textColor) } : {}),
         ...(patch.width !== undefined ? { width: Number(patch.width) } : {}),
         ...(patch.height !== undefined ? { height: Number(patch.height) } : {}),
+        ...(patch.pathColor !== undefined ? { pathColor: String(patch.pathColor) } : {}),
+        ...(patch.strokeWidth !== undefined ? { strokeWidth: Number(patch.strokeWidth) } : {}),
       };
     }
     touch();
@@ -755,9 +757,9 @@ export const useDiagramStore = defineStore('diagram', () => {
   }
 
   // ===== 自动布局 =====
-  function autoLayout(dir: 'TB' | 'LR' = 'TB') {
+  function autoLayout(dir: 'TB' | 'LR' = 'TB', opts?: { history?: boolean }) {
     if (!nodes.value.length) return;
-    pushHistory();
+    if (opts?.history !== false) pushHistory();
     const g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: dir, nodesep: 40, ranksep: 60, marginx: 20, marginy: 20 });
     g.setDefaultEdgeLabel(() => ({}));
@@ -858,6 +860,102 @@ export const useDiagramStore = defineStore('diagram', () => {
     nodes.value = (nodes.value as any[]).map((n) =>
       selSet.has(n.id) && next.has(n.id) ? { ...n, position: next.get(n.id) } : n,
     );
+    touch();
+  }
+
+  // ===== AI 生成 =====
+  /**
+   * 用后端返回的图结构（无坐标）覆盖当前页，再用 dagre 自动布局摆位。
+   * 关键：AI 给的节点没有坐标，必须先 autoLayout 算出位置再渲染，否则全堆在 (0,0)。
+   * 仅记一条历史（autoLayout 不再重复记），撤销可一次性回到生成前的画布。
+   */
+  function loadGenerated(
+    aiNodes: { id: string; label: string; type?: string | null }[],
+    aiEdges: { from: string; to: string; label?: string | null }[],
+    layout: 'TB' | 'LR' = 'TB',
+  ) {
+    if (!Array.isArray(aiNodes) || !aiNodes.length) return;
+    const newNodes = aiNodes
+      .filter((a) => a && String(a.id) && String(a.label ?? '').trim())
+      .map((a) => {
+        const t = a.type && SHAPE_BY_TYPE[a.type] ? (a.type as DiagramShapeType) : 'process';
+        const def = shapeOf(t);
+        return {
+          id: String(a.id),
+          type: t,
+          position: { x: 0, y: 0 },
+          data: {
+            label: String(a.label).replace(/[\r\n]+/g, ' ').trim(),
+            fill: brush.value.fill,
+            stroke: brush.value.stroke,
+            textColor: brush.value.textColor,
+            width: def.defaultWidth,
+            height: def.defaultHeight,
+          },
+        };
+      });
+    const idset = new Set(newNodes.map((n) => n.id));
+    const newEdges = (Array.isArray(aiEdges) ? aiEdges : [])
+      .filter((e) => e && idset.has(String(e.from)) && idset.has(String(e.to)) && String(e.from) !== String(e.to))
+      .map((e) => ({
+        id: newId('e'),
+        source: String(e.from),
+        target: String(e.to),
+        type: 'custom',
+        label: e.label == null ? null : String(e.label),
+        data: { lineType: edgeLineType.value, arrow: true, lineWidth: 1.6, dashed: false, color: '#475569' },
+      }));
+    pushHistory();
+    nodes.value = newNodes;
+    edges.value = newEdges;
+    // 旧选中项已不存在，清空选择避免画布残留高亮/属性面板串台
+    selection.value = { nodeId: null, edgeId: null };
+    selectedNodeIds.value = [];
+    selectedEdgeIds.value = [];
+    autoLayout(layout, { history: false });
+    touch();
+  }
+
+  // ===== 自由画笔 =====
+  /** 切换画笔模式（开启时清空选择，避免误触属性面板） */
+  function setPenMode(v: boolean) {
+    penMode.value = v;
+    if (v) setSelection(null, null);
+  }
+
+  /** 把一串画布坐标点转成一个 drawing 节点（SVG path 相对坐标，随节点拖动） */
+  function addDrawing(rawPoints: { x: number; y: number }[], color: string, width: number) {
+    if (!Array.isArray(rawPoints) || rawPoints.length < 2) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const p of rawPoints) {
+      if (typeof p?.x !== 'number' || typeof p?.y !== 'number') continue;
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+    if (!Number.isFinite(minX)) return;
+    const w = Math.max(2, Math.ceil(maxX - minX));
+    const h = Math.max(2, Math.ceil(maxY - minY));
+    const rel = rawPoints.map((p) => ({ x: Math.round(p.x - minX), y: Math.round(p.y - minY) }));
+    const d = rel.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ');
+    const node = {
+      id: newId('d'),
+      type: 'drawing',
+      position: { x: Math.round(minX), y: Math.round(minY) },
+      style: { width: `${w}px`, height: `${h}px` },
+      data: {
+        path: d,
+        points: JSON.stringify(rel),
+        pathColor: color,
+        strokeWidth: width,
+      },
+    };
+    pushHistory();
+    nodes.value = [...nodes.value, node];
     touch();
   }
 
@@ -1109,6 +1207,9 @@ export const useDiagramStore = defineStore('diagram', () => {
     // 多页
     pages,
     currentPageId,
+    // 画笔
+    penMode,
+    penBrush,
     // derived
     nodeCount,
     selectedNode,
@@ -1148,5 +1249,9 @@ export const useDiagramStore = defineStore('diagram', () => {
     removePage,
     movePage,
     exportToSVG,
+    // AI 生成 / 画笔
+    loadGenerated,
+    setPenMode,
+    addDrawing,
   };
 });

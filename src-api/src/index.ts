@@ -35,6 +35,7 @@ import interview from './routes/interview';
 import qaBank from './routes/qaBank';
 import models from './routes/models';
 import diagram from './routes/diagram';
+import { aiDiagramRoutes } from './routes/ai-diagram';
 import ttsVoices from './routes/ttsVoices';
 import insight from './routes/insight';
 import * as insightService from './services/insightService';
@@ -192,6 +193,10 @@ app.register(qaBank, { prefix: '/api' });
 app.register(models, { prefix: '/api' });
 app.register(diagram, { prefix: '/api' });
 app.register(ttsVoices, { prefix: '/api' });
+
+/* ===== AI 流程图生成（自然语言 → 流程图结构，坐标由前端 dagre 自动布局）=====
+ * 挂在 /api/ai 下与既有 AI 能力同域；未配置 Key 时返回示例骨架而非报错。 */
+app.register(aiDiagramRoutes, { prefix: '/api/ai' });
 
 /* ===== 主动智能：每日学习日报（聚合 + AI 文案 + 薄弱点闪卡联动）=====
  * 端点 /insight/daily-report（只读聚合）、/insight/daily-report/generate（AI 文案）、

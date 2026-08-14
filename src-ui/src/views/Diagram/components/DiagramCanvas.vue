@@ -21,6 +21,11 @@
       :snap-to-grid="true"
       :snap-grid="[8, 8]"
       :fit-view-on-init="false"
+      :nodes-draggable="!penMode"
+      :nodes-connectable="!penMode"
+      :elements-selectable="!penMode"
+      :pan-on-drag="!penMode"
+      :selection-on-drag="false"
       @connect="onConnect"
       @node-click="onNodeClick"
       @edge-click="onEdgeClick"
@@ -39,9 +44,29 @@
       <MiniMap pannable zoomable position="bottom-left" />
     </VueFlow>
 
-    <p v-if="!nodes.length" class="lf-empty">
+    <p v-if="!nodes.length && !penMode" class="lf-empty">
       从左侧拖入图形开始绘制，或点击图形直接添加到画布中心
     </p>
+
+    <!-- 自由画笔 overlay：仅在画笔模式下渲染，拦截指针事件自由绘制 -->
+    <svg
+      v-if="penMode"
+      class="lf-pen-layer"
+      @pointerdown="onPenDown"
+      @pointermove="onPenMove"
+      @pointerup="onPenUp"
+      @pointerleave="onPenUp"
+    >
+      <path
+        v-if="drawingPath"
+        :d="drawingPath"
+        :stroke="penBrush.color"
+        :stroke-width="penBrush.width"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
   </div>
 </template>
 
@@ -86,15 +111,18 @@ import { SHAPES } from '../shapeDefs';
 
 import CustomNode from './CustomNode.vue';
 import CustomEdge from './CustomEdge.vue';
+import DrawingNode from './DrawingNode.vue';
 
 const store = useDiagramStore();
-const { nodes, edges, edgeLineType, pendingShape, isEditing, currentDiagramId, viewport } = storeToRefs(store);
+const { nodes, edges, edgeLineType, pendingShape, isEditing, currentDiagramId, viewport, penMode, penBrush } = storeToRefs(store);
 const { addEdges, screenToFlowCoordinate, fitView, setViewport, getViewport, getSelectedNodes, getSelectedEdges } =
   useVueFlow();
 
 // 每个形状类型都映射到同一个 CustomNode（按 props.type 自行渲染外形）
 // Object.fromEntries 的返回值 index 签名与 VueFlow 的 NodeTypes 不完全匹配，这里收窄为 any。
 const nodeTypes = Object.fromEntries(SHAPES.map((s) => [s.type, markRaw(CustomNode)])) as any;
+// 自由画笔节点：独立的 DrawingNode（渲染 SVG path）
+nodeTypes.drawing = markRaw(DrawingNode);
 
 // 连线统一走自定义 CustomEdge：样式（线型/线宽/虚线/箭头/线色/文本）由 edge.data 驱动，
 // 在 CustomEdge 内部自行计算 path/style/markerEnd，无需父层装饰，也避免深监听无限循环。
@@ -197,6 +225,40 @@ function onEdgesChange(changes: EdgeChange[]) {
 
 function onMoveEnd(payload: { flowTransform: { x: number; y: number; zoom: number } }) {
   store.setViewport(payload.flowTransform);
+}
+
+// ===================== 自由画笔（overlay 拦截指针，禁用 VueFlow 默认选择/拖拽） =====================
+let penPoints: { x: number; y: number }[] = [];
+let penRect: DOMRect | null = null;
+const drawingPath = ref('');
+
+function toRel(client: { x: number; y: number }) {
+  const r = penRect || canvasEl.value?.getBoundingClientRect();
+  if (!r) return { x: client.x, y: client.y };
+  return { x: client.x - r.left, y: client.y - r.top };
+}
+function onPenDown(e: PointerEvent) {
+  if (!penMode.value) return;
+  penRect = canvasEl.value?.getBoundingClientRect() || null;
+  penPoints = [{ x: e.clientX, y: e.clientY }];
+  const p = toRel(penPoints[0]);
+  drawingPath.value = `M ${p.x} ${p.y}`;
+  (e.target as Element).setPointerCapture?.(e.pointerId);
+}
+function onPenMove(e: PointerEvent) {
+  if (!penMode.value || !penPoints.length) return;
+  penPoints.push({ x: e.clientX, y: e.clientY });
+  const pts = penPoints.map(toRel);
+  drawingPath.value = pts.map((p, i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+}
+function onPenUp() {
+  if (!penMode.value || !penPoints.length) return;
+  // 屏幕坐标 → 画布坐标（含缩放与平移），交给 store 生成 drawing 节点
+  const flowPts = penPoints.map((p) => screenToFlowCoordinate({ x: p.x, y: p.y }));
+  penPoints = [];
+  penRect = null;
+  drawingPath.value = '';
+  store.addDrawing(flowPts, penBrush.value.color, penBrush.value.width);
 }
 
 // ===================== 选择态同步 =====================
@@ -356,5 +418,13 @@ defineExpose({ fitNow, exportPng });
   font-size: 13px;
   pointer-events: none;
   text-align: center;
+}
+.lf-pen-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  cursor: crosshair;
+  pointer-events: auto;
+  background: transparent;
 }
 </style>

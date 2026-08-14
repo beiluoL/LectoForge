@@ -127,7 +127,7 @@ function sanitizePage(input: unknown): DiagramPage {
   };
 }
 
-/** 解析库里的 data 字符串 → 多页结构；任何损坏或旧单页格式都回退/迁移为多页 */
+/** 解析库里的 data 字符串 → 多页结构；损坏（非多页）一律回退空白多页（新功能，不做单页迁移） */
 function parseData(raw: string | null | undefined): DiagramData {
   if (!raw) return blankData();
   try {
@@ -140,13 +140,6 @@ function parseData(raw: string | null | undefined): DiagramData {
           : pages[0].id;
       return { currentPageId, pages };
     }
-    // 旧单页格式：{ nodes, edges, viewport } → 自动包成单页，旧图无需迁移即可打开
-    if (Array.isArray(parsed.nodes) || Array.isArray(parsed.edges)) {
-      return {
-        currentPageId: 'p1',
-        pages: [sanitizePage({ id: 'p1', name: '页面 1', nodes: parsed.nodes, edges: parsed.edges, viewport: parsed.viewport })],
-      };
-    }
     return blankData();
   } catch {
     return blankData();
@@ -155,14 +148,10 @@ function parseData(raw: string | null | undefined): DiagramData {
 
 /**
  * 写入前清洗：只保留业务字段，剔除 vue-flow 可能混进来的运行时字段。
- * 接受多页结构；也兼容旧单页结构（落库时统一包成多页）。
+ * 只接受多页结构（{currentPageId, pages}），非多页一律回退空白多页。
  */
 function sanitizeData(input: unknown): DiagramData {
-  const src = (input && typeof input === 'object' ? input : {}) as Partial<DiagramData> & {
-    nodes?: unknown;
-    edges?: unknown;
-    viewport?: unknown;
-  };
+  const src = (input && typeof input === 'object' ? input : {}) as Partial<DiagramData>;
 
   // 多页结构
   if (Array.isArray(src.pages)) {
@@ -175,22 +164,6 @@ function sanitizeData(input: unknown): DiagramData {
     return { currentPageId, pages };
   }
 
-  // 旧单页结构：直接包成单页
-  if (Array.isArray(src.nodes) || Array.isArray(src.edges)) {
-    return {
-      currentPageId: 'p1',
-      pages: [
-        sanitizePage({
-          id: 'p1',
-          name: '页面 1',
-          nodes: src.nodes,
-          edges: src.edges,
-          viewport: src.viewport,
-        }),
-      ],
-    };
-  }
-
   return blankData();
 }
 
@@ -200,8 +173,6 @@ function toSummary(row: DiagramRow): DiagramSummary {
     const parsed = JSON.parse(row.data || '{}');
     if (Array.isArray(parsed.pages)) {
       count = parsed.pages.reduce((sum: number, p: any) => sum + (Array.isArray(p?.nodes) ? p.nodes.length : 0), 0);
-    } else if (Array.isArray(parsed.nodes)) {
-      count = parsed.nodes.length;
     }
   } catch {
     count = 0;

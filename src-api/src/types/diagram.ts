@@ -65,8 +65,7 @@ export interface DiagramPage {
  * 整图快照：多页结构。
  * - currentPageId：当前激活页；
  * - pages：页面数组（≥1）。
- * ⚠️ 旧版单页数据 `{ nodes, edges, viewport }` 在 diagramService.parseData 中自动
- *    包成单页，前端无需感知迁移；新写入一律为多页。
+ * 新功能：只接受多页结构，不做单页迁移。
  */
 export interface DiagramData {
   currentPageId: string;
@@ -110,4 +109,34 @@ export interface DiagramCreateInput {
 export interface DiagramUpdateInput {
   name?: string;
   data?: DiagramData;
+}
+
+/* ===================== AI 生成（/api/ai/diagram/generate） ===================== */
+
+/** AI 返回的单节点（id 稳定，type 取自已知形状集合，未知回退 process） */
+export interface AiDiagramNode {
+  id: string;
+  label: string;
+  type?: string | null;
+}
+
+/** AI 返回的单连线（from/to 引用 node id） */
+export interface AiDiagramEdge {
+  from: string;
+  to: string;
+  label?: string | null;
+}
+
+export interface AiDiagramGenRequest {
+  /** 自然语言描述（如「用户登录流程」） */
+  prompt: string;
+  /** 自动布局方向，默认 TB（自上而下） */
+  layout?: 'TB' | 'LR';
+}
+
+/** 生成结果。mock=true 表示未配置 AI Key，返回的是示例骨架 */
+export interface AiDiagramGenResponse {
+  nodes: AiDiagramNode[];
+  edges: AiDiagramEdge[];
+  mock?: boolean;
 }

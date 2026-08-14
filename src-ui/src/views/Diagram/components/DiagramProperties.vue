@@ -1,7 +1,7 @@
 <template>
   <aside class="lf-props">
-    <template v-if="node">
-      <p class="lf-props-title">节点属性</p>
+  <template v-if="node && node.type !== 'drawing'">
+    <p class="lf-props-title">节点属性</p>
 
       <div class="lf-row">
         <label>X</label>
@@ -45,6 +45,22 @@
         @input="setNodeColor('textColor', $event, false)"
         @change="setNodeColor('textColor', $event, true)"
       />
+    </template>
+
+    <template v-else-if="node && node.type === 'drawing'">
+      <p class="lf-props-title">画笔属性</p>
+
+      <label class="lf-block-label">线条颜色</label>
+      <input
+        type="color"
+        class="lf-color-input"
+        :value="node.data?.pathColor || '#475569'"
+        @input="setNodeColor('pathColor', $event, false)"
+        @change="setNodeColor('pathColor', $event, true)"
+      />
+
+      <label class="lf-block-label">线宽</label>
+      <input type="number" min="1" max="24" step="1" class="kb-input" :value="node.data?.strokeWidth || 2" @change="onDrawingWidth" />
     </template>
 
     <template v-else-if="edge">
@@ -131,6 +147,11 @@ function setEdgeLineType(e: Event) {
 function setEdgeFlag(field: 'dashed' | 'arrow', e: Event) {
   if (!edge.value) return;
   store.patchEdge(edge.value.id, { [field]: (e.target as HTMLInputElement).checked });
+}
+function onDrawingWidth(e: Event) {
+  if (!node.value) return;
+  const v = Number((e.target as HTMLInputElement).value);
+  store.patchNode(node.value.id, { strokeWidth: Math.min(24, Math.max(1, v || 2)) });
 }
 </script>
 

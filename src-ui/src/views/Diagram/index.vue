@@ -1,6 +1,6 @@
 <template>
   <div class="lf-root">
-    <DiagramToolbar @export-png="onExportPng" @fit="onFit" @auto-layout="onAutoLayout" />
+    <DiagramToolbar @export-png="onExportPng" @fit="onFit" @auto-layout="onAutoLayout" @ai-generate="aiModalOpen = true" />
     <div class="lf-body">
       <DiagramLibrary />
       <div ref="centerEl" class="lf-center">
@@ -10,6 +10,7 @@
     </div>
     <DiagramBottomBar />
     <DiagramContextMenu v-model="menuOpen" :payload="menuPayload" @fit="onFit" />
+    <DiagramAiModal v-if="aiModalOpen" @close="aiModalOpen = false" @generated="onAiGenerated" />
   </div>
 </template>
 
@@ -33,6 +34,7 @@ import DiagramLibrary from './components/DiagramLibrary.vue';
 import DiagramProperties from './components/DiagramProperties.vue';
 import DiagramToolbar from './components/DiagramToolbar.vue';
 import DiagramBottomBar from './components/DiagramBottomBar.vue';
+import DiagramAiModal from './components/DiagramAiModal.vue';
 
 const store = useDiagramStore();
 const centerEl = ref<HTMLElement | null>(null);
@@ -40,6 +42,7 @@ const canvasRef = ref<InstanceType<typeof DiagramCanvas> | null>(null);
 
 const menuOpen = ref(false);
 const menuPayload = ref<CanvasContextMenuPayload | null>(null);
+const aiModalOpen = ref(false);
 
 /** 切换页面后重新适应视口（节点/边已随 store 切换刷新） */
 watch(
@@ -63,6 +66,11 @@ function onAutoLayout() {
   onFit();
 }
 
+function onAiGenerated(payload: { nodes: any[]; edges: any[]; layout: 'TB' | 'LR' }) {
+  store.loadGenerated(payload.nodes, payload.edges, payload.layout);
+  onFit();
+}
+
 const flushSave = () => store.saveDiagram({ immediate: true });
 
 function isInputTarget(e: KeyboardEvent): boolean {
@@ -79,6 +87,11 @@ function isInputTarget(e: KeyboardEvent): boolean {
 
 function onKeydown(e: KeyboardEvent) {
   if (store.isEditing || isInputTarget(e)) return;
+  // 画笔模式下 Esc 退出，不触发其它快捷键
+  if (store.penMode && e.key === 'Escape') {
+    store.setPenMode(false);
+    return;
+  }
   const mod = e.metaKey || e.ctrlKey;
   if (!mod) return;
   const key = e.key.toLowerCase();

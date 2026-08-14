@@ -47,7 +47,7 @@ export interface DiagramPage {
   updatedAt: string;
 }
 
-/** 整图快照：多页结构（currentPageId + pages）。旧单页 {nodes,edges,viewport} 由 store 兼容。 */
+/** 整图快照：多页结构（currentPageId + pages）。只接受多页，不做单页兼容。 */
 export interface DiagramData {
   currentPageId: string;
   pages: DiagramPage[];
@@ -98,4 +98,37 @@ export function updateDiagram(
 /** 删除图文件 */
 export function deleteDiagram(id: number): Promise<{ ok: true }> {
   return apiDelete(`/diagram/${id}`);
+}
+
+/* ===================== AI 生成（/api/ai/diagram/generate） ===================== */
+
+/** AI 返回的单节点 */
+export interface AiDiagramNode {
+  id: string;
+  label: string;
+  type?: string | null;
+}
+
+/** AI 返回的单连线 */
+export interface AiDiagramEdge {
+  from: string;
+  to: string;
+  label?: string | null;
+}
+
+export interface AiDiagramGenRequest {
+  prompt: string;
+  layout?: 'TB' | 'LR';
+}
+
+export interface AiDiagramGenResponse {
+  nodes: AiDiagramNode[];
+  edges: AiDiagramEdge[];
+  /** 未配置 AI Key 时返回示例骨架，前端据此提示 */
+  mock?: boolean;
+}
+
+/** 自然语言生成流程图结构（无坐标，前端负责自动布局） */
+export function generateDiagram(req: AiDiagramGenRequest): Promise<AiDiagramGenResponse> {
+  return apiPost<AiDiagramGenResponse>('/ai/diagram/generate', req);
 }

@@ -31,6 +31,22 @@
 
     <span class="lf-sep" />
 
+    <!-- AI 生成 / 自由画笔 -->
+    <div class="lf-tools">
+      <button class="kb-btn kb-btn-sm lf-ai-btn" :disabled="!currentDiagramId" @click="emit('ai-generate')" title="AI 生成流程图">
+        <Icon name="sparkles" size="xs" /> AI 生成
+      </button>
+      <button class="kb-btn kb-btn-sm" :class="{ 'is-active': penMode }" @click="togglePen" title="自由画笔">
+        <Icon name="pencil" size="xs" /> 画笔
+      </button>
+      <template v-if="penMode">
+        <input type="color" class="lf-pen-color" :value="penBrush.color" title="画笔颜色" @input="onPenColor($event, false)" @change="onPenColor($event, true)" />
+        <input type="number" min="1" max="24" class="lf-pen-width" :value="penBrush.width" title="画笔线宽" @change="onPenWidth" />
+      </template>
+    </div>
+
+    <span class="lf-sep" />
+
     <!-- 连线样式（全局） -->
     <div class="lf-tools">
       <label class="lf-field">
@@ -149,11 +165,25 @@ import Icon from '@/components/ui/Icon.vue';
 import { useDiagramStore } from '@/store/diagram-store';
 import { confirmDialog } from '@/utils/toast';
 
-const emit = defineEmits<{ (e: 'export-png'): void; (e: 'fit'): void; (e: 'auto-layout'): void }>();
+const emit = defineEmits<{ (e: 'export-png'): void; (e: 'fit'): void; (e: 'auto-layout'): void; (e: 'ai-generate'): void }>();
 
 const store = useDiagramStore();
-const { currentName, edgeLineType, brush, selectedNode, canUndo, canRedo, isSaving, dirty, diagrams, currentDiagramId, nodeCount, hasSelection, selectedNodeIds } =
+const { currentName, edgeLineType, brush, selectedNode, canUndo, canRedo, isSaving, dirty, diagrams, currentDiagramId, nodeCount, hasSelection, selectedNodeIds, penMode, penBrush } =
   storeToRefs(store);
+
+function togglePen() {
+  store.setPenMode(!penMode.value);
+}
+function onPenColor(e: Event, history: boolean) {
+  const v = (e.target as HTMLInputElement).value;
+  penBrush.value.color = v;
+  // penBrush 不是落库对象，无需历史；history 形参保留以对齐其他颜色输入签名
+  void history;
+}
+function onPenWidth(e: Event) {
+  const v = Number((e.target as HTMLInputElement).value);
+  penBrush.value.width = Math.min(24, Math.max(1, v || 3));
+}
 
 const showAlign = ref(false);
 function doAlign(mode: 'left' | 'right' | 'top' | 'bottom' | 'hcenter' | 'vcenter') {
@@ -311,5 +341,32 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
 .lf-align-item:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+.lf-pen-color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--kb-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.lf-pen-width {
+  width: 52px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--kb-border);
+  border-radius: 6px;
+  background: var(--kb-background, #fff);
+  color: var(--kb-foreground);
+  font-size: 12px;
+}
+.lf-ai-btn {
+  color: var(--kb-primary, #3b6fe0);
+}
+.kb-btn.is-active {
+  background: var(--kb-primary, #3b6fe0);
+  color: #fff;
+  border-color: var(--kb-primary, #3b6fe0);
 }
 </style>
