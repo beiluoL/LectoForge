@@ -9,6 +9,7 @@
 // 由 edge.data.arrow 派生（none ⇔ arrow=false）。
 import type { EdgeLineType } from '../types'
 import type { ArrowStyle, DiagramEdgeData } from './types'
+import type { UmlRelationType } from '../shapeDefs'
 
 /** 线型 → X6 connector/router 配置 */
 export function edgeConnectorRouter(lineType: EdgeLineType = 'smoothstep'): {
@@ -73,5 +74,58 @@ export function buildEdgeMetadata(opts: {
       ? [{ position: 0.5, attrs: { label: { text: opts.label, fill: '#475569', fontSize: 12, fontFamily: 'system-ui, sans-serif' } } }]
       : [],
     data,
+  }
+}
+
+/** UML 关系边样式预设（P2-T1.3）：6 种关系箭头 */
+export interface UmlEdgePreset {
+  connector: { name: string; args?: Record<string, unknown> }
+  router: { name: string; args?: Record<string, unknown> }
+  dashed: boolean
+  targetMarker: Record<string, unknown> | undefined
+  label: string
+}
+
+const HOLLOW = (size = 10) => ({ name: 'block', args: { size, fill: '#FFFFFF', stroke: '#475569', strokeWidth: 1.2 } })
+const HOLLOW_DIAMOND = (size = 10) => ({ name: 'diamond', args: { size, fill: '#FFFFFF', stroke: '#475569', strokeWidth: 1.2 } })
+const SOLID_DIAMOND = (color: string, size = 10) => ({ name: 'diamond', args: { size, fill: color } })
+const ARROW = (color: string, size = 8) => ({ name: 'block', args: { size, fill: color } })
+
+export const UML_EDGE_PRESETS: Record<UmlRelationType, UmlEdgePreset> = {
+  generalization: { connector: { name: 'rounded', args: { radius: 8 } }, router: { name: 'manhattan', args: { padding: 12 } }, dashed: false, targetMarker: HOLLOW(), label: '继承' },
+  realization: { connector: { name: 'rounded', args: { radius: 8 } }, router: { name: 'manhattan', args: { padding: 12 } }, dashed: true, targetMarker: HOLLOW(), label: '实现' },
+  aggregation: { connector: { name: 'rounded', args: { radius: 8 } }, router: { name: 'manhattan', args: { padding: 12 } }, dashed: false, targetMarker: HOLLOW_DIAMOND(), label: '聚合' },
+  composition: { connector: { name: 'rounded', args: { radius: 8 } }, router: { name: 'manhattan', args: { padding: 12 } }, dashed: false, targetMarker: SOLID_DIAMOND('#475569'), label: '组合' },
+  association: { connector: { name: 'rounded', args: { radius: 8 } }, router: { name: 'manhattan', args: { padding: 12 } }, dashed: false, targetMarker: ARROW('#475569'), label: '关联' },
+  dependency: { connector: { name: 'rounded', args: { radius: 8 } }, router: { name: 'manhattan', args: { padding: 12 } }, dashed: true, targetMarker: ARROW('#475569'), label: '依赖' },
+}
+
+/** 构造一条 UML 关系边（供图形库「点两节点连边」工具使用） */
+export function buildUmlEdgeMetadata(opts: {
+  source: string
+  target: string
+  relation: UmlRelationType
+  label?: string
+}) {
+  const preset = UML_EDGE_PRESETS[opts.relation]
+  const color = '#475569'
+  return {
+    shape: 'edge',
+    source: opts.source,
+    target: opts.target,
+    connector: preset.connector,
+    router: preset.router,
+    attrs: {
+      line: {
+        stroke: color,
+        strokeWidth: 1.6,
+        strokeDasharray: preset.dashed ? '6 4' : undefined,
+        targetMarker: preset.targetMarker,
+      },
+    },
+    labels: opts.label
+      ? [{ position: 0.5, attrs: { label: { text: opts.label, fill: color, fontSize: 12, fontFamily: 'system-ui, sans-serif' } } }]
+      : [],
+    data: { umlRelation: opts.relation },
   }
 }

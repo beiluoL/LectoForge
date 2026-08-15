@@ -9,7 +9,31 @@ export type ShapeRender =
   | 'diamond'
   | 'hexagon'
   | 'note'
-  | 'uml';
+  | 'uml'
+  // P2-T1 专业形状库扩展
+  | 'triangle'
+  | 'parallelogram'
+  | 'card'
+  | 'cylinder'
+  | 'disk'
+  | 'document'
+  | 'trapezoid'
+  | 'hourglass'
+  | 'pentagon'
+  | 'predefined'
+  | 'doubleRect'
+  | 'doubleEllipse'
+  | 'underlineEllipse'
+  | 'doubleDiamond'
+  | 'actor'
+  | 'cloud'
+  | 'awsBadge'
+  | 'router'
+  | 'switch'
+  | 'firewall'
+  | 'envelope'
+  | 'loadbalancer'
+  | 'device';
 
 /** 连线样式（全局下拉：折线 / 曲线 / 直线） */
 export type EdgeLineType = 'smoothstep' | 'bezier' | 'straight';

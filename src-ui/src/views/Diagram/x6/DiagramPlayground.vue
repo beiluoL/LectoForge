@@ -3,8 +3,10 @@
     <DiagramToolbar
       v-if="graphReady"
       :properties-open="propertiesOpen"
+      :library-open="libraryOpen"
       :pen-on="penOn"
       @toggle-properties="propertiesOpen = !propertiesOpen"
+      @toggle-library="libraryOpen = !libraryOpen"
       @fullscreen="toggleFullscreen"
       @pen-toggle="onPenToggle"
       @open-templates="showTemplates = true"
@@ -13,6 +15,8 @@
     />
 
     <div class="x6-pg-main">
+      <DiagramLibrary v-if="graphReady && libraryOpen" @arm-edge="onArmEdge" />
+
       <div class="x6-pg-canvas-wrap">
         <div ref="containerRef" class="x6-pg-canvas" :style="{ background: ctxCanvasBg }"></div>
 
@@ -59,7 +63,9 @@
 import { ref, watch, nextTick, provide } from 'vue'
 import { useGraph } from './useGraph'
 import { SHAPES } from '../shapeDefs'
-import { buildEdgeMetadata } from './edgeFactory'
+import { buildEdgeMetadata, buildUmlEdgeMetadata } from './edgeFactory'
+import type { UmlRelationType } from '../shapeDefs'
+import { UML_RELATIONS } from '../shapeDefs'
 import { usePages } from './usePages'
 import { usePenMode } from './usePenMode'
 import { templateToX6Cells } from './templatesToCells'
@@ -68,6 +74,7 @@ import { exportDiagram, type ExportFormat } from './useGraphExport'
 import { useGraphPersistence } from './useGraphPersistence'
 import { X6_CTX_KEY, type X6Context } from './context'
 import DiagramToolbar from './DiagramToolbar.vue'
+import DiagramLibrary from './DiagramLibrary.vue'
 import DiagramProperties from './DiagramProperties.vue'
 import DiagramTemplateModal from '../components/DiagramTemplateModal.vue'
 import DiagramAiModal from '../components/DiagramAiModal.vue'
@@ -78,6 +85,7 @@ import { notify } from '@/utils/toast'
 const containerRef = ref<HTMLElement | null>(null)
 const canvasBg = ref('#f8fafc')
 const propertiesOpen = ref(true)
+const libraryOpen = ref(true)
 const showTemplates = ref(false)
 const showAi = ref(false)
 
@@ -108,6 +116,16 @@ const ctxCanvasBg = canvasBg
 
 function onPenToggle() {
   penOn.value = !penOn.value
+}
+
+/** UML 关系边「点两节点连边」工具（P2-T1.3） */
+const armedRelation = ref<UmlRelationType | null>(null)
+let pendingSource: string | null = null
+function onArmEdge(rel: UmlRelationType) {
+  armedRelation.value = rel
+  pendingSource = null
+  const label = UML_RELATIONS.find((r) => r.type === rel)?.label || rel
+  notify(`已选「${label}」：先点源节点，再点目标节点`, 'info')
 }
 
 function doExport(format: ExportFormat) {
@@ -243,6 +261,27 @@ watch(graphReady, async (ready) => {
   }
 
   g.zoomToFit({ padding: 40, maxScale: 1 })
+
+  // UML 关系边工具：武装后点击两节点连边（1 步 history）
+  g.on('node:click', ({ node }: any) => {
+    if (!armedRelation.value) return
+    if (!pendingSource) {
+      pendingSource = node.id
+      node.attr('body/stroke', '#3b6fe0')
+      node.attr('body/strokeWidth', 2.5)
+    } else if (node.id !== pendingSource) {
+      const meta = buildUmlEdgeMetadata({ source: pendingSource, target: node.id, relation: armedRelation.value })
+      const src = g.getCellById(pendingSource)
+      src?.attr('body/stroke', '#475569')
+      src?.attr('body/strokeWidth', 1.5)
+      g.batchUpdate('uml-edge', () => {
+        const e = g.addEdge(meta as any)
+        g.select(e)
+      })
+      pendingSource = null
+      armedRelation.value = null
+    }
+  })
 
   // 自动保存绑定 + Ctrl+S 立即保存 + 关窗兜底
   bindAutoSave()

@@ -86,9 +86,10 @@ export function useGraph(params: UseGraphParams) {
       edge.removeTools()
     })
 
-    // ===== 形状保真：terminal 胶囊 rx 随高变化；uml header 填充跟随描边 =====
+    // ===== 形状保真：terminal / 胶囊形 rx 随高变化；uml header 填充跟随描边 =====
     g.on('node:change:size', ({ node }: any) => {
-      if (node.getShape().endsWith('-terminal')) {
+      const data = node.getData() || {}
+      if (node.getShape().endsWith('-terminal') || data.capsule) {
         node.attr('body/rx', Math.max(2, node.getSize().height / 2))
       }
     })

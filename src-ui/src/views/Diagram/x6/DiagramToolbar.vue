@@ -79,6 +79,9 @@
     <span class="x6-toolbar-sep"></span>
 
     <button class="kb-btn kb-btn-sm" @click="emit('fullscreen')" title="全屏">⛶ 全屏</button>
+    <button class="kb-btn kb-btn-sm" :class="{ 'is-active': props.libraryOpen }" @click="emit('toggle-library')">
+      ▤ 图形库
+    </button>
     <button class="kb-btn kb-btn-sm" :class="{ 'is-active': props.propertiesOpen }" @click="emit('toggle-properties')">
       ⚙ 格式
     </button>
@@ -99,9 +102,10 @@ import type { ArrowStyle } from './types'
 import type { EdgeLineType } from '../types'
 import type { ExportFormat } from './useGraphExport'
 
-const props = defineProps<{ propertiesOpen?: boolean; penOn?: boolean }>()
+const props = defineProps<{ propertiesOpen?: boolean; penOn?: boolean; libraryOpen?: boolean }>()
 const emit = defineEmits<{
   (e: 'toggle-properties'): void
+  (e: 'toggle-library'): void
   (e: 'fullscreen'): void
   (e: 'pen-toggle'): void
   (e: 'open-templates'): void
