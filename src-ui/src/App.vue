@@ -91,6 +91,7 @@ import { useInboxStore } from '@/store/inbox-store';
 import { useNoteStore } from '@/store/note-store';
 import { usePomodoroStore } from '@/store/pomodoro-store';
 import { initBackendHealth } from '@/utils/connection';
+import { usePrefsStore } from '@/store/prefs-store';
 // 顶层静态导入 Tauri API：避免 build 模式下从静态 dist（由 8787 侧车托管）动态加载
 // @tauri-apps/api/* 的 chunk 时静默失败（被 catch 吞），导致原生菜单跳转、深链监听失效。
 // dev 模式走 Vite dev server 不受影响；build 模式必须用静态导入才稳（pomodoroStore 已验证此路）。
@@ -166,6 +167,8 @@ function handleKeydown(e: KeyboardEvent) {
 // 启动即探测一次后端健康，建立 bootId 基线（用于后续识别侧车是否被宿主重启过）。
 onMounted(() => {
   void initBackendHealth();
+  // 应用「外观」本地偏好（主题 / 主题色 / 字号缩放 / 紧凑模式）——纯前端即时生效，无需后端
+  usePrefsStore().applyAppearance();
   window.addEventListener('keydown', handleKeydown);
   // 原生菜单项（去学习复习 / 番茄钟）点击后由 Rust 侧 emit("navigate", path)，
   // 此处统一接管路由跳转；浏览器预览态下 @tauri-apps/api 不存在，静默跳过。
