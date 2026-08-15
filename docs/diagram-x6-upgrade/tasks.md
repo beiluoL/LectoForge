@@ -68,6 +68,12 @@
   - [x] P2-T5.2 超链接 + Tooltip：节点/边 data.href/tooltip 透传 + 序列化；LinkTooltipPanel（node/edge 共用，经 `graph.batchUpdate` 单步写入）；hover ≥500ms 显示气泡（`.x6-tip`，跟随 cell 顶部）；Ctrl/Cmd+点击 `cell:click` 调 Tauri 既有 `open_external_url`（非 plugin-shell，已授权 `allow-open-external-url`），非 Tauri 环境 fallback `window.open`；drawio 往返用自定义 style 键 `lfHref`/`lfTooltip`（encodeURIComponent）
   - [x] 接线/验证：vue-tsc --noEmit 与 vite build 均绿；diagramDataAdapter 节点/边 data 双向透传 href/tooltip + image type 分支；x6ToDrawio/drawioToX6 图片与 lfHref/lfTooltip 往返
 
+- [x] **P2-T6** 切 `/diagram` 主路由到 X6（P2 末收尾）
+  - [x] `router/index.ts`：`/diagram` component 由 `@/views/Diagram/index.vue`（旧 Vue Flow）改为 `@/views/Diagram/x6/DiagramPlayground.vue`，meta 对齐 X6 验证台（`{layout:'c', fill:true}`）
+  - [x] `useGraphPersistence.ensureDiagram()` 文档复用：localStorage 无 key 时回退 `fetchDiagrams()[0]`（与旧 VueFlow 一致），避免切路由后空白新建、看不到已有图；默认新图标题改为「未命名流程图」
+  - [x] 旧 Vue Flow 文件（`index.vue` + `components/*` + `store/diagram-store`）**保留不删**，仅取消路由引用，可一行回退；`/diagram-x6-playground` 隐藏路由保留为同组件别名
+  - [x] 验证：vue-tsc --noEmit 与 vite build 均绿；数据格式兼容（X6 落库拍平为 `{currentPageId,pages:[{nodes,edges}]}`，旧文档 `diagramDetailToX6Pages` 自动迁移，无数据丢失）
+
 ---
 
 ## 进度记录（提交哈希 · 均未推送）
@@ -85,6 +91,7 @@
 | P2-T3 | feature/x6-P2 | `c11aec5` | ✅ 已本地提交 |
 | P2-T4 | feature/x6-P2 | `1b2a841` | ✅ 已本地提交 |
 | P2-T5 | feature/x6-P2 | `398185c` | ✅ 已本地提交 |
+| P2-T6 | feature/x6-P2 | `d34390c` | ✅ 已本地提交 |
 
 ---
 

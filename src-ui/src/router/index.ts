@@ -202,11 +202,12 @@ const routes: RouteRecordRaw[] = [
     // 绘图工具 / 流程图（类 ProcessOn / Draw.io 白板）：独立的图文件系统，
     // 整图存库、自动保存。路径刻意不挂在 /workbench 下，与 /library、/mindmap 同理
     // （isActive 用 startsWith，避免被「工作台」误吞高亮）；高亮走「规划」分组的 match。
+    // 内核已切到 AntV X6 自研实现（/diagram-x6-playground 验证台迁移而来，P2 末收尾）。
     path: '/diagram',
     name: 'Diagram',
-    component: () => import('@/views/Diagram/index.vue'),
+    component: () => import('@/views/Diagram/x6/DiagramPlayground.vue'),
     // fill：铺满整屏、内部自管滚动，去除四周内边距，让流程图画布占满视口
-    meta: { layout: 'c', fullscreen: true, fill: true },
+    meta: { layout: 'c', fill: true },
   },
   {
     // [开发验证] X6 内核 playground：方案 B（AntV X6 自研升级）迁移用，非正式编辑器，

@@ -89,10 +89,10 @@
 
 <script setup lang="ts">
 /**
- * X6 方案 B 隐藏验证台（路由 /diagram-x6-playground）。
+ * X6 自研流程图编辑器（AntV X6，对标 draw.io 80%）。
  * 覆盖 P1-T2（11 形状 + 3 线型）/ P1-T3（撤销/复制/对齐/布局/多页）/ P1-T4（工具栏 + 属性面板）
- * + P1-T5（画笔 / 模板 / AI / 导出 / 持久化）。
- * 不替换现有 /diagram（Vue Flow），仅本地验证。
+ * + P1-T5（画笔 / 模板 / AI / 导出 / 持久化）+ P2-T4（drawio 导入导出 + PDF）/ P2-T5（图片/超链接/Tooltip）。
+ * 原方案 B 隐藏验证台（路由 /diagram-x6-playground）已作为正式编辑器接入主路由 /diagram（P2 末收尾）。
  */
 import { ref, watch, nextTick, provide, onBeforeUnmount } from 'vue'
 import { useGraph } from './useGraph'

@@ -10,6 +10,7 @@ import type { Graph } from '@antv/x6'
 import {
   createDiagram,
   fetchDiagram,
+  fetchDiagrams,
   updateDiagram,
   recordDiagramHistory,
   type DiagramData,
@@ -98,7 +99,9 @@ export function useGraphPersistence(graph: Ref<Graph | null>, pages: PagesSource
     }
   }
 
-  /** 取得一个可用的文档 id：localStorage 里有且能加载就复用，否则新建空白图。返回已加载的多页（无则 null） */
+  /** 取得一个可用的文档 id：localStorage 里有且能加载就复用；否则回退后端列表第一份
+   * （与旧 VueFlow 编辑器一致，避免切 /diagram 路由后空白新建、看不到已有图）；都没有才新建。
+   * 返回已加载的多页（无则 null） */
   async function ensureDiagram(): Promise<{ id: number; pages: DiagramPageData[] | null; currentId: string }> {
     const cached = Number(localStorage.getItem(LS_KEY) || 0)
     if (cached) {
@@ -108,7 +111,21 @@ export function useGraphPersistence(graph: Ref<Graph | null>, pages: PagesSource
         return { id: cached, pages: res.pages, currentId: res.currentId }
       }
     }
-    const created = await createDiagram('X6 方案 B 验证台')
+    // 复用已有图文件：localStorage 为空（例如从旧 VueFlow 切换过来）时，取后端列表第一份
+    try {
+      const list = await fetchDiagrams()
+      if (list.length) {
+        const res = await load(list[0].id)
+        if (res && res.pages.length) {
+          diagramId.value = list[0].id
+          localStorage.setItem(LS_KEY, String(list[0].id))
+          return { id: list[0].id, pages: res.pages, currentId: res.currentId }
+        }
+      }
+    } catch (e) {
+      console.error('[persistence] 列图失败，将新建空白图', e)
+    }
+    const created = await createDiagram('未命名流程图')
     localStorage.setItem(LS_KEY, String(created.id))
     diagramId.value = created.id
     return { id: created.id, pages: null, currentId: 'p1' }
