@@ -46,8 +46,8 @@ function bodyLabel(body: Record<string, unknown>, label = LABEL_BASE) {
   return {
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: { body: { ...BODY_BASE, ...body }, label },
     ports: PORTS,
@@ -62,8 +62,8 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   ellipse: () => ({
     inherit: 'ellipse',
     markup: [
-      { tag: 'ellipse', selector: 'body' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'ellipse', selector: 'body' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: { body: { ...BODY_BASE }, label: LABEL_BASE },
     ports: PORTS,
@@ -77,10 +77,10 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   cylinder: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'ellipse', selector: 'top' },
-      { tag: 'ellipse', selector: 'bottom' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'ellipse', selector: 'top' },
+      { tagName: 'ellipse', selector: 'bottom' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, refX: 0, refY: 11, refWidth: '100%', refHeight: '100%-22' },
@@ -93,11 +93,11 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   disk: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'ellipse', selector: 'top' },
-      { tag: 'ellipse', selector: 'bottom' },
-      { tag: 'line', selector: 'band' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'ellipse', selector: 'top' },
+      { tagName: 'ellipse', selector: 'bottom' },
+      { tagName: 'line', selector: 'band' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, refX: 0, refY: 11, refWidth: '100%', refHeight: '100%-22' },
@@ -115,9 +115,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   predefined: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'rect', selector: 'inner' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'rect', selector: 'inner' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 2 },
@@ -129,9 +129,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   doubleRect: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'rect', selector: 'inner' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'rect', selector: 'inner' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 2 },
@@ -143,9 +143,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   doubleEllipse: () => ({
     inherit: 'ellipse',
     markup: [
-      { tag: 'ellipse', selector: 'body' },
-      { tag: 'ellipse', selector: 'inner' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'ellipse', selector: 'body' },
+      { tagName: 'ellipse', selector: 'inner' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE },
@@ -157,9 +157,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   underlineEllipse: () => ({
     inherit: 'ellipse',
     markup: [
-      { tag: 'ellipse', selector: 'body' },
-      { tag: 'line', selector: 'ul' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'ellipse', selector: 'body' },
+      { tagName: 'line', selector: 'ul' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE },
@@ -171,9 +171,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   doubleDiamond: () => ({
     inherit: 'polygon',
     markup: [
-      { tag: 'polygon', selector: 'body' },
-      { tag: 'polygon', selector: 'inner' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'polygon', selector: 'body' },
+      { tagName: 'polygon', selector: 'inner' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, refPoints: '0.5,0 1,0.5 0.5,1 0,0.5', strokeLinejoin: 'round' },
@@ -185,12 +185,12 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   actor: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'ellipse', selector: 'head' },
-      { tag: 'line', selector: 'bodyLine' },
-      { tag: 'line', selector: 'arms' },
-      { tag: 'line', selector: 'legL' },
-      { tag: 'line', selector: 'legR' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'ellipse', selector: 'head' },
+      { tagName: 'line', selector: 'bodyLine' },
+      { tagName: 'line', selector: 'arms' },
+      { tagName: 'line', selector: 'legL' },
+      { tagName: 'line', selector: 'legR' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       head: { refX: '50%', refY: '6%', refWidth: '34%', refHeight: '20%', fill: '#FFFFFF', stroke: '#475569', strokeWidth: 1.5 },
@@ -205,11 +205,11 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   cloud: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'ellipse', selector: 'c' },
-      { tag: 'ellipse', selector: 't1' },
-      { tag: 'ellipse', selector: 't2' },
-      { tag: 'ellipse', selector: 't3' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'ellipse', selector: 'c' },
+      { tagName: 'ellipse', selector: 't1' },
+      { tagName: 'ellipse', selector: 't2' },
+      { tagName: 'ellipse', selector: 't3' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       c: { refX: 0, refY: '10%', refWidth: '100%', refHeight: '90%', fill: '#FFFFFF', stroke: '#475569', strokeWidth: 1.5 },
@@ -223,9 +223,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   awsBadge: (def) => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'text', selector: 'badge' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'text', selector: 'badge' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { fill: '#FFF1DD', stroke: '#FF9900', strokeWidth: 1.5, rx: 10 },
@@ -237,10 +237,10 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   router: () => ({
     inherit: 'ellipse',
     markup: [
-      { tag: 'ellipse', selector: 'body' },
-      { tag: 'line', selector: 'a1' },
-      { tag: 'line', selector: 'a2' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'ellipse', selector: 'body' },
+      { tagName: 'line', selector: 'a1' },
+      { tagName: 'line', selector: 'a2' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE },
@@ -253,10 +253,10 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   switch: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'line', selector: 'a1' },
-      { tag: 'line', selector: 'a2' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'line', selector: 'a1' },
+      { tagName: 'line', selector: 'a2' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 4 },
@@ -269,9 +269,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   firewall: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'polyline', selector: 'cren' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'polyline', selector: 'cren' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 2 },
@@ -283,9 +283,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   envelope: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'path', selector: 'flap' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'path', selector: 'flap' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 2 },
@@ -297,10 +297,10 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   loadbalancer: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'line', selector: 'a1' },
-      { tag: 'line', selector: 'a2' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'line', selector: 'a1' },
+      { tagName: 'line', selector: 'a2' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 4 },
@@ -313,9 +313,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   device: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'rect', selector: 'screen' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'rect', selector: 'screen' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 10 },
@@ -327,9 +327,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   uml: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'rect', selector: 'header' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'rect', selector: 'header' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { ...BODY_BASE, rx: 2 },
@@ -341,9 +341,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   container: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'rect', selector: 'header' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'rect', selector: 'header' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { fill: '#F8FAFC', stroke: '#94A3B8', strokeWidth: 1.5, rx: 4 },
@@ -355,9 +355,9 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   swimlane: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'rect', selector: 'header' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'rect', selector: 'header' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { fill: '#F8FAFC', stroke: '#94A3B8', strokeWidth: 1.5, rx: 2 },
@@ -369,8 +369,8 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
   group: () => ({
     inherit: 'rect',
     markup: [
-      { tag: 'rect', selector: 'body' },
-      { tag: 'text', selector: 'label' },
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'text', selector: 'label' },
     ],
     attrs: {
       body: { fill: 'transparent', stroke: '#3b6fe0', strokeWidth: 1.5, strokeDasharray: '6 4', rx: 4 },
@@ -396,8 +396,8 @@ let registered = false
 const TEXT_CONFIG = {
   inherit: 'rect',
   markup: [
-    { tag: 'rect', selector: 'body' },
-    { tag: 'text', selector: 'label' },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'text', selector: 'label' },
   ],
   attrs: {
     body: { fill: 'transparent', stroke: 'transparent', strokeWidth: 0 },
@@ -410,10 +410,10 @@ const TEXT_CONFIG = {
 const TABLE_CONFIG = {
   inherit: 'rect',
   markup: [
-    { tag: 'rect', selector: 'body' },
-    { tag: 'line', selector: 'headerLine' },
-    { tag: 'line', selector: 'colLine' },
-    { tag: 'text', selector: 'label' },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'line', selector: 'headerLine' },
+    { tagName: 'line', selector: 'colLine' },
+    { tagName: 'text', selector: 'label' },
   ],
   attrs: {
     body: { ...BODY_BASE, rx: 2 },
@@ -428,7 +428,7 @@ const TABLE_CONFIG = {
 const PAGE_CONFIG = {
   inherit: 'rect',
   markup: [
-    { tag: 'rect', selector: 'body' },
+    { tagName: 'rect', selector: 'body' },
   ],
   attrs: {
     body: { fill: '#FFFFFF', stroke: '#cbd5e1', strokeWidth: 1 },
@@ -440,8 +440,8 @@ const PAGE_CONFIG = {
 const DRAWING_CONFIG = {
   inherit: 'rect',
   markup: [
-    { tag: 'rect', selector: 'bg' },
-    { tag: 'path', selector: 'body' },
+    { tagName: 'rect', selector: 'bg' },
+    { tagName: 'path', selector: 'body' },
   ],
   attrs: {
     bg: { fill: 'transparent', stroke: 'transparent' },
@@ -459,8 +459,8 @@ const DRAWING_CONFIG = {
 const IMAGE_CONFIG = {
   inherit: 'rect',
   markup: [
-    { tag: 'rect', selector: 'body' },
-    { tag: 'image', selector: 'image' },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'image', selector: 'image' },
   ],
   attrs: {
     body: { fill: '#FFFFFF', stroke: '#475569', strokeWidth: 1.5, rx: 4, ry: 4 },

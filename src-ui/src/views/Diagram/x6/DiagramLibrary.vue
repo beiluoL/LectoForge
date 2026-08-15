@@ -64,7 +64,7 @@
  * - UML 关系边：点击「武装」，由 playground 监听两次 node:click 连边；
  * - 右侧可拖拽改面板宽度（200~420px）。
  */
-import { ref, computed, inject } from 'vue'
+import { ref, computed, inject, onBeforeUnmount } from 'vue'
 import { Dnd } from '@antv/x6-plugin-dnd'
 import { X6_CTX_KEY, type X6Context } from './context'
 import {
@@ -98,10 +98,13 @@ function toggle(id: string) {
   collapsed.value = s
 }
 
+// DnD 实例复用（避免每次拖拽都 new 一个 draggingGraph 造成泄漏）；graph 实例稳定，可缓存。
+let dndCache: Dnd | null = null
 function ensureDnd(): Dnd | null {
   const g = ctx.graph.value
   if (!g) return null
-  return new Dnd({ target: g, scaled: false })
+  if (!dndCache) dndCache = new Dnd({ target: g, scaled: false })
+  return dndCache
 }
 
 function startDrag(def: ShapeDef, evt: MouseEvent | TouchEvent) {
@@ -122,7 +125,11 @@ function startDrag(def: ShapeDef, evt: MouseEvent | TouchEvent) {
     },
     data: { label: def.defaultText, capsule: !!def.capsule, render: def.render },
   }
-  dnd.start(meta, evt as any)
+  // 关键修复：DnD 插件默认 getDragNode 会调用 sourceNode.clone()，
+  // 必须传入真实 Node 实例（createNode 是工厂方法、不加入模型），不能传纯 metadata 对象，
+  // 否则 sourceNode.clone is not a function 直接抛错、拖拽中断、节点无法落点。
+  const node = g.createNode(meta)
+  dnd.start(node, evt as any)
 }
 
 /** 图片形状不拖拽（无初始文件），点击改为触发插入流程（由 playground 打开文件选择） */
@@ -217,6 +224,12 @@ function startResize(e: MouseEvent) {
   window.addEventListener('mousemove', move)
   window.addEventListener('mouseup', up)
 }
+
+// 卸载时释放复用的 DnD 实例（含内部 draggingGraph），避免内存泄漏
+onBeforeUnmount(() => {
+  dndCache?.dispose()
+  dndCache = null
+})
 </script>
 
 <style scoped>

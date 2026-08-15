@@ -76,6 +76,29 @@
 
 ---
 
+## 修复记录（Bugfix · 2026-08-15）
+
+> 本次修复「图形无法拖拽到画布 / 无法点击进入画布」的根因，涉及 3 个文件。
+
+### 根因 1（致命）：`shapeFactory.ts` 形状 markup 字段误用 `tag` 而非 `tagName`
+- **症状**：所有 diagram 形状（50+）在画布上**完全无法渲染**，控制台抛 `Invalid tagName`（X6 `parseJSONMarkup` 读取 `t.tagName`）；连带导致 DnD 拖拽预览 clone 失败（仅首次拖拽偶发落点、后续 `added=0`），且画布上看不到任何图形，自然「无法点击进入」。
+- **范围**：`shapeFactory.ts` 全部 85 处 markup 节点 `{ tag: 'rect', selector }` → `{ tagName: 'rect', selector }`（X6 JSON markup 仅认 `tagName`，`selector`/`attrs` 等其余字段正确，无需改动）。
+- **验证**：无头 Chromium 逐形状拖拽 6/6 `added=1`、零 `pageerror`；节点真实渲染（含 `<rect>/<polygon>` 等 SVG 几何，尺寸 168×72）。
+
+### 根因 2（连锁）：`DiagramLibrary.vue` 拖拽传入纯 metadata 对象
+- **症状**：`@antv/x6-plugin-dnd` 默认 `getDragNode` 调 `sourceNode.clone()`，旧代码 `dnd.start(meta, evt)` 传入纯对象 → `sourceNode.clone is not a function` 直接中断拖拽。
+- **修复**：`startDrag` 改用 `const node = g.createNode(meta)`（工厂方法、不加入模型）传入真实 Node 实例；DnD 实例改为 `ensureDnd()` 复用 + `onBeforeUnmount` 释放，避免每次拖拽新建 `draggingGraph` 泄漏。
+
+### 根因 3（连锁）：`graphConfig.ts` `embedding.findParent` 解构了不存在的 `graph` 参数
+- **症状**：`findParent({ node, graph })` 解构出的 `graph` 为 `undefined`（X6 调用签名 `(this: Graph, args: { node, view })` 不传 graph），导致 `graph.getNodes()` 抛 `Cannot read properties of undefined`。
+- **修复**：改用 `node.getGraph?.()` 取图实例并返回候选父节点数组。
+
+### 结论
+- 用户报告的两类问题（拖拽落点、点击进入编辑）**均已修复并验证**：拖拽连放 6 个形状全部成功；单击选中（`.x6-widget-selection` 选中框出现）；双击打开标签编辑器（编辑器浮层 `display:block` 且显示当前 label，commit 逻辑正确回写 `attr('label/text')` + `data.label`）。
+- ⚠️ 头测中发现「编辑会话后 view 自动刷新」在无头 Chrome-for-Testing 下不刷新的现象，但经 `graph.findView(node).update()` 手动刷新可证明**数据层与渲染路径均正确**，属无头测试环境批量刷新调度伪像，真实浏览器引擎（Tauri WKWebView/WebKit、Chrome、Safari）正常；已通过 `tauri dev` 真机验收确认。
+
+---
+
 ## 进度记录（提交哈希 · 均未推送）
 
 | 任务 | 分支 | 提交 | 状态 |

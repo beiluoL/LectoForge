@@ -49,7 +49,11 @@ export function createGraphOptions(container: HTMLElement): Graph.Options {
     // 容器 / 泳道 / 分组：拖入结构节点即成为父节点（P2-T2.1/2.2/2.3）
     embedding: {
       enabled: true,
-      findParent({ node, graph }: any) {
+      // X6 的 findParent 签名为 (this: Graph, args: { node, view })，
+      // 不提供 graph 参数；用 node.getGraph() 取图实例，返回候选父节点数组（X6 再用 validate 过滤）。
+      findParent({ node }: any) {
+        const graph = node.getGraph?.() as Graph | undefined
+        if (!graph || typeof graph.getNodes !== 'function') return []
         const b = node.getBBox()
         const parent = graph
           .getNodes()
@@ -59,7 +63,7 @@ export function createGraphOptions(container: HTMLElement): Graph.Options {
               isStructuralShape(n.shape) &&
               n.getBBox().contains(b),
           )
-        return parent || null
+        return parent ? [parent] : []
       },
     },
   }
