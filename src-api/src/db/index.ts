@@ -13,6 +13,7 @@ import {
   wbQuadrantTask,
   wbTaskList,
   wbDiagram,
+  wbDiagramHistory,
 } from './schema';
 import { getDbPath } from '../lib/paths';
 
@@ -388,6 +389,17 @@ CREATE TABLE IF NOT EXISTS wb_diagram (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_wb_diagram_owner ON wb_diagram (user_id, updated_at);
+/* ===== 绘图工具 / 流程图：版本历史 =====
+ * 快照链：每条历史 = 某图文件某个时间点的整图 JSON 副本。
+ * 列表查询形态只有「某图文件的最近 N 条」，(diagram_id, created_at) 走索引倒序。 */
+CREATE TABLE IF NOT EXISTS wb_diagram_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  diagram_id INTEGER NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  action_label TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_diagram_history_diagram ON wb_diagram_history (diagram_id, created_at);
 `);
 
 // ===== 向后兼容：旧库增量补齐新列（PRAGMA 探测存在性，幂等安全）=====

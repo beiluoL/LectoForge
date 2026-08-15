@@ -35,6 +35,7 @@ import interview from './routes/interview';
 import qaBank from './routes/qaBank';
 import models from './routes/models';
 import diagram from './routes/diagram';
+import diagramHistory from './routes/diagramHistory';
 import { aiDiagramRoutes } from './routes/ai-diagram';
 import ttsVoices from './routes/ttsVoices';
 import insight from './routes/insight';
@@ -192,6 +193,7 @@ app.register(interview, { prefix: '/api' });
 app.register(qaBank, { prefix: '/api' });
 app.register(models, { prefix: '/api' });
 app.register(diagram, { prefix: '/api' });
+app.register(diagramHistory, { prefix: '/api' });
 app.register(ttsVoices, { prefix: '/api' });
 
 /* ===== AI 流程图生成（自然语言 → 流程图结构，坐标由前端 dagre 自动布局）=====

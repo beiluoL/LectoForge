@@ -100,6 +100,46 @@ export function deleteDiagram(id: number): Promise<{ ok: true }> {
   return apiDelete(`/diagram/${id}`);
 }
 
+/* ===================== 版本历史（/api/diagram/:id/history） ===================== */
+
+/** 历史列表项（不含完整快照，只回动作标签 + 时间 + 节点数） */
+export interface DiagramHistorySummary {
+  id: number;
+  actionLabel: string | null;
+  createdAt: string;
+  nodeCount: number;
+}
+
+/** 记录一条历史快照的请求体 */
+export interface DiagramHistoryRecordInput {
+  snapshot: DiagramData;
+  actionLabel?: string | null;
+}
+
+/** 记录一条快照（前端 ≥30s 防抖 / Ctrl+S 触发） */
+export function recordDiagramHistory(
+  id: number,
+  snapshot: DiagramData,
+  actionLabel?: string | null,
+): Promise<{ id: number }> {
+  return apiPost<{ id: number }>(`/diagram/${id}/history`, { snapshot, actionLabel });
+}
+
+/** 拉取某图文件的历史列表（倒序） */
+export function fetchDiagramHistory(id: number): Promise<DiagramHistorySummary[]> {
+  return apiGet<DiagramHistorySummary[]>(`/diagram/${id}/history`);
+}
+
+/** 恢复到指定历史版本（覆盖前后端先存「恢复前自动备份」安全快照） */
+export function restoreDiagramHistory(id: number, historyId: number): Promise<DiagramDetail> {
+  return apiPost<DiagramDetail>(`/diagram/${id}/history/restore/${historyId}`, {});
+}
+
+/** 取指定历史快照对象（前端据此落盘为 .json），与 download 路由对应 */
+export function downloadDiagramHistory(id: number, historyId: number): Promise<DiagramData> {
+  return apiGet<DiagramData>(`/diagram/${id}/history/${historyId}/download`);
+}
+
 /* ===================== AI 生成（/api/ai/diagram/generate） ===================== */
 
 /** AI 返回的单节点 */

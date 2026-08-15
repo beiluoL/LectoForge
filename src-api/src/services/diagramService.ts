@@ -150,7 +150,7 @@ function parseData(raw: string | null | undefined): DiagramData {
  * 写入前清洗：只保留业务字段，剔除 vue-flow 可能混进来的运行时字段。
  * 只接受多页结构（{currentPageId, pages}），非多页一律回退空白多页。
  */
-function sanitizeData(input: unknown): DiagramData {
+export function sanitizeData(input: unknown): DiagramData {
   const src = (input && typeof input === 'object' ? input : {}) as Partial<DiagramData>;
 
   // 多页结构

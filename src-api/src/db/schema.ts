@@ -522,3 +522,35 @@ export const wbDiagram = sqliteTable('wb_diagram', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+/* ===== 模块：绘图工具 / 流程图 —— 版本历史（整图快照链）=====
+ * 与 wb_diagram 一对多：一份「图文件」可派生出多条历史快照。
+ * 每条历史 = 一个时间点的整图（多页）JSON 副本（snapshot_json），
+ * 外加一个人类可读的 action_label（如「手动保存」「自动保存」「恢复前自动备份」）。
+ *
+ * 为什么整图复制而不是 delta（增量 diff）：
+ * - 流程图节点没有独立查询需求，永远整图加载；delta 要现场算回滚、要维护基线，
+ *   复杂度陡增却换不来查询收益；
+ * - 复制法让「恢复」退化为「把历史 JSON 写回 wb_diagram.data」，零风险。
+ *
+ * 裁剪策略：每个 diagram_id 只保留最近 100 条（recordHistory 写入后即时 trim），
+ * 超出部分删最旧的，避免长会话无限膨胀。 */
+export const wbDiagramHistory = sqliteTable(
+  'wb_diagram_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** 逻辑外键：归属的图文件 id（关联 wb_diagram.id），由应用层维护 */
+    diagramId: integer('diagram_id').notNull(),
+    /** 该时间点的整图快照 JSON（DiagramData：{ currentPageId, pages }） */
+    snapshotJson: text('snapshot_json').notNull(),
+    /** 人类可读动作标签（「手动保存」/「自动保存」/「恢复前自动备份」…），可空 */
+    actionLabel: text('action_label'),
+    /** 快照时刻 UTC ISO 串 */
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => ({
+    /* 历史列表 = WHERE diagram_id = ? ORDER BY created_at DESC，
+     * (diagram_id, created_at) 让「某图的最近 N 条」走索引倒序扫描。 */
+    diagramIdx: index('idx_wb_diagram_history_diagram').on(t.diagramId, t.createdAt),
+  }),
+);

@@ -12,6 +12,8 @@
       @open-templates="showTemplates = true"
       @open-ai="showAi = true"
       @export="doExport"
+      @open-history="showHistory = true"
+      @open-find="showFind = true"
     />
 
     <div class="x6-pg-main">
@@ -50,6 +52,15 @@
 
     <DiagramTemplateModal v-if="showTemplates" @applied="applyTemplate" @close="showTemplates = false" />
     <DiagramAiModal v-if="showAi" @generated="onAiGenerated" @close="showAi = false" />
+
+    <!-- 版本历史抽屉（P2-T3.1） / 查找替换面板（P2-T3.2） -->
+    <DiagramVersionHistory
+      v-if="graphReady && showHistory && diagramId"
+      :diagram-id="diagramId"
+      @close="showHistory = false"
+      @restored="onHistoryRestored"
+    />
+    <DiagramFindReplace v-if="graphReady && showFind" @close="showFind = false" />
   </div>
 </template>
 
@@ -60,7 +71,7 @@
  * + P1-T5（画笔 / 模板 / AI / 导出 / 持久化）。
  * 不替换现有 /diagram（Vue Flow），仅本地验证。
  */
-import { ref, watch, nextTick, provide } from 'vue'
+import { ref, watch, nextTick, provide, onBeforeUnmount } from 'vue'
 import { useGraph } from './useGraph'
 import { SHAPES } from '../shapeDefs'
 import { buildEdgeMetadata, buildUmlEdgeMetadata } from './edgeFactory'
@@ -76,6 +87,8 @@ import { X6_CTX_KEY, type X6Context } from './context'
 import DiagramToolbar from './DiagramToolbar.vue'
 import DiagramLibrary from './DiagramLibrary.vue'
 import DiagramRightPanel from './DiagramRightPanel.vue'
+import DiagramVersionHistory from './DiagramVersionHistory.vue'
+import DiagramFindReplace from './DiagramFindReplace.vue'
 import DiagramTemplateModal from '../components/DiagramTemplateModal.vue'
 import DiagramAiModal from '../components/DiagramAiModal.vue'
 import type { DiagramTemplate } from '../templates'
@@ -88,6 +101,8 @@ const propertiesOpen = ref(true)
 const libraryOpen = ref(true)
 const showTemplates = ref(false)
 const showAi = ref(false)
+const showHistory = ref(false)
+const showFind = ref(false)
 
 const { graph, graphReady, canUndo, canRedo, historySize } = useGraph({ containerRef })
 const { pages, currentPageId, ensureInit, switchPage, addPage, loadPages } = usePages(graph)
@@ -95,9 +110,10 @@ const pen = usePenMode(graph, containerRef)
 const penOn = pen.penMode
 const penPreview = pen.previewPath
 const penBegin = pen.beginStroke
-const { saving, lastSavedAt, ensureDiagram, bindAutoSave, flush } = useGraphPersistence(graph, {
-  serialize: () => serializePages(),
-})
+const { saving, lastSavedAt, diagramId, ensureDiagram, bindAutoSave, bindHistory, flush, reload } =
+  useGraphPersistence(graph, {
+    serialize: () => serializePages(),
+  })
 
 function serializePages() {
   return pages.value
@@ -167,6 +183,26 @@ function toggleFullscreen() {
   if (!el) return
   if (document.fullscreenElement) document.exitFullscreen()
   else el.requestFullscreen?.()
+}
+
+/** 版本历史恢复后：用后端最新数据刷新画布（恢复接口已存「恢复前自动备份」安全快照） */
+async function onHistoryRestored() {
+  const g = graph.value
+  const res = await reload()
+  if (!g || !res || !res.pages.length) return
+  const cur = res.pages.find((p) => p.id === res.currentId) || res.pages[0]
+  loadPages(res.pages, res.currentId)
+  g.fromJSON(cur.data || { cells: [] })
+  g.cleanHistory()
+  g.zoomToFit({ padding: 40, maxScale: 1 })
+}
+
+/** Ctrl/Cmd+F 唤起查找替换（画布未聚焦时也生效） */
+function onFindKey(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+    e.preventDefault()
+    showFind.value = true
+  }
 }
 
 /** 种子 demo 内容（全新文档首次打开，用于验收 P1-T2~T4） */
@@ -283,15 +319,21 @@ watch(graphReady, async (ready) => {
     }
   })
 
-  // 自动保存绑定 + Ctrl+S 立即保存 + 关窗兜底
+  // 自动保存 + 历史快照（30s 节流）绑定，Ctrl+S 立即保存并记一条「手动保存」快照
   bindAutoSave()
+  bindHistory()
   g.bindKey(['meta+s', 'ctrl+s'], () => {
-    flush()
+    flush(true)
     return false
   })
   window.addEventListener('beforeunload', () => {
     flush()
   })
+  window.addEventListener('keydown', onFindKey)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onFindKey)
 })
 </script>
 
@@ -378,5 +420,13 @@ watch(graphReady, async (ready) => {
   justify-content: center;
   font-size: 13px;
   color: var(--kb-muted-foreground, #64748b);
+}
+/* 参考线（Snapline）粉色强化：X6 的 snapline 是动态注入到画布容器内的 <line>，
+ * 默认无描边或蓝色，这里统一覆盖为 #FF5C93 / 2px（P2-T3.3）。 */
+.x6-pg :deep(.x6-widget-snapline-vertical),
+.x6-pg :deep(.x6-widget-snapline-horizontal) {
+  stroke: #ff5c93;
+  stroke-width: 2;
+  pointer-events: none;
 }
 </style>

@@ -62,7 +62,9 @@ export function useGraph(params: UseGraphParams) {
       }),
     )
     g.use(new Clipboard({ enabled: true }))
-    g.use(new Snapline({ enabled: true }))
+    // Snapline：tolerance=10 让对齐吸附半径放宽到 10px；sharp 让对齐线更贴合节点边。
+    // 线色/线宽由全局 CSS（.x6-widget-snapline-*）控制为粉色 #FF5C93 / 2px（见 DiagramPlayground 样式）。
+    g.use(new Snapline({ enabled: true, tolerance: 10, sharp: true }))
     g.use(new Transform({ resizing: { minWidth: 60, minHeight: 36 }, rotating: true }))
     g.use(new Scroller({ enabled: true, pannable: true }))
     g.use(new Export())

@@ -92,6 +92,12 @@
     <button class="kb-btn kb-btn-sm" :class="{ 'is-active': props.propertiesOpen }" @click="emit('toggle-properties')">
       ⚙ 格式
     </button>
+
+    <span class="x6-toolbar-sep"></span>
+
+    <!-- 版本历史 / 查找替换（P2-T3） -->
+    <button class="kb-btn kb-btn-sm" @click="emit('open-history')" title="版本历史">🕘 历史</button>
+    <button class="kb-btn kb-btn-sm" @click="emit('open-find')" title="查找替换（Ctrl+F）">🔍 查找</button>
   </div>
 </template>
 
@@ -120,6 +126,8 @@ const emit = defineEmits<{
   (e: 'open-templates'): void
   (e: 'open-ai'): void
   (e: 'export', format: ExportFormat): void
+  (e: 'open-history'): void
+  (e: 'open-find'): void
 }>()
 
 function onExport(format: string) {

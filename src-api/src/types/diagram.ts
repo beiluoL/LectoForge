@@ -111,6 +111,24 @@ export interface DiagramUpdateInput {
   data?: DiagramData;
 }
 
+/* ===================== 版本历史（/api/diagram/:id/history） ===================== */
+
+/** 历史列表项：不含完整快照，只回动作标签 + 时间 + 节点数，减轻传输 */
+export interface DiagramHistorySummary {
+  id: number;
+  /** 人类可读动作标签（「手动保存」/「自动保存」/「恢复前自动备份」…），可空 */
+  actionLabel: string | null;
+  createdAt: string;
+  /** 该快照的节点总数（跨所有页汇总） */
+  nodeCount: number;
+}
+
+/** 记录一条历史快照的请求体：snapshot 为完整多页结构，actionLabel 可空 */
+export interface DiagramHistoryRecordInput {
+  snapshot: DiagramData;
+  actionLabel?: string | null;
+}
+
 /* ===================== AI 生成（/api/ai/diagram/generate） ===================== */
 
 /** AI 返回的单节点（id 稳定，type 取自已知形状集合，未知回退 process） */

@@ -54,7 +54,10 @@
   - [x] P2-T2.3 分组 Group（Ctrl+G / Ctrl+Shift+G + 工具栏「分组」按钮）
   - [x] P2-T2.4 图层面板（DiagramLayersPanel：显隐/锁定/排序/新建/重命名/删除/指派选中）
   - [x] P2-T2.5 大纲面板（DiagramOutlinePanel：结构树 + 点选滚动居中 + 高亮闪烁 + 搜索过滤）
-- [ ] **P2-T3** 版本历史 + 查找替换 + 参考线
+- [x] **P2-T3** 版本历史 + 查找替换 + 参考线（本提交）
+  - [x] P2-T3.1 版本历史：后端 `wb_diagram_history` 表 + `diagramHistoryService`/`Controller`/`routes`（`POST /diagram/:id/history` 记录、`GET .../history` 列表、`POST .../restore/:historyId` 恢复、`GET .../:historyId/download` 下载）；前端 `useGraphPersistence` 30s 节流自动快照 + Ctrl+S「手动保存」快照 + `DiagramVersionHistory.vue` 抽屉（列表/恢复/下载，恢复前自动备份安全快照）
+  - [x] P2-T3.2 查找替换：`DiagramFindReplace.vue`（Ctrl+F 唤起），实时高亮 + 上/下个 + 替换/全部替换，Case Sensitive / Whole Word；节点改 `attr('label/text')`+`data.label`，连线改 `setLabels`+`data.label`，全部替换 1 步 history
+  - [x] P2-T3.3 参考线：Snapline `tolerance:10` + `sharp:true`，线色/线宽经全局 CSS 覆盖为粉色 #FF5C93 / 2px（X6 snapline 无 stroke/label 选项，对齐文字 label 非原生能力，已用 sharp 提升吸附精度替代）
 - [ ] **P2-T4** draw.io XML 导入导出 + PDF 完善
 - [ ] **P2-T5** 图片节点 + 超链接 + Tooltip
 
@@ -71,7 +74,8 @@
 | P1-T4 | feature/x6-P1-T1 | `c26e48b` | ✅ 已本地提交 |
 | P1-T5 | feature/x6-P1-T1 | `8c757de` | ✅ 已本地提交 |
 | P2-T1 | feature/x6-P2 | `30c0039` | ✅ 已本地提交 |
-| P2-T2 | feature/x6-P2 | （待提交） | 🟡 已实现待提交 |
+| P2-T2 | feature/x6-P2 | `34e9444` | ✅ 已本地提交 |
+| P2-T3 | feature/x6-P2 | （待提交） | 🟡 已实现待提交 |
 
 ---
 
