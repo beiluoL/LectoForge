@@ -16,6 +16,12 @@ export interface DiagramNodeData {
   path?: string
   pathColor?: string
   strokeWidth?: number
+  /** 图片节点：base64 dataURL（P2-T5.1） */
+  imageUrl?: string
+  /** 超链接：Ctrl/Cmd+点击经 open_external_url 打开（P2-T5.2） */
+  href?: string
+  /** 悬停提示气泡文字（P2-T5.2） */
+  tooltip?: string
 }
 
 /** 连线业务数据（与 store 的 normalizeEdge 一致） */
@@ -25,6 +31,9 @@ export interface DiagramEdgeData {
   lineWidth?: number
   dashed?: boolean
   arrow?: boolean
+  /** 超链接 / 悬停提示（P2-T5.2） */
+  href?: string
+  tooltip?: string
 }
 
 /** 箭头样式（属性面板下拉 6 种：5 种 + 关闭） */

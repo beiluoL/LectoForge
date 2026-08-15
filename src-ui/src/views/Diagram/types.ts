@@ -36,7 +36,8 @@ export type ShapeRender =
   | 'device'
   | 'container'
   | 'swimlane'
-  | 'group';
+  | 'group'
+  | 'image';
 
 /** 连线样式（全局下拉：折线 / 曲线 / 直线） */
 export type EdgeLineType = 'smoothstep' | 'bezier' | 'straight';

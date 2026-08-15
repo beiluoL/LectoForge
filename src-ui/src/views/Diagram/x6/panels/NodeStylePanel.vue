@@ -3,6 +3,23 @@
     <h4 class="x6-panel-title">样式 · 节点</h4>
 
     <!-- 富文本 -->
+    <!-- 图片（仅图片节点，P2-T5.1） -->
+    <section class="x6-field" v-if="isImageNode">
+      <span class="kb-label">图片</span>
+      <div class="x6-img-preview" v-if="imageUrl">
+        <img :src="imageUrl" alt="预览" />
+      </div>
+      <p class="x6-img-empty" v-else>尚未设置图片</p>
+      <div class="x6-img-actions">
+        <button class="kb-btn kb-btn-sm" @click="imgInput?.click()">更换图片</button>
+        <button class="kb-btn kb-btn-sm" v-if="imageUrl" @click="clearImage">清除</button>
+      </div>
+      <input ref="imgInput" type="file" accept="image/*" style="display: none" @change="onImgFile" />
+    </section>
+
+    <!-- 链接 / 提示（P2-T5.2） -->
+    <LinkTooltipPanel kind="node" />
+
     <section class="x6-field">
       <span class="kb-label">文字</span>
       <div class="x6-richbar">
@@ -97,12 +114,46 @@
 import { computed, inject, ref } from 'vue'
 import { X6_CTX_KEY, type X6Context } from '../context'
 import { useSelection } from '../useSelection'
+import { notify } from '@/utils/toast'
+import LinkTooltipPanel from './LinkTooltipPanel.vue'
 
 const ctx = inject(X6_CTX_KEY) as X6Context
 const sel = useSelection(ctx.graph)
 
 function firstNode(): any {
   return sel.selectedNodes.value[0] as any
+}
+
+// ===== 图片节点（P2-T5.1）：预览 / 更换 / 清除 =====
+const imgInput = ref<HTMLInputElement | null>(null)
+const isImageNode = computed(() => firstNode()?.shape === 'diagram-image')
+const imageUrl = computed(() => (firstNode()?.getData()?.imageUrl as string) || '')
+
+function onImgFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => setImage(reader.result as string)
+  reader.onerror = () => notify('图片读取失败', 'error')
+  reader.readAsDataURL(file)
+}
+
+function setImage(url: string) {
+  applyToNodes((n) => {
+    n.setData({ ...(n.getData() || {}), imageUrl: url })
+    n.attr('image/xlink:href', url)
+  })
+}
+
+function clearImage() {
+  applyToNodes((n) => {
+    const d = { ...(n.getData() || {}) }
+    delete d.imageUrl
+    n.setData(d)
+    n.attr('image/xlink:href', '')
+  })
 }
 function applyToNodes(fn: (n: any) => void) {
   const g = ctx.graph.value
@@ -276,5 +327,30 @@ function resetNode() {
 .x6-rich-btn.on {
   border-color: var(--kb-primary, #3b6fe0);
   background: color-mix(in srgb, var(--kb-primary, #3b6fe0) 14%, transparent);
+}
+.x6-img-preview {
+  width: 100%;
+  max-height: 140px;
+  border: 1px solid var(--kb-border, #e2e8f0);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--kb-muted, #f1f5f9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.x6-img-preview img {
+  max-width: 100%;
+  max-height: 138px;
+  object-fit: contain;
+}
+.x6-img-empty {
+  font-size: 12px;
+  color: var(--kb-muted-foreground, #64748b);
+  margin: 0;
+}
+.x6-img-actions {
+  display: flex;
+  gap: 8px;
 }
 </style>

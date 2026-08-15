@@ -84,8 +84,36 @@ function parseVertex(c: Element): { cell: any; degraded: boolean } | null {
   const w = geo ? Number(geo.getAttribute('width') || 120) : 120
   const h = geo ? Number(geo.getAttribute('height') || 60) : 60
 
+  // 图片节点：draw.io image 形状（imageData/src 内联 base64）→ diagram-image（P2-T5.1）
+  if (style.includes('image') && (sm.has('imageData') || sm.has('src'))) {
+    const raw = sm.get('imageData') || sm.get('src') || ''
+    const dataUrl = raw.startsWith('data:') ? raw : `data:image/png;base64,${raw}`
+    const href = sm.get('lfHref') ? decodeURIComponent(sm.get('lfHref')!) : undefined
+    const tooltip = sm.get('lfTooltip') ? decodeURIComponent(sm.get('lfTooltip')!) : undefined
+    return {
+      degraded: false,
+      cell: {
+        id,
+        shape: 'diagram-image',
+        x,
+        y,
+        width: w,
+        height: h,
+        attrs: {
+          body: { fill: '#FFFFFF', stroke: '#475569' },
+          image: { 'xlink:href': dataUrl },
+        },
+        data: { imageUrl: dataUrl, label: '', href, tooltip },
+      },
+    }
+  }
+
   const def = SHAPE_BY_TYPE[type]
   const degraded = !def && type !== 'text'
+
+  // LectoForge 专用扩展字段（P2-T5.2）
+  const href = sm.get('lfHref') ? decodeURIComponent(sm.get('lfHref')!) : undefined
+  const tooltip = sm.get('lfTooltip') ? decodeURIComponent(sm.get('lfTooltip')!) : undefined
 
   if (type === 'text') {
     return {
@@ -101,7 +129,7 @@ function parseVertex(c: Element): { cell: any; degraded: boolean } | null {
           body: { fill: 'transparent', stroke: 'transparent' },
           label: { text: value, fill: textColor },
         },
-        data: { label: value },
+        data: { label: value, href, tooltip },
       },
     }
   }
@@ -119,7 +147,7 @@ function parseVertex(c: Element): { cell: any; degraded: boolean } | null {
         body: { fill, stroke },
         label: { text: value, fill: textColor },
       },
-      data: { label: value, fill, stroke, textColor, width: w, height: h },
+      data: { label: value, fill, stroke, textColor, width: w, height: h, href, tooltip },
     },
   }
 }
@@ -148,7 +176,15 @@ function parseEdge(c: Element, byId: Map<string, Element>): { cell: any; skipped
     source,
     target,
     label: value || undefined,
-    data: { lineType, color, lineWidth, dashed, arrow: arrow !== 'none' },
+    data: {
+      lineType,
+      color,
+      lineWidth,
+      dashed,
+      arrow: arrow !== 'none',
+      href: sm.get('lfHref') ? decodeURIComponent(sm.get('lfHref')!) : undefined,
+      tooltip: sm.get('lfTooltip') ? decodeURIComponent(sm.get('lfTooltip')!) : undefined,
+    },
   })
   // 还原航点
   const arr = c.getElementsByTagName('Array')[0]

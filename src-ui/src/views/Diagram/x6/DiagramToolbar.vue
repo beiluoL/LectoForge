@@ -59,6 +59,7 @@
     <!-- 插入 -->
     <button class="kb-btn kb-btn-sm" @click="insertText">＋文本</button>
     <button class="kb-btn kb-btn-sm" @click="insertTable">＋表格</button>
+    <button class="kb-btn kb-btn-sm" @click="emit('insert-image')" title="插入图片（也可从图形库点击或粘贴）">🖼 图片</button>
 
     <span class="x6-toolbar-sep"></span>
 
@@ -131,6 +132,7 @@ const emit = defineEmits<{
   (e: 'import'): void
   (e: 'open-history'): void
   (e: 'open-find'): void
+  (e: 'insert-image'): void
 }>()
 
 function onExport(format: string) {

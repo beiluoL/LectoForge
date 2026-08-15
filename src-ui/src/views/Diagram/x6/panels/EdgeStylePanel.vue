@@ -54,6 +54,9 @@
         <input class="kb-input" type="text" :value="labelText" @change="(e) => setLabelText((e.target as HTMLInputElement).value)" />
       </label>
     </section>
+
+    <!-- 链接 / 提示（P2-T5.2） -->
+    <LinkTooltipPanel kind="edge" />
   </div>
   <div class="x6-panel-empty" v-else>选中一条连线以编辑样式</div>
 </template>
@@ -69,6 +72,7 @@ import { useSelection } from '../useSelection'
 import { edgeConnectorRouter, buildEdgeMarker } from '../edgeFactory'
 import type { ArrowStyle } from '../types'
 import type { EdgeLineType } from '../../types'
+import LinkTooltipPanel from './LinkTooltipPanel.vue'
 
 const ctx = inject(X6_CTX_KEY) as X6Context
 const sel = useSelection(ctx.graph)

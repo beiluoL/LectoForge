@@ -378,6 +378,7 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
     },
     zIndex: 0,
   }),
+  image: () => ({ ...IMAGE_CONFIG }),
 }
 
 function buildConfig(def: ShapeDef): any {
@@ -452,6 +453,26 @@ const DRAWING_CONFIG = {
       strokeLinejoin: 'round',
     },
   },
+}
+
+/** 图片节点（P2-T5.1）：边框 body + 填满节点的 image 选择器；imageUrl 经 data 与 attrs.image['xlink:href'] 同步 */
+const IMAGE_CONFIG = {
+  inherit: 'rect',
+  markup: [
+    { tag: 'rect', selector: 'body' },
+    { tag: 'image', selector: 'image' },
+  ],
+  attrs: {
+    body: { fill: '#FFFFFF', stroke: '#475569', strokeWidth: 1.5, rx: 4, ry: 4 },
+    image: {
+      refX: 0,
+      refY: 0,
+      refWidth: '100%',
+      refHeight: '100%',
+      'xlink:href': '',
+    },
+  },
+  ports: PORTS,
 }
 
 /** 幂等注册全部形状（50+） + 4 种工具形状 */

@@ -41,6 +41,8 @@ export function x6PagesToDiagramData(pages: DiagramPageData[]): DiagramData {
               lineWidth: d.lineWidth || 1.6,
               dashed: !!d.dashed,
               arrow: d.arrow !== false,
+              href: d.href,
+              tooltip: d.tooltip,
             },
           })
         } else {
@@ -60,9 +62,12 @@ export function x6PagesToDiagramData(pages: DiagramPageData[]): DiagramData {
               textColor: label.fill,
               width: c.width,
               height: c.height,
+              href: data.href,
+              tooltip: data.tooltip,
               ...(isDrawing
                 ? { path: data.path, points: data.points, strokeWidth: data.strokeWidth, pathColor: data.pathColor }
                 : {}),
+              ...(type === 'image' ? { imageUrl: data.imageUrl } : {}),
             },
           })
         }
@@ -111,6 +116,8 @@ export function diagramDetailToX6Pages(detail: DiagramDetail): DiagramPageData[]
           textColor: data.textColor,
           width: w,
           height: h,
+          href: data.href,
+          tooltip: data.tooltip,
         },
       }
       if (type === 'drawing') {
@@ -120,6 +127,11 @@ export function diagramDetailToX6Pages(detail: DiagramDetail): DiagramPageData[]
         base.data.points = data.points
         base.data.pathColor = data.pathColor
         base.data.strokeWidth = data.strokeWidth
+      } else if (type === 'image') {
+        // 图片节点：body 边框 + image 选择器承载 base64（P2-T5.1）
+        base.shape = 'diagram-image'
+        base.attrs.image = { 'xlink:href': data.imageUrl || '' }
+        base.data.imageUrl = data.imageUrl
       }
       cells.push(base)
       idMap[n.id] = n.id
@@ -140,6 +152,8 @@ export function diagramDetailToX6Pages(detail: DiagramDetail): DiagramPageData[]
             lineWidth: e.data?.lineWidth || 1.6,
             dashed: !!e.data?.dashed,
             arrow: e.data?.arrow !== false,
+            href: (e.data?.href as string | undefined) || undefined,
+            tooltip: (e.data?.tooltip as string | undefined) || undefined,
           },
         }),
       )

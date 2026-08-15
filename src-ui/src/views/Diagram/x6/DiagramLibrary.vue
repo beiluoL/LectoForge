@@ -22,9 +22,10 @@
             v-for="s in grp.shapes"
             :key="s.type"
             class="x6-lib-item"
-            :title="s.label"
-            @mousedown="startDrag(s, $event)"
-            @touchstart.prevent="startDrag(s, $event)"
+            :title="s.type === 'image' ? '点击从文件/粘贴插入图片' : s.label"
+            @mousedown="onLibItemDown(s, $event)"
+            @touchstart.prevent="onLibItemDown(s, $event)"
+            @click="s.type === 'image' && emit('insert-image')"
           >
             <span class="x6-lib-thumb" v-html="thumbHtml(s)"></span>
             <span class="x6-lib-label">{{ s.label }}</span>
@@ -75,7 +76,7 @@ import {
 } from '../shapeDefs'
 
 const props = defineProps<{ open?: boolean }>()
-const emit = defineEmits<{ (e: 'arm-edge', relation: UmlRelationType): void }>()
+const emit = defineEmits<{ (e: 'arm-edge', relation: UmlRelationType): void; (e: 'insert-image'): void }>()
 
 const ctx = inject(X6_CTX_KEY) as X6Context
 const query = ref('')
@@ -122,6 +123,12 @@ function startDrag(def: ShapeDef, evt: MouseEvent | TouchEvent) {
     data: { label: def.defaultText, capsule: !!def.capsule, render: def.render },
   }
   dnd.start(meta, evt as any)
+}
+
+/** 图片形状不拖拽（无初始文件），点击改为触发插入流程（由 playground 打开文件选择） */
+function onLibItemDown(def: ShapeDef, evt: MouseEvent | TouchEvent) {
+  if (def.type === 'image') return
+  startDrag(def, evt)
 }
 
 function armEdge(relation: UmlRelationType) {
@@ -176,6 +183,8 @@ function thumbHtml(def: ShapeDef): string {
     inner = `<rect x="4" y="8" width="${w - 8}" height="${h - 14}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><polyline points="4,8 10,13 16,8 22,13 28,8 34,13 42,8" fill="none" stroke="${stroke}" stroke-width="1.2"/>`
   } else if (['envelope', 'mail'].includes(s)) {
     inner = `<rect x="4" y="7" width="${w - 8}" height="${h - 13}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><path d="M4 7 L${w / 2} 17 L${w - 4} 7" fill="none" stroke="${stroke}" stroke-width="1.2"/>`
+  } else if (s === 'image') {
+    inner = `<rect x="3" y="3" width="${w - 6}" height="${h - 6}" rx="4" fill="#F1F5F9" stroke="${stroke}" stroke-width="1.5"/><circle cx="${w * 0.38}" cy="${h * 0.4}" r="5" fill="#94A3B8"/><polygon points="${w * 0.5},${h - 6} ${w - 7},${h * 0.52} ${w * 0.66},${h * 0.52}" fill="#94A3B8"/>`
   } else {
     inner = `<rect x="3" y="3" width="${w - 6}" height="${h - 6}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`
   }

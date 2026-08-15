@@ -13,15 +13,19 @@
       @open-ai="showAi = true"
       @export="doExport"
       @import="triggerImport"
+      @insert-image="triggerImagePick"
       @open-history="showHistory = true"
       @open-find="showFind = true"
     />
 
     <div class="x6-pg-main">
-      <DiagramLibrary v-if="graphReady && libraryOpen" @arm-edge="onArmEdge" />
+      <DiagramLibrary v-if="graphReady && libraryOpen" @arm-edge="onArmEdge" @insert-image="triggerImagePick" />
 
       <div class="x6-pg-canvas-wrap">
         <div ref="containerRef" class="x6-pg-canvas" :style="{ background: ctxCanvasBg }"></div>
+
+        <!-- 悬停提示气泡（P2-T5.2：hover ≥500ms 显示，定位在画布容器内） -->
+        <div v-if="tip.show" class="x6-tip" :style="{ left: tip.x + 'px', top: tip.y + 'px' }">{{ tip.text }}</div>
 
         <!-- 自由画笔覆盖层（方案 B：仅在 penMode 显示，起笔 mousedown/touchstart，move/up 挂 document） -->
         <div
@@ -71,6 +75,15 @@
       style="display: none"
       @change="onFileChange"
     />
+
+    <!-- 隐藏的图片选择器：插入图片节点（P2-T5.1，Tauri webview 内即系统原生选择器） -->
+    <input
+      ref="imageInput"
+      type="file"
+      accept="image/*"
+      style="display: none"
+      @change="onImageFileChange"
+    />
   </div>
 </template>
 
@@ -105,6 +118,7 @@ import DiagramAiModal from '../components/DiagramAiModal.vue'
 import type { DiagramTemplate } from '../templates'
 import type { AiDiagramNode, AiDiagramEdge } from '@/api/diagram'
 import { notify } from '@/utils/toast'
+import { invoke } from '@tauri-apps/api/core'
 
 const containerRef = ref<HTMLElement | null>(null)
 const canvasBg = ref('#f8fafc')
@@ -219,6 +233,123 @@ function downloadBlob(filename: string, content: string, mime: string) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+// ===== P2-T5.1 图片节点：文件选择 / 剪贴板粘贴 / 创建 =====
+const imageInput = ref<HTMLInputElement | null>(null)
+
+function triggerImagePick() {
+  imageInput.value?.click()
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function onImageFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 允许重复选同一文件
+  if (!file) return
+  try {
+    const url = await fileToDataUrl(file)
+    addImageNode(url)
+  } catch {
+    notify('图片读取失败', 'error')
+  }
+}
+
+function addImageNode(dataUrl: string) {
+  const g = graph.value
+  if (!g || !containerRef.value) return
+  const rect = containerRef.value.getBoundingClientRect()
+  const center = g.clientToLocal(rect.left + rect.width / 2, rect.top + rect.height / 2)
+  const node = g.addNode({
+    shape: 'diagram-image',
+    x: Math.round(center.x - 90),
+    y: Math.round(center.y - 70),
+    width: 180,
+    height: 140,
+    attrs: {
+      body: { fill: '#FFFFFF', stroke: '#475569' },
+      image: { 'xlink:href': dataUrl },
+    },
+    data: { imageUrl: dataUrl, label: '' },
+  })
+  g.select(node)
+}
+
+// 剪贴板粘贴图片 → 创建图片节点（P2-T5.1）
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const it of Array.from(items)) {
+    if (it.kind === 'file' && it.type.startsWith('image/')) {
+      const file = it.getAsFile()
+      if (file) {
+        e.preventDefault()
+        fileToDataUrl(file)
+          .then(addImageNode)
+          .catch(() => notify('图片读取失败', 'error'))
+      }
+      break
+    }
+  }
+}
+
+// ===== P2-T5.2 悬停提示气泡 + Ctrl/Cmd 点击超链接 =====
+const tip = ref<{ show: boolean; x: number; y: number; text: string }>({ show: false, x: 0, y: 0, text: '' })
+let tipTimer: number | null = null
+
+function clearTip() {
+  if (tipTimer !== null) {
+    clearTimeout(tipTimer)
+    tipTimer = null
+  }
+  tip.value.show = false
+}
+
+function showTipFor(cell: any) {
+  const g = graph.value
+  const wrap = containerRef.value
+  if (!g || !wrap) return
+  const bbox = cell.getBBox()
+  const tl = g.localToClient({ x: bbox.x, y: bbox.y })
+  const wr = wrap.getBoundingClientRect()
+  tip.value = { show: true, x: tl.x - wr.left, y: tl.y - wr.top - 10, text: cell.getData()?.tooltip || '' }
+}
+
+function onCellEnter(payload: any) {
+  const cell = payload.cell
+  const data = cell?.getData?.()
+  if (!data?.tooltip) return
+  clearTip()
+  tipTimer = window.setTimeout(() => showTipFor(cell), 500)
+}
+
+function onCellLeave() {
+  clearTip()
+}
+
+function openExternal(url: string) {
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    void invoke('open_external_url', { url })
+  } else {
+    window.open(url, '_blank', 'noopener')
+  }
+}
+
+function onCellClick(payload: any) {
+  const cell = payload.cell
+  const data = cell?.getData?.()
+  if (!data?.href) return
+  const e = payload.e as MouseEvent
+  if (e && (e.metaKey || e.ctrlKey)) openExternal(data.href)
 }
 
 /** 套用模板：非空确认 → 清屏 + fromJSON + 1 步 history + zoomToFit */
@@ -403,10 +534,18 @@ watch(graphReady, async (ready) => {
     flush()
   })
   window.addEventListener('keydown', onFindKey)
+
+  // P2-T5.2：悬停提示气泡 + Ctrl/Cmd 点击超链接
+  g.on('cell:mouseenter', onCellEnter)
+  g.on('cell:mouseleave', onCellLeave)
+  g.on('cell:click', onCellClick)
+  window.addEventListener('paste', onPaste as any)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onFindKey)
+  window.removeEventListener('paste', onPaste as any)
+  clearTip()
 })
 </script>
 
@@ -452,6 +591,23 @@ onBeforeUnmount(() => {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* 悬停提示气泡（P2-T5.2）：绝对定位在画布容器内，跟随 cell bbox 顶部上方 */
+.x6-tip {
+  position: absolute;
+  z-index: 20;
+  max-width: 260px;
+  transform: translateY(-100%);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .x6-pg-pages {
   flex-shrink: 0;

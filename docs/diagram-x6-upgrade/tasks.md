@@ -63,7 +63,10 @@
   - [x] P2-T4.3 导出：x6ToDrawio.ts（X6 多页 → mxGraphModel，每页一个图层；shape/render→draw.io 原生 style；fill/stroke/text/edge 映射；无对应降级矩形并计数；跳过页面底图/画笔）
   - [x] P2-T4.1 PDF 多页完善：exportPdfMulti 逐页 SVG → A4 打印窗口（每页一 section + 页脚「文件名·第 p 页/共 n 页·时间」），依赖无关（不引入 svg2pdf/jsPDF，规避 Tauri WKWebView 矢量风险，中文系统字体原生清晰）；导出时暂停自动保存并还原当前页
   - [x] 接线：工具栏「📥 导入」按钮 + 导出下拉加 drawio；useDrawioIo 组合式（exportXml/applyImportedXml）+ 文件选择/下载 + 应用导入（loadPages + zoomToFit + flush 持久化）
-- [ ] **P2-T5** 图片节点 + 超链接 + Tooltip
+- [x] **P2-T5** 图片节点 + 超链接 + Tooltip
+  - [x] P2-T5.1 图片节点：`diagram-image` shape（rect body + image 选择器承载 base64）、图形库「图片」形状（缩略图 + 点击插入）、工具栏「🖼 图片」按钮、隐藏 file input + 剪贴板粘贴（DOM `paste` 读 image file → FileReader base64，零新依赖）、NodeStylePanel 图片区块（预览/更换/清除）；data.imageUrl 与 attrs.image 双写；drawio 往返用 `image` shape + `imageData=base64`
+  - [x] P2-T5.2 超链接 + Tooltip：节点/边 data.href/tooltip 透传 + 序列化；LinkTooltipPanel（node/edge 共用，经 `graph.batchUpdate` 单步写入）；hover ≥500ms 显示气泡（`.x6-tip`，跟随 cell 顶部）；Ctrl/Cmd+点击 `cell:click` 调 Tauri 既有 `open_external_url`（非 plugin-shell，已授权 `allow-open-external-url`），非 Tauri 环境 fallback `window.open`；drawio 往返用自定义 style 键 `lfHref`/`lfTooltip`（encodeURIComponent）
+  - [x] 接线/验证：vue-tsc --noEmit 与 vite build 均绿；diagramDataAdapter 节点/边 data 双向透传 href/tooltip + image type 分支；x6ToDrawio/drawioToX6 图片与 lfHref/lfTooltip 往返
 
 ---
 
@@ -80,6 +83,8 @@
 | P2-T1 | feature/x6-P2 | `30c0039` | ✅ 已本地提交 |
 | P2-T2 | feature/x6-P2 | `34e9444` | ✅ 已本地提交 |
 | P2-T3 | feature/x6-P2 | `c11aec5` | ✅ 已本地提交 |
+| P2-T4 | feature/x6-P2 | `1b2a841` | ✅ 已本地提交 |
+| P2-T5 | feature/x6-P2 | `398185c` | ✅ 已本地提交 |
 
 ---
 

@@ -12,7 +12,7 @@ import type { ShapeRender } from './types';
 
 export type DiagramShapeType =
   // ===== 基础（basic）=====
-  | 'rect' | 'rounded' | 'ellipse' | 'diamond' | 'hexagon' | 'triangle' | 'parallelogram'
+  | 'rect' | 'rounded' | 'ellipse' | 'diamond' | 'hexagon' | 'triangle' | 'parallelogram' | 'image'
   // ===== 流程图 / BPMN（flow）=====
   | 'terminal' | 'process' | 'decision' | 'io' | 'preparation' | 'note' | 'card'
   | 'database' | 'disk' | 'document' | 'storedData' | 'manual' | 'delay' | 'predefined'
@@ -72,6 +72,7 @@ export const EXTRA_SHAPES: ShapeDef[] = [
   // ===== 基础（补齐） =====
   { type: 'triangle', label: '三角形', category: 'basic', defaultText: '三角', defaultWidth: 140, defaultHeight: 120, render: 'triangle' },
   { type: 'parallelogram', label: '平行四边形', category: 'basic', defaultText: '输入/输出', defaultWidth: 160, defaultHeight: 72, render: 'parallelogram' },
+  { type: 'image', label: '图片', category: 'basic', defaultText: '', defaultWidth: 180, defaultHeight: 140, render: 'image' },
 
   // ===== 流程图 / BPMN（17 种） =====
   { type: 'io', label: '输入/输出', category: 'flow', defaultText: 'I/O', defaultWidth: 160, defaultHeight: 72, render: 'parallelogram' },
@@ -165,7 +166,7 @@ export interface LibraryGroup {
 }
 
 export const SHAPE_GROUPS: LibraryGroup[] = [
-  { id: 'basic', name: '基础形状', shapes: ['rect', 'rounded', 'ellipse', 'diamond', 'hexagon', 'triangle', 'parallelogram'] },
+  { id: 'basic', name: '基础形状', shapes: ['rect', 'rounded', 'ellipse', 'diamond', 'hexagon', 'triangle', 'parallelogram', 'image'] },
   {
     id: 'flow',
     name: '流程图 / BPMN',

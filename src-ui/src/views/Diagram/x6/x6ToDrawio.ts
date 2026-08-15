@@ -61,6 +61,25 @@ function firstEdgeLabel(cell: any): string {
 }
 
 function nodeCellXml(cell: any, layerId: string): { xml: string; degraded: boolean } {
+  const w = Math.round(cell.width || 120)
+  const h = Math.round(cell.height || 60)
+  const x = Math.round(cell.x || 0)
+  const y = Math.round(cell.y || 0)
+
+  // 图片节点：draw.io image 形状内联 base64（P2-T5.1）
+  if (String(cell.shape || '') === 'diagram-image') {
+    const dataUrl = cell.data?.imageUrl || ''
+    const raw = dataUrl.includes('base64,') ? dataUrl.split('base64,')[1] : dataUrl
+    const extra: string[] = []
+    if (cell.data?.href) extra.push(`lfHref=${encodeURIComponent(cell.data.href)}`)
+    if (cell.data?.tooltip) extra.push(`lfTooltip=${encodeURIComponent(cell.data.tooltip)}`)
+    const styleStr = ['image', `imageData=${raw}`, 'html=1', ...extra].join(';') + ';'
+    const xml =
+      `<mxCell id="${esc(cell.id)}" value="" style="${esc(styleStr)}" vertex="1" parent="${layerId}">` +
+      `<mxGeometry x="${x}" y="${y}" width="${w}" height="${h}" as="geometry"/></mxCell>`
+    return { xml, degraded: false }
+  }
+
   const { style, degraded } = drawioStyleForCell(cell)
   const body = cell.attrs?.body || {}
   const label = cell.attrs?.label || {}
@@ -68,10 +87,9 @@ function nodeCellXml(cell: any, layerId: string): { xml: string; degraded: boole
   const stroke = body.stroke && body.stroke !== 'transparent' ? String(body.stroke) : '#475569'
   const fontColor = label.fill ? String(label.fill) : '#0F172A'
   const text = String(label.text || cell.data?.label || '')
-  const w = Math.round(cell.width || 120)
-  const h = Math.round(cell.height || 60)
-  const x = Math.round(cell.x || 0)
-  const y = Math.round(cell.y || 0)
+  const extra: string[] = []
+  if (cell.data?.href) extra.push(`lfHref=${encodeURIComponent(cell.data.href)}`)
+  if (cell.data?.tooltip) extra.push(`lfTooltip=${encodeURIComponent(cell.data.tooltip)}`)
   const styleStr = [
     style,
     'whiteSpace=wrap',
@@ -79,6 +97,7 @@ function nodeCellXml(cell: any, layerId: string): { xml: string; degraded: boole
     `fillColor=${fill}`,
     `strokeColor=${stroke}`,
     `fontColor=${fontColor}`,
+    ...extra,
   ].join(';') + ';'
   const xml =
     `<mxCell id="${esc(cell.id)}" value="${esc(text)}" style="${esc(styleStr)}" vertex="1" parent="${layerId}">` +
@@ -105,6 +124,9 @@ function edgeCellXml(cell: any, layerId: string): { xml: string; degraded: boole
   const labelText = firstEdgeLabel(cell)
   const edgeStyle =
     lineType === 'bezier' ? 'none;curved=1' : lineType === 'straight' ? 'none' : 'orthogonalEdgeStyle'
+  const extra: string[] = []
+  if (d.href) extra.push(`lfHref=${encodeURIComponent(d.href)}`)
+  if (d.tooltip) extra.push(`lfTooltip=${encodeURIComponent(d.tooltip)}`)
   const styleStr = [
     `edgeStyle=${edgeStyle}`,
     'rounded=0',
@@ -114,6 +136,7 @@ function edgeCellXml(cell: any, layerId: string): { xml: string; degraded: boole
     dashed ? 'dashed=1' : '',
     `endArrow=${arrow}`,
     'startArrow=none',
+    ...extra,
   ]
     .filter(Boolean)
     .join(';') + ';'
