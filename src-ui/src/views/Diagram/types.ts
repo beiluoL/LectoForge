@@ -33,7 +33,10 @@ export type ShapeRender =
   | 'firewall'
   | 'envelope'
   | 'loadbalancer'
-  | 'device';
+  | 'device'
+  | 'container'
+  | 'swimlane'
+  | 'group';
 
 /** 连线样式（全局下拉：折线 / 曲线 / 直线） */
 export type EdgeLineType = 'smoothstep' | 'bezier' | 'straight';

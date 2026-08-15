@@ -338,6 +338,46 @@ const RENDER_BUILDERS: Record<ShapeRender, (def: ShapeDef) => any> = {
     },
     ports: PORTS,
   }),
+  container: () => ({
+    inherit: 'rect',
+    markup: [
+      { tag: 'rect', selector: 'body' },
+      { tag: 'rect', selector: 'header' },
+      { tag: 'text', selector: 'label' },
+    ],
+    attrs: {
+      body: { fill: '#F8FAFC', stroke: '#94A3B8', strokeWidth: 1.5, rx: 4 },
+      header: { refX: 0, refY: 0, refWidth: '100%', height: 26, fill: '#E2E8F0', stroke: 'none' },
+      label: { refX: 10, refY: 13, textAnchor: 'start', textVerticalAnchor: 'middle', fill: '#334155', fontSize: 13, fontWeight: 600, fontFamily: 'system-ui, sans-serif' },
+    },
+    zIndex: 0,
+  }),
+  swimlane: () => ({
+    inherit: 'rect',
+    markup: [
+      { tag: 'rect', selector: 'body' },
+      { tag: 'rect', selector: 'header' },
+      { tag: 'text', selector: 'label' },
+    ],
+    attrs: {
+      body: { fill: '#F8FAFC', stroke: '#94A3B8', strokeWidth: 1.5, rx: 2 },
+      header: { refX: 0, refY: 0, refWidth: '100%', height: 24, fill: '#CBD5E1', stroke: 'none' },
+      label: { refX: 10, refY: 12, textAnchor: 'start', textVerticalAnchor: 'middle', fill: '#334155', fontSize: 12, fontWeight: 600, fontFamily: 'system-ui, sans-serif' },
+    },
+    zIndex: 0,
+  }),
+  group: () => ({
+    inherit: 'rect',
+    markup: [
+      { tag: 'rect', selector: 'body' },
+      { tag: 'text', selector: 'label' },
+    ],
+    attrs: {
+      body: { fill: 'transparent', stroke: '#3b6fe0', strokeWidth: 1.5, strokeDasharray: '6 4', rx: 4 },
+      label: { refX: 8, refY: -6, textAnchor: 'start', textVerticalAnchor: 'bottom', fill: '#3b6fe0', fontSize: 12, fontWeight: 600, fontFamily: 'system-ui, sans-serif' },
+    },
+    zIndex: 0,
+  }),
 }
 
 function buildConfig(def: ShapeDef): any {

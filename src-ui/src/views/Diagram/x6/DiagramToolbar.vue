@@ -62,6 +62,13 @@
 
     <span class="x6-toolbar-sep"></span>
 
+    <!-- 结构：容器 / 泳道 / 分组（P2-T2） -->
+    <button class="kb-btn kb-btn-sm" title="插入容器节点" @click="insertStruct('container')">▢ 容器</button>
+    <button class="kb-btn kb-btn-sm" title="插入泳道节点" @click="insertStruct('swimlane')">▤ 泳道</button>
+    <button class="kb-btn kb-btn-sm" :disabled="!sel.hasNode.value" title="把选中节点分组（Ctrl+G）" @click="groupBtn">⊞ 分组</button>
+
+    <span class="x6-toolbar-sep"></span>
+
     <!-- 高级功能：画笔 / 模板 / AI / 导出 -->
     <button class="kb-btn kb-btn-sm" :class="{ 'is-active': props.penOn }" title="自由画笔（方案 B）" @click="emit('pen-toggle')">✏ 画笔</button>
     <button class="kb-btn kb-btn-sm" @click="emit('open-templates')">▦ 模板</button>
@@ -97,7 +104,9 @@
 import { computed, inject, ref } from 'vue'
 import { X6_CTX_KEY, type X6Context } from './context'
 import { useSelection } from './useSelection'
+import { useStructure } from './useStructure'
 import { edgeConnectorRouter, buildEdgeMarker } from './edgeFactory'
+import { notify } from '@/utils/toast'
 import type { ArrowStyle } from './types'
 import type { EdgeLineType } from '../types'
 import type { ExportFormat } from './useGraphExport'
@@ -233,6 +242,25 @@ function insertTable() {
     data: { label: '表格' },
   })
   g.select(node)
+}
+
+// ===== 结构节点插入 / 分组（P2-T2）=====
+function structApi() {
+  const g = ctx.graph.value
+  return g ? useStructure(g) : null
+}
+function insertStruct(kind: 'container' | 'swimlane') {
+  const s = structApi()
+  if (!s) return
+  if (kind === 'container') s.insertContainer()
+  else s.insertSwimlane('h')
+}
+function groupBtn() {
+  if (!sel.hasNode.value || sel.selectedNodes.value.length < 2) {
+    notify('请先选中 2 个以上节点再分组（或按 Ctrl+G）', 'info')
+    return
+  }
+  structApi()?.groupSelection()
 }
 </script>
 

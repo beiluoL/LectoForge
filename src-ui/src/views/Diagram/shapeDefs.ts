@@ -28,9 +28,11 @@ export type DiagramShapeType =
   | 'elasticache' | 'cloudtrail' | 'stepfunctions'
   // ===== 网络·通用（network）=====
   | 'server' | 'router' | 'switch' | 'firewall' | 'loadbalancer' | 'cloud' | 'user'
-  | 'pc' | 'phone' | 'tablet' | 'laptop' | 'mail' | 'storage';
+  | 'pc' | 'phone' | 'tablet' | 'laptop' | 'mail' | 'storage'
+  // ===== 结构（struct）=====
+  | 'container' | 'swimlane' | 'group';
 
-export type ShapeCategory = 'basic' | 'flow' | 'uml' | 'er' | 'aws' | 'network';
+export type ShapeCategory = 'basic' | 'flow' | 'uml' | 'er' | 'aws' | 'network' | 'struct';
 
 export interface ShapeDef {
   type: DiagramShapeType;
@@ -141,6 +143,11 @@ export const EXTRA_SHAPES: ShapeDef[] = [
   { type: 'laptop', label: '笔记本', category: 'network', defaultText: 'Laptop', defaultWidth: 150, defaultHeight: 100, render: 'device' },
   { type: 'mail', label: '邮件', category: 'network', defaultText: 'Mail', defaultWidth: 140, defaultHeight: 100, render: 'envelope' },
   { type: 'storage', label: '存储桶', category: 'network', defaultText: 'Storage', defaultWidth: 140, defaultHeight: 110, render: 'cylinder' },
+
+  // ===== 结构（容器 / 泳道 / 分组） =====
+  { type: 'container', label: '容器', category: 'struct', defaultText: 'Container', defaultWidth: 280, defaultHeight: 180, render: 'container' },
+  { type: 'swimlane', label: '泳道', category: 'struct', defaultText: '泳道', defaultWidth: 520, defaultHeight: 160, render: 'swimlane' },
+  { type: 'group', label: '分组', category: 'struct', defaultText: 'Group', defaultWidth: 240, defaultHeight: 160, render: 'group' },
 ];
 
 /** 全部形状（注册 / 落库映射用） */
@@ -191,6 +198,11 @@ export const SHAPE_GROUPS: LibraryGroup[] = [
     id: 'network',
     name: '网络 / 通用',
     shapes: ['server', 'router', 'switch', 'firewall', 'loadbalancer', 'cloud', 'user', 'pc', 'phone', 'tablet', 'laptop', 'mail', 'storage'],
+  },
+  {
+    id: 'struct',
+    name: '结构',
+    shapes: ['container', 'swimlane', 'group'],
   },
 ];
 

@@ -31,7 +31,7 @@
         </div>
       </div>
 
-      <DiagramProperties v-if="graphReady && propertiesOpen" />
+      <DiagramRightPanel v-if="graphReady && propertiesOpen" />
     </div>
 
     <div v-if="graphReady" class="x6-pg-pages">
@@ -75,7 +75,7 @@ import { useGraphPersistence } from './useGraphPersistence'
 import { X6_CTX_KEY, type X6Context } from './context'
 import DiagramToolbar from './DiagramToolbar.vue'
 import DiagramLibrary from './DiagramLibrary.vue'
-import DiagramProperties from './DiagramProperties.vue'
+import DiagramRightPanel from './DiagramRightPanel.vue'
 import DiagramTemplateModal from '../components/DiagramTemplateModal.vue'
 import DiagramAiModal from '../components/DiagramAiModal.vue'
 import type { DiagramTemplate } from '../templates'

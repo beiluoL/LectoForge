@@ -20,6 +20,7 @@ import { registerVueShapes } from './vue-shapes'
 import { registerDiagramShapes } from './shapeFactory'
 import { setupCellEditing } from './useCellEditing'
 import { setupHistoryBindings } from './useHistory'
+import { useStructure } from './useStructure'
 
 export interface UseGraphParams {
   containerRef: Ref<HTMLElement | null>
@@ -72,7 +73,7 @@ export function useGraph(params: UseGraphParams) {
     // ===== 选中态工具：节点加 transform（resize/rotate），边加 vertices+segments（拐点编辑） =====
     g.on('node:selected', ({ node }: any) => {
       // 自由画笔节点（diagram-drawing）只移动、不缩放/旋转，避免 path d 不随尺寸缩放导致错位
-      if (!node.getShape().endsWith('-drawing')) node.addTools('transform')
+      if (!node.shape.endsWith('-drawing')) node.addTools('transform')
     })
     g.on('node:unselected', ({ node }: any) => {
       node.removeTools()
@@ -89,12 +90,12 @@ export function useGraph(params: UseGraphParams) {
     // ===== 形状保真：terminal / 胶囊形 rx 随高变化；uml header 填充跟随描边 =====
     g.on('node:change:size', ({ node }: any) => {
       const data = node.getData() || {}
-      if (node.getShape().endsWith('-terminal') || data.capsule) {
+      if (node.shape.endsWith('-terminal') || data.capsule) {
         node.attr('body/rx', Math.max(2, node.getSize().height / 2))
       }
     })
     g.on('node:change:attrs', ({ node }: any) => {
-      const shape = node.getShape()
+      const shape = node.shape
       if (shape.endsWith('-class') || shape.endsWith('-interface')) {
         const desired = node.attr('body/stroke') || '#475569'
         if (node.attr('header/fill') !== desired) {
@@ -107,6 +108,9 @@ export function useGraph(params: UseGraphParams) {
     cleanupEditing = setupCellEditing(g, containerRef.value)
 
     // ===== 撤销/重做/复制/粘贴/删除 快捷键（History + Clipboard 插件接管）=====
+    // ===== 结构工具：子节点边界夹紧 + Ctrl+G 分组 / Ctrl+Shift+G 解组（P2-T2）=====
+    useStructure(g).setup()
+
     const hb = setupHistoryBindings(g)
     watch([hb.canUndo, hb.canRedo, hb.historySize], ([cu, cr, hs]) => {
       canUndo.value = cu

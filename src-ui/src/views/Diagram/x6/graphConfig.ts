@@ -46,5 +46,26 @@ export function createGraphOptions(container: HTMLElement): Graph.Options {
         })
       },
     },
+    // 容器 / 泳道 / 分组：拖入结构节点即成为父节点（P2-T2.1/2.2/2.3）
+    embedding: {
+      enabled: true,
+      findParent({ node, graph }: any) {
+        const b = node.getBBox()
+        const parent = graph
+          .getNodes()
+          .find(
+            (n: any) =>
+              n.id !== node.id &&
+              isStructuralShape(n.shape) &&
+              n.getBBox().contains(b),
+          )
+        return parent || null
+      },
+    },
   }
+}
+
+/** 是否为结构型父节点（容器 / 泳道 / 分组） */
+export function isStructuralShape(shape: string): boolean {
+  return shape.endsWith('-container') || shape.endsWith('-swimlane') || shape.endsWith('-group')
 }
