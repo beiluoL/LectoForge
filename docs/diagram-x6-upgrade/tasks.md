@@ -58,7 +58,11 @@
   - [x] P2-T3.1 版本历史：后端 `wb_diagram_history` 表 + `diagramHistoryService`/`Controller`/`routes`（`POST /diagram/:id/history` 记录、`GET .../history` 列表、`POST .../restore/:historyId` 恢复、`GET .../:historyId/download` 下载）；前端 `useGraphPersistence` 30s 节流自动快照 + Ctrl+S「手动保存」快照 + `DiagramVersionHistory.vue` 抽屉（列表/恢复/下载，恢复前自动备份安全快照）
   - [x] P2-T3.2 查找替换：`DiagramFindReplace.vue`（Ctrl+F 唤起），实时高亮 + 上/下个 + 替换/全部替换，Case Sensitive / Whole Word；节点改 `attr('label/text')`+`data.label`，连线改 `setLabels`+`data.label`，全部替换 1 步 history
   - [x] P2-T3.3 参考线：Snapline `tolerance:10` + `sharp:true`，线色/线宽经全局 CSS 覆盖为粉色 #FF5C93 / 2px（X6 snapline 无 stroke/label 选项，对齐文字 label 非原生能力，已用 sharp 提升吸附精度替代）
-- [ ] **P2-T4** draw.io XML 导入导出 + PDF 完善
+- [x] **P2-T4** draw.io XML 导入导出 + PDF 完善
+  - [x] P2-T4.2 导入：drawioToX6.ts（mxGraphModel → X6 多页；layer→page；style→shape；连线器/箭头/虚线/航点；orphan 边与降级收集 warning）
+  - [x] P2-T4.3 导出：x6ToDrawio.ts（X6 多页 → mxGraphModel，每页一个图层；shape/render→draw.io 原生 style；fill/stroke/text/edge 映射；无对应降级矩形并计数；跳过页面底图/画笔）
+  - [x] P2-T4.1 PDF 多页完善：exportPdfMulti 逐页 SVG → A4 打印窗口（每页一 section + 页脚「文件名·第 p 页/共 n 页·时间」），依赖无关（不引入 svg2pdf/jsPDF，规避 Tauri WKWebView 矢量风险，中文系统字体原生清晰）；导出时暂停自动保存并还原当前页
+  - [x] 接线：工具栏「📥 导入」按钮 + 导出下拉加 drawio；useDrawioIo 组合式（exportXml/applyImportedXml）+ 文件选择/下载 + 应用导入（loadPages + zoomToFit + flush 持久化）
 - [ ] **P2-T5** 图片节点 + 超链接 + Tooltip
 
 ---
@@ -75,7 +79,7 @@
 | P1-T5 | feature/x6-P1-T1 | `8c757de` | ✅ 已本地提交 |
 | P2-T1 | feature/x6-P2 | `30c0039` | ✅ 已本地提交 |
 | P2-T2 | feature/x6-P2 | `34e9444` | ✅ 已本地提交 |
-| P2-T3 | feature/x6-P2 | （待提交） | 🟡 已实现待提交 |
+| P2-T3 | feature/x6-P2 | `c11aec5` | ✅ 已本地提交 |
 
 ---
 

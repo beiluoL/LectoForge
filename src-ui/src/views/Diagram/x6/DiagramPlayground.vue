@@ -12,6 +12,7 @@
       @open-templates="showTemplates = true"
       @open-ai="showAi = true"
       @export="doExport"
+      @import="triggerImport"
       @open-history="showHistory = true"
       @open-find="showFind = true"
     />
@@ -61,6 +62,15 @@
       @restored="onHistoryRestored"
     />
     <DiagramFindReplace v-if="graphReady && showFind" @close="showFind = false" />
+
+    <!-- 隐藏的文件选择器：draw.io XML 导入（P2-T4.2） -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".drawio,.xml,application/xml,text/xml"
+      style="display: none"
+      @change="onFileChange"
+    />
   </div>
 </template>
 
@@ -81,8 +91,9 @@ import { usePages } from './usePages'
 import { usePenMode } from './usePenMode'
 import { templateToX6Cells } from './templatesToCells'
 import { applyAiGraph, isValidAiGraph } from './useAiGenerate'
-import { exportDiagram, type ExportFormat } from './useGraphExport'
+import { exportDiagram, exportPdfMulti, type ExportFormat } from './useGraphExport'
 import { useGraphPersistence } from './useGraphPersistence'
+import { useDrawioIo } from './useDrawioIo'
 import { X6_CTX_KEY, type X6Context } from './context'
 import DiagramToolbar from './DiagramToolbar.vue'
 import DiagramLibrary from './DiagramLibrary.vue'
@@ -110,10 +121,11 @@ const pen = usePenMode(graph, containerRef)
 const penOn = pen.penMode
 const penPreview = pen.previewPath
 const penBegin = pen.beginStroke
-const { saving, lastSavedAt, diagramId, ensureDiagram, bindAutoSave, bindHistory, flush, reload } =
+const { saving, lastSavedAt, diagramId, ensureDiagram, bindAutoSave, bindHistory, flush, setAutoSavePaused, reload } =
   useGraphPersistence(graph, {
     serialize: () => serializePages(),
   })
+const drawio = useDrawioIo(graph, { serialize: () => pages.value, loadPages, currentPageId })
 
 function serializePages() {
   return pages.value
@@ -144,8 +156,69 @@ function onArmEdge(rel: UmlRelationType) {
   notify(`已选「${label}」：先点源节点，再点目标节点`, 'info')
 }
 
-function doExport(format: ExportFormat) {
+function doExport(format: ExportFormat | 'drawio') {
+  if (format === 'drawio') {
+    downloadDrawio()
+    return
+  }
+  if (format === 'pdf') {
+    const cur = pages.value.find((p) => p.id === currentPageId.value) || pages.value[0]
+    void exportPdfMulti(graph.value, pages.value, 'diagram', {
+      pause: () => setAutoSavePaused(true),
+      resume: () => setAutoSavePaused(false),
+      restore: { data: cur?.data },
+    })
+    return
+  }
   exportDiagram(graph.value, format, 'diagram')
+}
+
+/** 导出当前多页为 draw.io XML 并触发下载（P2-T4.3） */
+function downloadDrawio() {
+  const { xml, degraded, skipped } = drawio.exportXml()
+  downloadBlob('diagram.drawio', xml, 'application/xml')
+  if (degraded > 0 || skipped > 0) {
+    const parts: string[] = []
+    if (degraded > 0) parts.push(`${degraded} 个图形无对应已降级为矩形`)
+    if (skipped > 0) parts.push(`${skipped} 个页面底图/画笔节点已跳过`)
+    notify(`已导出 draw.io：${parts.join('，')}`, 'info')
+  } else {
+    notify('已导出 draw.io XML', 'success')
+  }
+}
+
+const fileInput = ref<HTMLInputElement | null>(null)
+function triggerImport() {
+  fileInput.value?.click()
+}
+async function onFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 允许重复选同一文件
+  if (!file) return
+  try {
+    const text = await file.text()
+    const warnings = drawio.applyImportedXml(text)
+    if (warnings.length) notify(`导入完成：${warnings.join('；')}`, 'info')
+    else notify(`已导入 ${file.name}`, 'success')
+    void flush()
+  } catch (err) {
+    console.error('[import] draw.io 解析失败', err)
+    notify('导入失败：文件可能不是有效的 draw.io XML', 'error')
+  }
+}
+
+/** 通用 Blob 下载（draw.io XML 用） */
+function downloadBlob(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 /** 套用模板：非空确认 → 清屏 + fromJSON + 1 步 history + zoomToFit */

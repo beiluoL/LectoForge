@@ -80,8 +80,10 @@
         <option value="png">PNG</option>
         <option value="svg">SVG</option>
         <option value="pdf">PDF</option>
+        <option value="drawio">draw.io</option>
       </select>
     </label>
+    <button class="kb-btn kb-btn-sm" @click="emit('import')" title="从 draw.io XML 导入">📥 导入</button>
 
     <span class="x6-toolbar-sep"></span>
 
@@ -125,13 +127,16 @@ const emit = defineEmits<{
   (e: 'pen-toggle'): void
   (e: 'open-templates'): void
   (e: 'open-ai'): void
-  (e: 'export', format: ExportFormat): void
+  (e: 'export', format: ExportFormat | 'drawio'): void
+  (e: 'import'): void
   (e: 'open-history'): void
   (e: 'open-find'): void
 }>()
 
 function onExport(format: string) {
-  if (format === 'png' || format === 'svg' || format === 'pdf') emit('export', format)
+  if (format === 'png' || format === 'svg' || format === 'pdf' || format === 'drawio') {
+    emit('export', format as ExportFormat | 'drawio')
+  }
 }
 
 const ctx = inject(X6_CTX_KEY) as X6Context

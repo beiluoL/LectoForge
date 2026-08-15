@@ -33,6 +33,8 @@ export function useGraphPersistence(graph: Ref<Graph | null>, pages: PagesSource
   let timer: ReturnType<typeof setTimeout> | null = null
   /** 上次成功写入历史的时间戳（ms）；0 表示尚未记录过 */
   let lastHistoryAt = 0
+  /** 暂停自动保存（多页 PDF 导出时临时切换页，避免触发错位保存） */
+  let autoSavePaused = false
 
   /** 序列化当前多页 → 后端 DiagramData */
   function buildData(): DiagramData {
@@ -71,11 +73,16 @@ export function useGraphPersistence(graph: Ref<Graph | null>, pages: PagesSource
 
   /** 防抖自动保存（不记手动快照；历史由 bindHistory 的 30s 节流另管） */
   function scheduleSave(delay = AUTOSAVE_MS) {
-    if (diagramId.value == null) return
+    if (diagramId.value == null || autoSavePaused) return
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       flush()
     }, delay)
+  }
+
+  /** 暂停 / 恢复自动保存（多页 PDF 导出临时切换页时用） */
+  function setAutoSavePaused(paused: boolean) {
+    autoSavePaused = paused
   }
 
   /** 加载：后端多页结构 → X6 cells（旧 VueFlow 文档在此迁移） */
@@ -155,5 +162,5 @@ export function useGraphPersistence(graph: Ref<Graph | null>, pages: PagesSource
     return load(diagramId.value)
   }
 
-  return { diagramId, saving, lastSavedAt, load, flush, scheduleSave, ensureDiagram, bindAutoSave, bindHistory, recordSnapshot, reload }
+  return { diagramId, saving, lastSavedAt, load, flush, scheduleSave, setAutoSavePaused, ensureDiagram, bindAutoSave, bindHistory, recordSnapshot, reload }
 }
