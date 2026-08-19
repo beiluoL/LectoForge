@@ -79,6 +79,14 @@ export function usePages(graph: Ref<Graph | null>) {
     pages.value = pages.value.map((p) => (p.id === id ? { ...p, name: trimmed || p.name } : p))
   }
 
+  function movePage(from: number, to: number) {
+    if (from < 0 || to < 0 || from >= pages.value.length || to >= pages.value.length || from === to) return
+    const list = pages.value.slice()
+    const [moved] = list.splice(from, 1)
+    list.splice(to, 0, moved)
+    pages.value = list
+  }
+
   /** 序列化：先写回当前页，再返回完整 pages（含当前页最新内容），供持久化落库 */
   function serialize(): DiagramPageData[] {
     snapshotCurrent()
@@ -91,5 +99,5 @@ export function usePages(graph: Ref<Graph | null>) {
     currentPageId.value = currentId
   }
 
-  return { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage, serialize, loadPages }
+  return { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage, movePage, serialize, loadPages }
 }

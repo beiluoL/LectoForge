@@ -41,19 +41,23 @@
       <DiagramRightPanel v-if="graphReady && propertiesOpen" />
     </div>
 
-    <div v-if="graphReady" class="x6-pg-pages">
-      <button
-        v-for="p in pages"
-        :key="p.id"
-        :class="{ active: p.id === currentPageId }"
-        @click="switchPage(p.id)"
-      >{{ p.name }}</button>
-      <button class="add" @click="addPage">+ 页</button>
-      <span class="x6-pg-save" v-if="saving">保存中…</span>
-      <span class="x6-pg-save" v-else-if="lastSavedAt">已存 {{ lastSavedAt }}</span>
-    </div>
+    <DiagramX6BottomBar
+      v-if="graphReady"
+      :pages="pages"
+      :current-page-id="currentPageId"
+      :saving="saving"
+      :last-saved-at="lastSavedAt"
+      @switch="switchPage"
+      @add="addPage"
+      @delete="removePage"
+      @rename="renamePage"
+      @move="movePage"
+    />
 
     <div v-if="!graphReady" class="x6-pg-loading">X6 方案 B 验证台加载中…</div>
+
+    <!-- 右键上下文菜单（选中形状后提供删除等操作） -->
+    <DiagramX6ContextMenu v-if="graphReady" @fit="fitView" />
 
     <DiagramTemplateModal v-if="showTemplates" @applied="applyTemplate" @close="showTemplates = false" />
     <DiagramAiModal v-if="showAi" @generated="onAiGenerated" @close="showAi = false" />
@@ -113,6 +117,8 @@ import DiagramLibrary from './DiagramLibrary.vue'
 import DiagramRightPanel from './DiagramRightPanel.vue'
 import DiagramVersionHistory from './DiagramVersionHistory.vue'
 import DiagramFindReplace from './DiagramFindReplace.vue'
+import DiagramX6BottomBar from './DiagramX6BottomBar.vue'
+import DiagramX6ContextMenu from './DiagramX6ContextMenu.vue'
 import DiagramTemplateModal from '../components/DiagramTemplateModal.vue'
 import DiagramAiModal from '../components/DiagramAiModal.vue'
 import type { DiagramTemplate } from '../templates'
@@ -130,7 +136,7 @@ const showHistory = ref(false)
 const showFind = ref(false)
 
 const { graph, graphReady, canUndo, canRedo, historySize } = useGraph({ containerRef })
-const { pages, currentPageId, ensureInit, switchPage, addPage, loadPages } = usePages(graph)
+const { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage, movePage, loadPages } = usePages(graph)
 const pen = usePenMode(graph, containerRef)
 const penOn = pen.penMode
 const penPreview = pen.previewPath
@@ -389,6 +395,11 @@ function toggleFullscreen() {
   else el.requestFullscreen?.()
 }
 
+/** 适应屏幕：缩放平移画布以完整显示当前内容 */
+function fitView() {
+  graph.value?.zoomToFit({ padding: 40, maxScale: 1 })
+}
+
 /** 版本历史恢复后：用后端最新数据刷新画布（恢复接口已存「恢复前自动备份」安全快照） */
 async function onHistoryRestored() {
   const g = graph.value
@@ -608,38 +619,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
   white-space: pre-wrap;
   word-break: break-word;
-}
-.x6-pg-pages {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-top: 1px solid var(--kb-border, #e2e8f0);
-  background: var(--kb-background, #fff);
-  overflow-x: auto;
-}
-.x6-pg-pages button {
-  font-size: 12px;
-  padding: 4px 10px;
-  border: 1px solid var(--kb-border, #cbd5e1);
-  border-radius: 6px;
-  background: var(--kb-muted, #f1f5f9);
-  color: var(--kb-foreground, #0f172a);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.x6-pg-pages button.active {
-  border-color: var(--kb-primary, #3b6fe0);
-  background: color-mix(in srgb, var(--kb-primary, #3b6fe0) 12%, transparent);
-}
-.x6-pg-pages button.add {
-  border-style: dashed;
-}
-.x6-pg-save {
-  font-size: 11px;
-  color: var(--kb-muted-foreground, #64748b);
-  margin-left: 8px;
 }
 .x6-pg-loading {
   position: absolute;
