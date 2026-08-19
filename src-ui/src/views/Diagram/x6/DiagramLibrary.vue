@@ -103,9 +103,49 @@ let dndCache: Dnd | null = null
 function ensureDnd(): Dnd | null {
   const g = ctx.graph.value
   if (!g) return null
+  // 自愈兜底：DnD 的 start() 会 targetModel.startBatch('dnd')，正常只在 drop 完成后 stopBatch。
+  // 若上次拖拽异常退出（drop 抛错 / mouseup 丢失 / 双触发重复 start），'dnd' batch 计数残留，
+  // 主图视图渲染会被冻结（addCell 的节点进模型但永不绘制 = 「拖到画布形状不出现」）。
+  // 用公开 API 把残留计数清到 0（最后一次 stopBatch 会触发视图收尾渲染）。
+  const model = (g as any).model
+  const staleBatch = model?.batches?.dnd || 0
+  if (staleBatch > 0) {
+    for (let i = 0; i < staleBatch; i++) model.stopBatch('dnd')
+  }
   if (!dndCache) dndCache = new Dnd({ target: g, scaled: false })
   return dndCache
 }
+
+/**
+ * 拖拽活跃守卫（根因修复）：
+ * 库项同时绑了 @mousedown 与 @touchstart，同一物理操作可能双触发（混合输入设备 /
+ * WKWebView 合成事件 / 快速二次点击），导致 dnd.start() 被调用两次——
+ * startBatch('dnd') 两次而 stopBatch 一次，batch 泄漏 → 主图视图冻结。
+ * dragActive 保证一次拖拽只允许一次 start，mouseup/touchend 后复位；
+ * 若上次拖拽未正常结束（dragActive 仍为 true），则重建 DnD 实例彻底重置状态。
+ */
+let dragActive = false
+function resetDndIfStale() {
+  if (dndCache) {
+    dndCache.dispose()
+    dndCache = null
+  }
+}
+function onLibItemDown(def: ShapeDef, evt: MouseEvent | TouchEvent) {
+  if (def.type === 'image') return
+  if (dragActive) {
+    // 上次拖拽未结束（mouseup 可能丢失）→ 重置 DnD，避免状态错乱累积
+    resetDndIfStale()
+  }
+  dragActive = true
+  startDrag(def, evt)
+}
+function releaseDrag() {
+  dragActive = false
+}
+window.addEventListener('mouseup', releaseDrag)
+window.addEventListener('touchend', releaseDrag)
+window.addEventListener('touchcancel', releaseDrag)
 
 function startDrag(def: ShapeDef, evt: MouseEvent | TouchEvent) {
   const dnd = ensureDnd()
@@ -130,12 +170,6 @@ function startDrag(def: ShapeDef, evt: MouseEvent | TouchEvent) {
   // 否则 sourceNode.clone is not a function 直接抛错、拖拽中断、节点无法落点。
   const node = g.createNode(meta)
   dnd.start(node, evt as any)
-}
-
-/** 图片形状不拖拽（无初始文件），点击改为触发插入流程（由 playground 打开文件选择） */
-function onLibItemDown(def: ShapeDef, evt: MouseEvent | TouchEvent) {
-  if (def.type === 'image') return
-  startDrag(def, evt)
 }
 
 function armEdge(relation: UmlRelationType) {
@@ -227,6 +261,9 @@ function startResize(e: MouseEvent) {
 
 // 卸载时释放复用的 DnD 实例（含内部 draggingGraph），避免内存泄漏
 onBeforeUnmount(() => {
+  window.removeEventListener('mouseup', releaseDrag)
+  window.removeEventListener('touchend', releaseDrag)
+  window.removeEventListener('touchcancel', releaseDrag)
   dndCache?.dispose()
   dndCache = null
 })
