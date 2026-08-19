@@ -64,6 +64,8 @@ import { X6_CTX_KEY } from './context'
 
 const emit = defineEmits<{
   (e: 'fit'): void
+  /** 删除成功后通知上层立即同步多页快照（数据层与画布保持一致） */
+  (e: 'deleted'): void
 }>()
 
 const ctx = inject(X6_CTX_KEY)
@@ -161,10 +163,29 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
 })
 
+/**
+ * 执行删除。要点（修复「删除后画布不刷新、需切页才生效」）：
+ * 1. 只删除当前模型中真实存在的 cell —— X6 Selection 的 select() 是 add 语义，
+ *    跨页 fromJSON 后选中集合可能残留上一页的陈旧 cell 引用，
+ *    直接 removeCells 会因 has(cell)===false 静默 no-op；
+ * 2. 先 cleanSelection 再 removeCells —— 避免移除过程中 node:unselected → removeTools
+ *    与模型移除交错执行、中断视图刷新链；
+ * 3. batchUpdate 把模型移除+视图收尾合并为单次原子渲染，删除立即反映到画布；
+ * 4. 删除成功后 emit('deleted')，上层立即同步 pages 快照，数据层不再停留在删除前状态。
+ */
 function doDelete(cells: Cell[]) {
   const g = graph.value
   if (!g || !cells.length) return
-  g.removeCells(cells)
+  const live = cells.filter((c) => g.getCellById(c.id))
+  if (!live.length) {
+    close()
+    return
+  }
+  g.cleanSelection()
+  g.batchUpdate('context-delete', () => {
+    g.removeCells(live)
+  })
+  emit('deleted')
   close()
 }
 
@@ -173,14 +194,15 @@ function deleteTarget() {
   if (!cell) return
   const g = graph.value
   if (!g) return
-  const cells = g.getSelectedCells().length > 0 ? g.getSelectedCells() : [cell]
-  doDelete(cells)
+  // 优先删除当前模型中真实存在的选中项；没有（陈旧引用）才退化为右键目标 cell
+  const selected = g.getSelectedCells().filter((c) => g.getCellById(c.id))
+  doDelete(selected.length > 0 ? selected : [cell])
 }
 
 function deleteSelected() {
   const g = graph.value
   if (!g) return
-  doDelete(g.getSelectedCells())
+  doDelete(g.getSelectedCells().filter((c) => g.getCellById(c.id)))
 }
 
 function copyCell() {

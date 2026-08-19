@@ -57,7 +57,7 @@
     <div v-if="!graphReady" class="x6-pg-loading">X6 方案 B 验证台加载中…</div>
 
     <!-- 右键上下文菜单（选中形状后提供删除等操作） -->
-    <DiagramX6ContextMenu v-if="graphReady" @fit="fitView" />
+    <DiagramX6ContextMenu v-if="graphReady" @fit="fitView" @deleted="onCellsDeleted" />
 
     <DiagramTemplateModal v-if="showTemplates" @applied="applyTemplate" @close="showTemplates = false" />
     <DiagramAiModal v-if="showAi" @generated="onAiGenerated" @close="showAi = false" />
@@ -136,7 +136,7 @@ const showHistory = ref(false)
 const showFind = ref(false)
 
 const { graph, graphReady, canUndo, canRedo, historySize } = useGraph({ containerRef })
-const { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage, movePage, loadPages } = usePages(graph)
+const { pages, currentPageId, ensureInit, switchPage, addPage, removePage, renamePage, movePage, serialize, loadPages } = usePages(graph)
 const pen = usePenMode(graph, containerRef)
 const penOn = pen.penMode
 const penPreview = pen.previewPath
@@ -145,10 +145,18 @@ const { saving, lastSavedAt, diagramId, ensureDiagram, bindAutoSave, bindHistory
   useGraphPersistence(graph, {
     serialize: () => serializePages(),
   })
-const drawio = useDrawioIo(graph, { serialize: () => pages.value, loadPages, currentPageId })
+const drawio = useDrawioIo(graph, { serialize: () => serialize(), loadPages, currentPageId })
 
+/** 序列化多页：必须经 usePages.serialize()（内部先 snapshotCurrent 把当前页最新状态写回），
+ * 严禁直接返回 pages.value —— 否则删除/移动等编辑不会同步到数据源，
+ * 自动保存/历史/导出落库的都是切页前的旧快照（表现为「删除后需切页再返回才生效」）。 */
 function serializePages() {
-  return pages.value
+  return serialize()
+}
+
+/** 右键菜单删除后：立即把当前页最新状态写回 pages 快照，保持数据层与画布一致 */
+function onCellsDeleted() {
+  serialize()
 }
 
 // 向工具栏 / 属性面板下发 graph 引用与撤销状态（方案 B 解耦：子组件只消费，不持有）
