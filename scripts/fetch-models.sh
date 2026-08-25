@@ -31,18 +31,44 @@ mkdir -p "$TES" "$WSP"
 
 # 断点续传 + 失败时保留已有文件（已经下载过的不再重复拉，节省时间）
 dl() {
-  local url="$1" out="$2"
+  local url="$1"
+  local out="$2"
+  if [[ -z "$url" ]]; then
+    echo "  [警告] 下载 URL 为空，跳过"
+    return 1
+  fi
   if [[ -s "$out" ]]; then
     echo "  · 已存在，跳过: $(basename "$out")"
     return 0
   fi
   echo "  ↓ $url"
-  if curl -fSL --retry 3 --retry-delay 2 -o "$out" "$url"; then
+  if curl -fSL --retry 3 --retry-delay 2 --retry-all-errors --max-time 120 -o "$out" "$url"; then
     return 0
   else
     echo "  [警告] 下载失败: $url（可手动放置到 $out）"
     return 1
   fi
+}
+
+# 多镜像回退下载：依次尝试多个 URL，任一成功即落盘；全部失败才告警。
+# 用法：dl_any <out> <url1> [url2 ...]
+dl_any() {
+  local out="$1"; shift
+  if [[ -s "$out" ]]; then
+    echo "  · 已存在，跳过: $(basename "$out")"
+    return 0
+  fi
+  local url
+  for url in "$@"; do
+    [[ -z "$url" ]] && continue
+    echo "  ↓ $url"
+    if curl -fSL --retry 3 --retry-delay 2 --retry-all-errors --max-time 180 -o "$out" "$url"; then
+      return 0
+    fi
+    echo "  [重试] 该镜像失败，尝试下一个: $url"
+  done
+  echo "  [警告] 所有镜像均下载失败: $(basename "$out")（可手动放置到 $out）"
+  return 1
 }
 
 # 构建 whisper-server 原生二进制（macOS 无官方预编译包，必须从源码构建）
@@ -83,8 +109,16 @@ dl "https://unpkg.com/tesseract.js-core/tesseract-core-simd.wasm.js"    "$TES/te
 dl "https://unpkg.com/tesseract.js-core/tesseract-core-simd.wasm"       "$TES/tesseract-core-simd.wasm"
 
 echo "==> [2/3] tesseract 语言包（chi_sim 简体中文 + eng 英文）"
-dl "https://github.com/naptha/tessdata_fast/raw/master/chi_sim.traineddata.gz" "$TES/chi_sim.traineddata.gz"
-dl "https://github.com/naptha/tessdata_fast/raw/master/eng.traineddata.gz"    "$TES/eng.traineddata.gz"
+# 注：tesseract-ocr/tessdata 主分支提供未二次 gzip 的 .traineddata 文件，
+# 与 createWorker 的 gzip:false 对应；旧版 .traineddata.gz 仍被兼容。
+# raw.githubusercontent.com 在部分网络环境下间歇性 502，故优先使用 ghproxy.net 镜像，
+# 官方地址作为兜底。ghproxy.net 仅透传 raw.githubusercontent.com 内容，文件一致。
+dl_any "$TES/chi_sim.traineddata" \
+  "https://ghproxy.net/https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/chi_sim.traineddata" \
+  "https://github.com/tesseract-ocr/tessdata/raw/main/chi_sim.traineddata"
+dl_any "$TES/eng.traineddata" \
+  "https://ghproxy.net/https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/eng.traineddata" \
+  "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata"
 
 echo "==> [3/3] whisper 原生 STT 资源"
 if [[ -s "$WSB" ]]; then
