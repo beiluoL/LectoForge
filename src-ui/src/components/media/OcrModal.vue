@@ -107,7 +107,15 @@ function handleOcrError(e: unknown) {
     error.value = { code: 'UNKNOWN', message: rawMessage };
   }
   // 屏幕录制权限缺失（screencapture 会「穿透」到桌面壁纸）：明确提示 + 直接打开系统设置
-  if (rawMessage.includes('SCREEN_RECORDING_DENIED')) {
+  if (rawMessage.includes('SCREEN_RECORDING_DENIED_DEV')) {
+    // dev 模式特有：当前进程不在 .app bundle 内，提示重启应用重新触发授权弹窗
+    error.value = {
+      code: 'UNKNOWN',
+      message:
+        '开发模式未获屏幕录制权限：当前进程不在 .app bundle 内，系统设置里的 LectoForge.app 授权不会共享。请重启应用再次触发系统授权弹窗，或在系统设置中找到当前终端/IDE 手动授权。',
+    };
+    // 不主动打开系统设置面板（.app 已授权，再去开同一面板对 dev 进程无意义）
+  } else if (rawMessage.includes('SCREEN_RECORDING_DENIED')) {
     error.value = {
       code: 'UNKNOWN',
       message:

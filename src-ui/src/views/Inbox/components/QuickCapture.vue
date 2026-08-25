@@ -270,6 +270,7 @@ import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
 import { useSpeechToText } from '@/composables/useSpeechToText';
 import OcrModal from '@/components/media/OcrModal.vue';
 import { captureScreenshot } from '@/lib/screenshot';
+import { invoke } from '@tauri-apps/api/core';
 import { notify, getApiError } from '@/utils/toast';
 import { fromNow } from '@/lib/date';
 import type { ClipResult, InboxType, UploadResult } from '@/api/inbox';
@@ -489,11 +490,43 @@ function discardRecord() {
 
 /** 截图 → 作为图片附件上传并落入附件条 */
 async function startScreenshot() {
-  const blob = await captureScreenshot();
-  if (!blob) return; // 用户取消
-  const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' });
-  await uploadFiles([file]);
-  notify('截图已添加为附件', 'success');
+  let blob: Blob | null = null
+  try {
+    blob = await captureScreenshot()
+  } catch (e) {
+    // 截图失败提示用户：此前无 try/catch 时异常被 Vue 异步吞掉，按钮看似无反应。
+    // 重点识别权限相关错误并给出引导，其余错误走通用提示。
+    const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+    if (msg.includes('SCREEN_RECORDING_DENIED_DEV')) {
+      notify(
+        '开发模式未获屏幕录制权限：当前进程不在 .app bundle 内。请重启应用重新触发系统授权弹窗，或在系统设置中找到当前终端/IDE 手动授权。',
+        'error',
+        8000,
+      )
+    } else if (msg.includes('SCREEN_RECORDING_DENIED')) {
+      notify(
+        '未获得「屏幕录制」权限：已打开系统设置，请勾选 LectoForge 后完全退出并重新启动应用',
+        'error',
+        6000,
+      )
+      void invoke('open_external_url', {
+        url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+      })
+    } else if (
+      msg.includes('屏幕录制') ||
+      msg.toLowerCase().includes('screen') ||
+      msg.includes('内容为空')
+    ) {
+      notify('截图失败：请先在「系统设置 › 隐私与安全性 › 屏幕录制」中授权 LectoForge', 'error')
+    } else {
+      notify('截图失败：' + (msg || '未知错误'), 'error')
+    }
+    return
+  }
+  if (!blob) return // 用户取消，静默回到选择
+  const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
+  await uploadFiles([file])
+  notify('截图已添加为附件', 'success')
 }
 
 /** OCR 扫描确认后的文字：追加进正文文本框（用户可继续编辑） */

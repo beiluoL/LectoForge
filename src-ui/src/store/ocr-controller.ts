@@ -51,7 +51,17 @@ export const useGlobalOcrStore = defineStore('ocr-global', () => {
       blob = await captureScreenshot()
     } catch (e) {
       const msg = getApiError(e, '')
-      if (msg.includes('SCREEN_RECORDING_DENIED')) {
+      if (msg.includes('SCREEN_RECORDING_DENIED_DEV')) {
+        // 开发模式特有：当前进程是 cargo / tauri-cli / terminal 启动的开发进程，
+        // 不在 .app bundle 内。系统设置里勾选的 LectoForge.app 授权记录不会继承。
+        // 首次触发时 Rust 已主动调 CGRequestScreenCaptureAccess（会弹系统授权框），
+        // 若是用户首次授权被拒或重启后状态变化，重启应用会再次触发弹窗。
+        notify(
+          '开发模式未获屏幕录制权限：当前进程不在 .app bundle 内。请重启应用重新触发系统授权弹窗，或在系统设置中找到当前终端/IDE 手动授权。',
+          'error',
+          8000,
+        )
+      } else if (msg.includes('SCREEN_RECORDING_DENIED')) {
         // 屏幕录制权限缺失：screencapture 会「穿透」到桌面壁纸（其他窗口内容被 TCC 过滤）。
         // 提示授权路径，并直接打开系统设置面板。授权后需重启应用才生效（TCC 变更不热加载）。
         notify(

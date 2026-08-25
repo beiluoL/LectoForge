@@ -1272,20 +1272,27 @@ async fn select_directory(app: tauri::AppHandle) -> Result<String, String> {
 /// - 用户按 ESC 取消时 screencapture 以非 0 退出且不生成文件 → 返回 Err("cancelled")，
 ///   前端据此静默回到来源选择，不当作错误提示。
 /// - 首次使用需 macOS「屏幕录制」授权；未授权时命令失败，错误信息会提示去系统设置开启。
-/// macOS 屏幕录制权限预检（10.15+ 提供 `CGPreflightScreenCaptureAccess()`，仅查询不弹窗）。
+/// macOS 屏幕录制权限：**主动请求**（10.15+ 提供 `CGRequestScreenCaptureAccess()`）。
 ///
-/// 为什么需要预检：未获得「屏幕录制」权限时，`screencapture` 命令仍能正常运行且退出码为 0，
-/// 但 macOS TCC 隐私保护会把**所有其他应用的窗口内容**从捕获结果中过滤掉——只留下桌面壁纸
-/// 与自身窗口。用户框选 WorkBuddy / 工作台等窗口时就会「穿透」到桌面背景，识别到壁纸乱码。
-/// 提前用系统 API 检查授权状态，未授权时返回明确错误码 `SCREEN_RECORDING_DENIED`，由前端
-/// 引导用户授权，而不是静默产出一张无效的壁纸截图。
+/// 与 `CGPreflightScreenCaptureAccess`（只查询）的关键区别：
+/// - **首次未授权**会触发系统授权框，让用户当场授权**当前 responsible process**；
+/// - 已授权 → 直接返回 true；
+/// - 已拒绝 → 直接返回 false（不再弹窗）。
 ///
-/// 部署目标为 10.13（早于 10.15 引入的屏幕录制 TCC 模型），故用 `dlsym` 动态查找符号：
-/// 旧系统符号缺失 → 视为放行（无该权限模型）；10.15+ 符号存在 → 按真实授权状态返回。
-/// （Rust 的 `#[link(modifiers = "+weak")]` 并非合法输入，且静态 extern fn 无法判空，
-///   动态解析是最稳妥的跨版本做法。）
+/// 为什么必须主动请求而非只预检：
+/// 1. macOS TCC 屏幕录制授权是 **per-responsible-process** 的——系统设置里勾选的"LectoForge 学习工作台"
+///    对应的是 .app bundle 的身份，但 `tauri dev` 模式下当前进程路径是 `target/debug/lectoforge-desktop`，
+///    TCC 数据库里的 .app 授权记录不会继承给 cargo/terminal 启动的开发进程，`CGPreflight` 始终返回 false。
+/// 2. 必须通过 `CGRequestScreenCaptureAccess` 弹系统授权框，把当前进程（dev 模式可能是 tauri-cli/terminal）
+///    也加入 TCC 白名单。
+///
+/// 弹窗需要主线程的 NSApp 事件循环，本函数**不直接调**，仅解析符号；调用方需用
+/// `app.run_on_main_thread` 派发到主线程。
+///
+/// 部署目标 10.13 早于 10.15 引入的 TCC 屏幕录制模型，用 `dlsym` 动态解析：
+/// 旧系统符号缺失 → 视为放行。
 #[cfg(target_os = "macos")]
-fn screen_capture_permitted() -> bool {
+fn request_screen_capture_access_inner() -> bool {
     use std::ffi::c_void;
 
     unsafe extern "C" {
@@ -1293,17 +1300,26 @@ fn screen_capture_permitted() -> bool {
     }
 
     unsafe {
-        // RTLD_DEFAULT = -2：在当前进程已加载的镜像中按名字查找符号
         const RTLD_DEFAULT: *const c_void = -2isize as *const c_void;
-        let sym = c"CGPreflightScreenCaptureAccess";
+        let sym = c"CGRequestScreenCaptureAccess";
         let ptr = dlsym(RTLD_DEFAULT, sym.as_ptr());
         if ptr.is_null() {
-            // macOS < 10.15：无「屏幕录制」权限模型，视为放行
+            // macOS < 10.15：无屏幕录制权限模型，视为放行
             return true;
         }
         let f: unsafe extern "C" fn() -> bool = std::mem::transmute(ptr);
         f()
     }
+}
+
+/// 检测当前进程是否运行在 `.app` bundle 内（生产包），用于区分 dev/prod 模式提示文案。
+/// - .app 内：`/Applications/LectoForge.app/Contents/MacOS/lectoforge-desktop`
+/// - dev：`/Users/.../desktopApp/src-tauri/target/debug/lectoforge-desktop`
+#[cfg(target_os = "macos")]
+fn is_running_in_app_bundle() -> bool {
+    std::env::current_exe()
+        .map(|p| p.to_string_lossy().contains(".app/Contents/MacOS/"))
+        .unwrap_or(false)
 }
 
 #[tauri::command]
@@ -1316,11 +1332,34 @@ fn capture_screenshot(app: tauri::AppHandle) -> Result<String, String> {
 
     #[cfg(target_os = "macos")]
     {
-        // 屏幕录制权限预检：未授权时 screencapture 会「穿透」到桌面壁纸（其他窗口内容被
-        // TCC 过滤），提前拦截返回明确错误码，前端据此引导授权，避免产出无效截图。
-        // 注意：此检查在隐藏主窗口之前执行，权限缺失时窗口保持可见、UI 不闪烁。
-        if !screen_capture_permitted() {
-            return Err("SCREEN_RECORDING_DENIED".to_string());
+        // 屏幕录制权限主动请求：未授权时 screencapture 会「穿透」到桌面壁纸（其他窗口内容被
+        // TCC 过滤），需要先获取授权才能截到窗口内容。
+        // 关键：必须在主线程调 CGRequestScreenCaptureAccess（弹窗需要 NSApp 事件循环）；
+        // 当前 capture_screenshot 由 Tauri 工作线程执行，通过 run_on_main_thread + mpsc 同步结果。
+        let granted = {
+            let (tx, rx) = std::sync::mpsc::channel::<bool>();
+            let dispatch = app.run_on_main_thread(move || {
+                let ok = request_screen_capture_access_inner();
+                let _ = tx.send(ok);
+            });
+            if dispatch.is_err() {
+                return Err("无法派发权限请求到主线程".to_string());
+            }
+            // 工作线程阻塞等待主线程处理派发任务——run_on_main_thread 立即返回不卡主线程，
+            // 主线程事件循环正常处理闭包（含弹窗），不会与本 recv() 形成循环等待。
+            rx.recv().unwrap_or(false)
+        };
+
+        if !granted {
+            // dev 模式 vs生产包：TCC 授权是 per-responsible-process，dev 模式下当前进程
+            // （cargo/tauri-cli/terminal 启动）不在 .app bundle 内，系统设置里勾选的
+            // LectoForge.app 授权记录不会继承给开发进程——前端据此给出针对性引导文案。
+            let err_code = if is_running_in_app_bundle() {
+                "SCREEN_RECORDING_DENIED"
+            } else {
+                "SCREEN_RECORDING_DENIED_DEV"
+            };
+            return Err(err_code.to_string());
         }
 
         // 截图期间隐藏主窗口，避免被框选进来
