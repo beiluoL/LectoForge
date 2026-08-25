@@ -17,7 +17,7 @@ use tauri::{
     image::Image,
     menu::{IsMenuItem, MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Listener,
+    Emitter, Listener,
 };
 use tauri::AppHandle;
 
@@ -162,10 +162,15 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .unwrap_or_else(|| Image::new_owned(vec![0, 0, 0, 0], 1, 1));
 
     // 2) 右键上下文菜单（左键回主窗口，见下方 show_menu_on_left_click(false)）
+    //    OCR 入口：截图识别 / 快捷键设置，置于菜单顶部，参考主流截图工具的单图标菜单体验。
+    let ocr_capture = MenuItemBuilder::with_id("tray_ocr_capture", "截图识别").build(app)?;
+    let ocr_settings = MenuItemBuilder::with_id("tray_ocr_settings", "快捷键设置").build(app)?;
+    let sep_top = PredefinedMenuItem::separator(app)?;
     let show_main = MenuItemBuilder::with_id("tray_show_main", "显示主窗口").build(app)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItemBuilder::with_id("tray_quit", "退出").build(app)?;
-    let items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&show_main, &sep, &quit];
+    let items: Vec<&dyn IsMenuItem<tauri::Wry>> =
+        vec![&ocr_capture, &ocr_settings, &sep_top, &show_main, &sep, &quit];
     let menu = MenuBuilder::new(app).items(&items).build()?;
 
     // 3) 左键点击处理器需要 AppHandle 克隆体
@@ -175,11 +180,19 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     //    前端 init / 每秒 tick 会持续刷新；文本标题设为空（倒计时文字画进图标）。
     let _tray = TrayIconBuilder::with_id(TRAY_ID.to_string())
         .icon(icon)
-        .tooltip("🍅 番茄钟 · 点击回到工作台")
+        .tooltip("LectoForge 学习工作台 · 右键菜单可截图识别")
         .menu(&menu)
         // 左键不弹菜单，只触发 on_tray_icon_event（用于激活主窗口）；右键才弹上面菜单
         .show_menu_on_left_click(false)
         .on_menu_event(|app_h, event| match event.id().as_ref() {
+            "tray_ocr_capture" => {
+                // 触发全局 OCR 截图识别（默认隐藏窗口模式，避免把本应用截进去）
+                let _ = app_h.emit("ocr:trigger", ());
+            }
+            "tray_ocr_settings" => {
+                // 跳转到设置中心的「快捷键」页
+                let _ = app_h.emit("navigate", "/settings/shortcut");
+            }
             "tray_show_main" => crate::focus_main_window(app_h),
             "tray_quit" => app_h.exit(0),
             _ => {}

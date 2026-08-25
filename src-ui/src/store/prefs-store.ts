@@ -52,7 +52,6 @@ export const FONT_SCALE_OPTIONS = [0.875, 1, 1.125, 1.25] as const
 export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
   'quick-capture': ['⌥', '⇧', 'N'],
   'toggle-pomodoro': ['⌥', '⇧', 'P'],
-  'screenshot-ocr': ['⌥', '⇧', 'S'],
   'toggle-main-window': ['⌥', '⇧', 'Space'],
   'global-search': ['⌘', 'K'],
 }
@@ -61,7 +60,6 @@ export const DEFAULT_SHORTCUTS: Record<string, string[]> = {
 export const SHORTCUT_META: { key: string; label: string; desc: string; reserved?: string[] }[] = [
   { key: 'quick-capture', label: '唤起快速收集箱', desc: '随时记下灵感与素材' },
   { key: 'toggle-pomodoro', label: '启停番茄钟', desc: '开始 / 暂停专注计时' },
-  { key: 'screenshot-ocr', label: '截图 OCR', desc: '截屏并识别文字入库' },
   { key: 'toggle-main-window', label: '显示 / 隐藏主窗口', desc: '全局显隐应用' },
   { key: 'global-search', label: '全局搜索', desc: '跨收集箱 / 笔记 / 故事检索' },
 ]

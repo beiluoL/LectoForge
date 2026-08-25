@@ -71,11 +71,18 @@
   <QuickCaptureModal v-model:open="quickOpen" />
   <!-- 极速新建笔记（Cmd/Ctrl+Shift+F）：始终挂载，由 noteStore.quickCreateOpen 控制显隐 -->
   <QuickCreateNote />
+  <!-- 全局 OCR 弹窗（系统级快捷键 / 托盘「截图识别」触发）：与收集箱内 OCR 共用同一组件与识别管线，
+       仅「确认后去哪」不同——此处复制到系统剪贴板（复刻主流截图工具「识别即复制」体验） -->
+  <OcrModal
+    v-model="globalOcr.visible"
+    :pending-blob="globalOcr.pendingBlob"
+    @confirmed="onGlobalOcrConfirmed"
+  />
 </template>
 
 <script setup lang="ts">
 // 桌面端应用根组件：等价于 Web 端 App.vue + CLayout 的组合（去掉登录态恢复与番茄钟等 Web 专属逻辑）。
-import { onMounted, onUnmounted, computed } from 'vue';
+import { onMounted, onUnmounted, computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import DesktopTopNav from '@/components/layout/DesktopTopNav.vue';
@@ -86,12 +93,16 @@ import ConnectionOverlay from '@/components/ui/ConnectionOverlay.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
 import QuickCaptureModal from '@/components/QuickCaptureModal.vue';
 import QuickCreateNote from '@/components/QuickCreateNote.vue';
+import OcrModal from '@/components/media/OcrModal.vue';
 import { useSearchStore } from '@/store/search-store';
 import { useInboxStore } from '@/store/inbox-store';
 import { useNoteStore } from '@/store/note-store';
 import { usePomodoroStore } from '@/store/pomodoro-store';
 import { initBackendHealth } from '@/utils/connection';
 import { usePrefsStore } from '@/store/prefs-store';
+import { useOcrShortcutStore } from '@/store/ocr-shortcut-store';
+import { useGlobalOcrStore } from '@/store/ocr-controller';
+import { notify } from '@/utils/toast';
 // 顶层静态导入 Tauri API：避免 build 模式下从静态 dist（由 8787 侧车托管）动态加载
 // @tauri-apps/api/* 的 chunk 时静默失败（被 catch 吞），导致原生菜单跳转、深链监听失效。
 // dev 模式走 Vite dev server 不受影响；build 模式必须用静态导入才稳（pomodoroStore 已验证此路）。
@@ -99,12 +110,17 @@ import { listen } from '@tauri-apps/api/event';
 // 顶层静态导入 invoke：build 模式页面由 8787 侧车静态托管，动态 import 的 chunk 会静默失败
 // （与上面 listen 同理）。深链冷启动兜底需要从 Rust 取一次待消费剪藏，必须走静态导入。
 import { invoke } from '@tauri-apps/api/core';
+// 全局 OCR 结果写入系统剪贴板（build 模式同样需静态导入，避免 chunk 静默失败）
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
 const route = useRoute();
 const router = useRouter();
 const searchStore = useSearchStore();
 const inboxStore = useInboxStore();
 const noteStore = useNoteStore();
+/** OCR 全局快捷键 / 托盘「截图识别」共用：系统级触发后由控制器拉起截图并打开全局弹窗 */
+const ocrShortcut = useOcrShortcutStore();
+const globalOcr = useGlobalOcrStore();
 /** 全局速记弹窗开关（Cmd/Ctrl+Shift+I）—— 收敛到收集箱 store，与页面内状态同源 */
 const { quickOpen } = storeToRefs(inboxStore);
 
@@ -121,12 +137,37 @@ const mainClass = computed(() =>
   route.meta.standalone ? 'lf-standalone-main pt-10' : 'pt-14',
 );
 
-/** 三个全局弹层互斥：新开一个就把其余的收起来，避免遮罩叠遮罩 */
+/** 四个全局弹层互斥：新开一个就把其余的收起来，避免遮罩叠遮罩 */
 function closeAllOverlays() {
   inboxStore.closeQuickCapture();
   searchStore.closePalette();
   noteStore.closeQuickCreate();
+  globalOcr.close();
 }
+
+/** 全局 OCR 弹窗确认：把识别文本写入系统剪贴板（复刻主流截图工具「识别即复制」体验） */
+async function onGlobalOcrConfirmed(text: string) {
+  try {
+    await writeText(text)
+    notify('已复制到剪贴板', 'success')
+  } catch {
+    notify('复制失败，请手动选择文本复制', 'error')
+  }
+}
+
+/** 托盘「截图识别」入口：沿用首个已配置快捷键的行为模式（默认隐藏窗口后截图） */
+async function triggerGlobalOcr() {
+  const def = ocrShortcut.shortcuts[0]
+  await globalOcr.openCapture(def?.behavior ?? 'hide')
+}
+
+/** 全局弹窗关闭后清理待识别图片，确保下次触发使用新截图、避免重复识别 */
+watch(
+  () => globalOcr.visible,
+  (v) => {
+    if (!v) globalOcr.pendingBlob = null
+  },
+)
 
 // 全局快捷键：Cmd/Ctrl+K 命令面板，Cmd/Ctrl+Shift+I 速记，Cmd/Ctrl+Shift+F 极速新建笔记，Esc 关闭。
 // 不论在哪个页面（含 standalone 全屏页），keydown 都挂在 window 上，始终可用。
@@ -226,6 +267,21 @@ onMounted(() => {
   // 顶栏胶囊 TimerCapsule、/pomodoro 完整页、菜单栏倒计时图标三者都消费这同一份状态，
   // 即便用户从不打开番茄钟页，胶囊上点「开始」也照常驱动菜单栏倒计时。
   void usePomodoroStore().init();
+
+  // 全局 OCR 快捷键：应用启动即按持久化配置重新注册（macOS 缺「输入监视」权限时内部捕获并标记，
+  // 不阻断启动）；浏览器预览态下插件不可用会静默跳过。
+  void ocrShortcut.init();
+
+  // 托盘「截图识别」入口：Rust 侧 emit("ocr:trigger")，此处驱动同一套全局截图识别流程
+  void (async () => {
+    try {
+      await listen('ocr:trigger', () => {
+        void triggerGlobalOcr();
+      });
+    } catch {
+      /* 非桌面宿主，忽略 */
+    }
+  })();
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);

@@ -22,8 +22,8 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeRouteLeave, useRouter } from 'vue-router'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 import { useSettings } from './useSettings'
 import { useSearchStore } from '@/store/search-store'
@@ -33,13 +33,36 @@ import { toastState, confirmDialog } from '@/utils/toast'
 import SettingsSidebar from './Sidebar.vue'
 import SettingsDetailPanel from './DetailPanel.vue'
 
+const route = useRoute()
 const router = useRouter()
 const s = useSettings()
 const searchStore = useSearchStore()
 const inboxStore = useInboxStore()
 const noteStore = useNoteStore()
 
+/** 设置中心可用分区（与 Sidebar.vue navItems 的 key 对齐），供 ?section= 直达跳转校验 */
+const SECTION_KEYS = [
+  'general',
+  'data',
+  'ai',
+  'local-model',
+  'appearance',
+  'notification',
+  'shortcut',
+  'sync',
+  'about',
+]
 const activeKey = ref('general')
+
+// 托盘「快捷键设置」入口经 /settings/shortcut → /settings?section=shortcut 直达对应分区；
+// 用户在设置页内时 query 变化不会重挂载组件，故用 watch 响应（immediate 覆盖冷启动直达）。
+watch(
+  () => route.query.section,
+  (sec) => {
+    if (typeof sec === 'string' && SECTION_KEYS.includes(sec)) activeKey.value = sec
+  },
+  { immediate: true },
+)
 
 /** 解析来源页，返回时优先回上一页 */
 const backPath = ref<string | null>(null)

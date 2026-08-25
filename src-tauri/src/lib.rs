@@ -747,6 +747,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // 全局快捷键（系统级）：注册 OCR 截图识别快捷键，应用失焦时仍可触发
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // 剪贴板：全局 OCR 识别结果写入系统剪贴板
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // 后端实际监听端口：生产由宿主协商后写入，开发固定用默认值（dev:api 监听它）
             #[allow(unused_mut, unused_assignments)]

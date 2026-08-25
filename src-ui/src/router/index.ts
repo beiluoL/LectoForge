@@ -256,6 +256,11 @@ const routes: RouteRecordRaw[] = [
     redirect: '/settings',
   },
   {
+    // 托盘「快捷键设置」入口：直达设置中心的快捷键分区（?section=shortcut 由设置页消费）
+    path: '/settings/shortcut',
+    redirect: '/settings?section=shortcut',
+  },
+  {
     // AI 学习洞察（P2-G1/C2）：周报与薄弱点诊断，从 AI 设置页能力清单进入
     path: '/insights/ai',
     name: 'AiInsights',

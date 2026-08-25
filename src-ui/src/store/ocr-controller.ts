@@ -1,0 +1,74 @@
+/**
+ * useGlobalOcrStore —— 全局 OCR 截图识别控制器（系统级快捷键 / 托盘入口共用）
+ *
+ * 负责把「触发」翻译成完整的截图识别流程，并驱动 App 根挂载的全局 OcrModal：
+ *   1. 按行为模式：'hide' 先隐藏主窗口（避免把本应用截进图里），'direct' 不隐藏；
+ *   2. 调 captureScreenshot() 拉起 macOS 交互式框选；用户取消 → 静默恢复窗口并返回；
+ *   3. 截图失败（最常见是「屏幕录制」权限缺失）→ 提示授权并恢复窗口；
+ *   4. 拿到图片后恢复窗口显示（否则结果弹窗无窗口承载），把 Blob 交给全局 OcrModal 直接识别。
+ *
+ * 复用 OcrModal 组件与 ocrClient.recognizeText 完整管线（含预览、错误分类、可编辑结果、确认），
+ * 与收集箱内的 OCR 走同一套识别逻辑，仅「确认后去哪」不同（全局场景：复制到剪贴板）。
+ */
+import { ref } from 'vue'
+import { defineStore } from 'pinia'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { captureScreenshot } from '@/lib/screenshot'
+import { notify, getApiError } from '@/utils/toast'
+
+export const useGlobalOcrStore = defineStore('ocr-global', () => {
+  /** 全局 OcrModal 是否可见 */
+  const visible = ref(false)
+  /** 待识别图片（由 openCapture 在截图后填入，OcrModal 监听后直接 runOcr） */
+  const pendingBlob = ref<Blob | null>(null)
+
+  /**
+   * 触发一次全局 OCR 截图识别。
+   * @param behavior 'hide' 隐藏窗口后截图（默认）；'direct' 直接截图
+   */
+  async function openCapture(behavior: 'hide' | 'direct' = 'hide') {
+    if (behavior === 'hide') {
+      try {
+        const w = getCurrentWindow()
+        await w.hide()
+      } catch {
+        /* 浏览器预览态：无原生窗口，忽略 */
+      }
+    }
+
+    let blob: Blob | null = null
+    try {
+      blob = await captureScreenshot()
+    } catch (e) {
+      const msg = getApiError(e, '')
+      if (msg.includes('屏幕录制') || msg.toLowerCase().includes('screen')) {
+        notify('截图失败：请先在「系统设置 › 隐私与安全性 › 屏幕录制」中授权 LectoForge', 'error')
+      } else {
+        notify('截图失败：' + msg, 'error')
+      }
+    }
+
+    // 不论成功与否，先恢复窗口显示（截图失败也已无意义继续隐藏）
+    if (behavior === 'hide') {
+      try {
+        const w = getCurrentWindow()
+        await w.show()
+        await w.setFocus()
+      } catch {
+        /* 忽略 */
+      }
+    }
+
+    if (!blob) return
+    pendingBlob.value = blob
+    visible.value = true
+  }
+
+  /** 关闭全局弹窗并清理待识别图片 */
+  function close() {
+    visible.value = false
+    pendingBlob.value = null
+  }
+
+  return { visible, pendingBlob, openCapture, close }
+})

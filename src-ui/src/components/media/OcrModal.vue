@@ -10,12 +10,16 @@
  * - 错误态按类型分类，给出明确文案 + 重试/重新选择操作；
  * - 识别前预检本地模型，缺失时直接提示运行 fetch-models.sh。
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import { recognizeText, resetWorker, type OcrError, type OcrErrorCode } from '@/lib/ocr/ocrClient';
 import { captureScreenshot } from '@/lib/screenshot';
 
-const props = defineProps<{ modelValue: boolean }>();
+const props = defineProps<{
+  modelValue: boolean;
+  /** 外部传入的待识别图片（全局快捷键 / 托盘触发时由控制器填入），有值且弹窗打开即直接识别 */
+  pendingBlob?: Blob | null;
+}>();
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
   confirmed: [text: string];
@@ -27,6 +31,8 @@ const text = ref('');
 const step = ref<'pick' | 'preview' | 'result'>('pick');
 const previewUrl = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
+/** 已对哪张 pendingBlob 跑过识别，避免重复触发 */
+const ranFor = ref<Blob | null>(null);
 
 /** 关闭并重置所有状态 */
 function close() {
@@ -34,12 +40,30 @@ function close() {
   text.value = '';
   error.value = null;
   step.value = 'pick';
+  ranFor.value = null;
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value);
     previewUrl.value = '';
   }
   emit('update:modelValue', false);
 }
+
+/**
+ * 全局快捷键 / 托盘触发：控制器把截图 Blob 经 pendingBlob 传入，弹窗打开后直接识别，
+ * 跳过「选择来源」步骤。收集箱内正常使用（无 pendingBlob）时此监听不触发。
+ */
+watch(
+  () => [props.modelValue, props.pendingBlob] as const,
+  ([vis, blob]) => {
+    if (vis && blob && ranFor.value !== blob) {
+      ranFor.value = blob;
+      error.value = null;
+      text.value = '';
+      setPreview(blob);
+      void runOcr(blob);
+    }
+  },
+);
 
 /** 释放当前预览图，返回选择页 */
 function retake() {

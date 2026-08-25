@@ -21,6 +21,10 @@ tauri-plugin-updater = "2"
 tauri-plugin-dialog = "2"
 # 数据备份：前端用 fs 插件列出 / 创建备份目录
 tauri-plugin-fs = "2"
+# 全局快捷键（系统级，应用失焦时仍可触发 OCR 截图识别）
+tauri-plugin-global-shortcut = "2"
+# 全局 OCR 识别结果写入系统剪贴板（复刻主流截图工具「识别即复制」体验）
+tauri-plugin-clipboard-manager = "2"
 # 无边框窗口原生阴影：Tauri 2 下正确的 crate 是 window-shadows-v2
 # （原 tauri-plugin-window-shadows 是 Tauri 1 旧包，crates.io 已无此名）。它在 setup 里对 "main"
 # 窗口调用 NSWindow 原生 setHasShadow，恢复 decorations:false 后被系统停掉的层次感

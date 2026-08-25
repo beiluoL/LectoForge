@@ -39,6 +39,12 @@
     "allow-set-backup-schedule",
     "allow-get-backup-schedule",
     "allow-open-backup-folder",
-    "allow-list-backups"
+    "allow-list-backups",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register-all",
+    "global-shortcut:allow-unregister-all",
+    "clipboard-manager:allow-write-text"
   ]
 }
