@@ -1272,6 +1272,40 @@ async fn select_directory(app: tauri::AppHandle) -> Result<String, String> {
 /// - 用户按 ESC 取消时 screencapture 以非 0 退出且不生成文件 → 返回 Err("cancelled")，
 ///   前端据此静默回到来源选择，不当作错误提示。
 /// - 首次使用需 macOS「屏幕录制」授权；未授权时命令失败，错误信息会提示去系统设置开启。
+/// macOS 屏幕录制权限预检（10.15+ 提供 `CGPreflightScreenCaptureAccess()`，仅查询不弹窗）。
+///
+/// 为什么需要预检：未获得「屏幕录制」权限时，`screencapture` 命令仍能正常运行且退出码为 0，
+/// 但 macOS TCC 隐私保护会把**所有其他应用的窗口内容**从捕获结果中过滤掉——只留下桌面壁纸
+/// 与自身窗口。用户框选 WorkBuddy / 工作台等窗口时就会「穿透」到桌面背景，识别到壁纸乱码。
+/// 提前用系统 API 检查授权状态，未授权时返回明确错误码 `SCREEN_RECORDING_DENIED`，由前端
+/// 引导用户授权，而不是静默产出一张无效的壁纸截图。
+///
+/// 部署目标为 10.13（早于 10.15 引入的屏幕录制 TCC 模型），故用 `dlsym` 动态查找符号：
+/// 旧系统符号缺失 → 视为放行（无该权限模型）；10.15+ 符号存在 → 按真实授权状态返回。
+/// （Rust 的 `#[link(modifiers = "+weak")]` 并非合法输入，且静态 extern fn 无法判空，
+///   动态解析是最稳妥的跨版本做法。）
+#[cfg(target_os = "macos")]
+fn screen_capture_permitted() -> bool {
+    use std::ffi::c_void;
+
+    unsafe extern "C" {
+        fn dlsym(handle: *const c_void, symbol: *const std::ffi::c_char) -> *mut c_void;
+    }
+
+    unsafe {
+        // RTLD_DEFAULT = -2：在当前进程已加载的镜像中按名字查找符号
+        const RTLD_DEFAULT: *const c_void = -2isize as *const c_void;
+        let sym = c"CGPreflightScreenCaptureAccess";
+        let ptr = dlsym(RTLD_DEFAULT, sym.as_ptr());
+        if ptr.is_null() {
+            // macOS < 10.15：无「屏幕录制」权限模型，视为放行
+            return true;
+        }
+        let f: unsafe extern "C" fn() -> bool = std::mem::transmute(ptr);
+        f()
+    }
+}
+
 #[tauri::command]
 fn capture_screenshot(app: tauri::AppHandle) -> Result<String, String> {
     #[cfg(not(target_os = "macos"))]
@@ -1282,6 +1316,13 @@ fn capture_screenshot(app: tauri::AppHandle) -> Result<String, String> {
 
     #[cfg(target_os = "macos")]
     {
+        // 屏幕录制权限预检：未授权时 screencapture 会「穿透」到桌面壁纸（其他窗口内容被
+        // TCC 过滤），提前拦截返回明确错误码，前端据此引导授权，避免产出无效截图。
+        // 注意：此检查在隐藏主窗口之前执行，权限缺失时窗口保持可见、UI 不闪烁。
+        if !screen_capture_permitted() {
+            return Err("SCREEN_RECORDING_DENIED".to_string());
+        }
+
         // 截图期间隐藏主窗口，避免被框选进来
         if let Some(w) = app.get_webview_window("main") {
             let _ = w.hide();

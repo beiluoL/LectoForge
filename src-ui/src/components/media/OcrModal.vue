@@ -12,6 +12,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { invoke } from '@tauri-apps/api/core';
 import { recognizeText, resetWorker, type OcrError, type OcrErrorCode } from '@/lib/ocr/ocrClient';
 import { captureScreenshot } from '@/lib/screenshot';
 
@@ -104,6 +105,17 @@ function handleOcrError(e: unknown) {
     error.value = { code: (e as OcrError).code, message: (e as OcrError).message };
   } else {
     error.value = { code: 'UNKNOWN', message: rawMessage };
+  }
+  // 屏幕录制权限缺失（screencapture 会「穿透」到桌面壁纸）：明确提示 + 直接打开系统设置
+  if (rawMessage.includes('SCREEN_RECORDING_DENIED')) {
+    error.value = {
+      code: 'UNKNOWN',
+      message:
+        '未获得「屏幕录制」权限，截图会穿透到桌面背景。已打开系统设置，请勾选 LectoForge 后完全退出并重新启动应用。',
+    };
+    void invoke('open_external_url', {
+      url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+    });
   }
   step.value = 'preview';
 }

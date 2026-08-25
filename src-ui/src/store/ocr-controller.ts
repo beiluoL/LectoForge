@@ -13,8 +13,13 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
 import { captureScreenshot } from '@/lib/screenshot'
 import { notify, getApiError } from '@/utils/toast'
+
+/** macOS「屏幕录制」系统设置面板 URL（隐私与安全性 › 屏幕录制），供 open_external_url 直达 */
+const SCREEN_RECORDING_PANEL_URL =
+  'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
 
 export const useGlobalOcrStore = defineStore('ocr-global', () => {
   /** 全局 OcrModal 是否可见 */
@@ -46,7 +51,16 @@ export const useGlobalOcrStore = defineStore('ocr-global', () => {
       blob = await captureScreenshot()
     } catch (e) {
       const msg = getApiError(e, '')
-      if (
+      if (msg.includes('SCREEN_RECORDING_DENIED')) {
+        // 屏幕录制权限缺失：screencapture 会「穿透」到桌面壁纸（其他窗口内容被 TCC 过滤）。
+        // 提示授权路径，并直接打开系统设置面板。授权后需重启应用才生效（TCC 变更不热加载）。
+        notify(
+          '未获得「屏幕录制」权限：已打开系统设置，请勾选 LectoForge 后完全退出并重新启动应用',
+          'error',
+          6000,
+        )
+        void invoke('open_external_url', { url: SCREEN_RECORDING_PANEL_URL })
+      } else if (
         msg.includes('屏幕录制') ||
         msg.toLowerCase().includes('screen') ||
         msg.includes('内容为空')
