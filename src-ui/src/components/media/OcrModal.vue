@@ -65,6 +65,20 @@ watch(
   },
 );
 
+/**
+ * 控制器主动清空 pendingBlob（新截图开始/失败时复位）：回到 pick 步，撤销旧预览 URL。
+ * 防止 visible 仍为 true 时（如快速连按全局快捷键）弹窗仍展示上一轮的预览图。
+ */
+watch(
+  () => props.pendingBlob,
+  (blob) => {
+    if (blob === null) {
+      retake();
+      ranFor.value = null;
+    }
+  },
+);
+
 /** 释放当前预览图，返回选择页 */
 function retake() {
   text.value = '';

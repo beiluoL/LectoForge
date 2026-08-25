@@ -764,6 +764,20 @@ pub fn run() {
              * ⌘C/⌘V 依赖原生「编辑」菜单里的 copy:/paste: selector 接入响应链，
              * 保留 Accessory 会让主窗口输入框的复制粘贴静默失效。 */
 
+            // 启动兜底清理 /tmp 下历史 lectoforge_shot_*.png 残留：
+            // 上一会话 / 崩溃 / kill -9 都会让 remove_file 没机会执行，文件名虽含旧 PID
+            // 不会与当前进程冲突，但留在 /tmp 里既占空间也可能误导排查，统一清掉。
+            // 仅清自身产生的文件，不动其他应用命名空间，匹配 lectoforge_shot_<digits>_<digits>.png。
+            if let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) {
+                for e in entries.flatten() {
+                    let name = e.file_name();
+                    let s = name.to_string_lossy();
+                    if s.starts_with("lectoforge_shot_") && s.ends_with(".png") {
+                        let _ = std::fs::remove_file(e.path());
+                    }
+                }
+            }
+
             // 深链剪藏的待消费缓冲（lectoforge://capture 拉起时写入，前端监听或命令兜底取用）
             app.manage(DeepLinkState {
                 pending: Mutex::new(None),
@@ -1273,9 +1287,25 @@ fn capture_screenshot(app: tauri::AppHandle) -> Result<String, String> {
             let _ = w.hide();
         }
 
-        let tmp =
-            std::env::temp_dir().join(format!("lectoforge_shot_{}.png", std::process::id()));
+        // 关键：用 pid + 纳秒时间戳生成唯一文件名，杜绝「同一文件路径被旧内容污染」。
+        // 旧实现固定 /tmp/lectoforge_shot_<pid>.png 在下列任一边缘场景下会读到陈旧内容：
+        //   ① screencapture 退出 0 但因 macOS TCC / 临时权限问题未实际写盘；
+        //   ② 用户只单击未拖框，screencapture 偶尔会复用旧文件且仍退出 0；
+        //   ③ 上一次的 remove_file 因文件占用 / 权限失败未生效。
+        // 加纳秒戳后每次都读到全新空文件，绝无残留可能。
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let tmp = std::env::temp_dir().join(format!(
+            "lectoforge_shot_{}_{}.png",
+            std::process::id(),
+            nanos
+        ));
         let tmp_str = tmp.to_str().unwrap_or("/tmp/lectoforge_shot.png");
+
+        // 进入时防御性清理（理论上新文件名不会撞旧文件，但跨进程崩遗 / 手工放置都可能存在）
+        let _ = std::fs::remove_file(&tmp);
 
         let status = std::process::Command::new("/usr/sbin/screencapture")
             .args(["-i", "-r", tmp_str])
@@ -1290,12 +1320,23 @@ fn capture_screenshot(app: tauri::AppHandle) -> Result<String, String> {
 
         match status {
             Ok(s) if s.success() => {}
-            _ => return Err("cancelled".to_string()),
+            _ => {
+                // 取消 / screencapture 退出非 0：清掉可能已写入的临时文件再返回
+                let _ = std::fs::remove_file(&tmp);
+                return Err("cancelled".to_string());
+            }
         }
 
-        let bytes = std::fs::read(&tmp)
-            .map_err(|_| "截图未生成，可能已取消或无权访问屏幕（请检查「屏幕录制」授权）".to_string())?;
+        let bytes = std::fs::read(&tmp).unwrap_or_default();
+        // 无论读成功与否都清残留（成功读完清理、读失败清理；unwrap_or_default 拿到空 vec 后再读也不会卡住）
         let _ = std::fs::remove_file(&tmp);
+
+        if bytes.is_empty() {
+            // 极端兜底：screencapture 退出 0 但磁盘上没有内容——直接拒绝，避免前端拿到空 Blob
+            // 然后因 ranFor 防重复导致后续 OCR 弹窗永远卡在旧图上。
+            return Err("截图内容为空，可能未获得屏幕录制权限（请检查「系统设置 › 隐私与安全性 › 屏幕录制」）".to_string());
+        }
+
         Ok(encode_base64(&bytes))
     }
 }

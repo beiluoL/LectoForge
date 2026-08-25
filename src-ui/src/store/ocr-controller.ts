@@ -27,6 +27,11 @@ export const useGlobalOcrStore = defineStore('ocr-global', () => {
    * @param behavior 'hide' 隐藏窗口后截图（默认）；'direct' 直接截图
    */
   async function openCapture(behavior: 'hide' | 'direct' = 'hide') {
+    // 重要：进入即清空旧的 pendingBlob，杜绝「上一次截图残留图片」在新的 OCR 弹窗中复用——
+    // OcrModal 的 watch ([modelValue, pendingBlob]) 看到同一 Blob 引用会被 ranFor 防重复逻辑
+    // 短路，导致新截图失败/取消时仍展示旧图。先置空让 OcrModal 回到 pick 步，待新截图到位再赋值。
+    pendingBlob.value = null
+
     if (behavior === 'hide') {
       try {
         const w = getCurrentWindow()
@@ -41,7 +46,11 @@ export const useGlobalOcrStore = defineStore('ocr-global', () => {
       blob = await captureScreenshot()
     } catch (e) {
       const msg = getApiError(e, '')
-      if (msg.includes('屏幕录制') || msg.toLowerCase().includes('screen')) {
+      if (
+        msg.includes('屏幕录制') ||
+        msg.toLowerCase().includes('screen') ||
+        msg.includes('内容为空')
+      ) {
         notify('截图失败：请先在「系统设置 › 隐私与安全性 › 屏幕录制」中授权 LectoForge', 'error')
       } else {
         notify('截图失败：' + msg, 'error')
@@ -59,7 +68,12 @@ export const useGlobalOcrStore = defineStore('ocr-global', () => {
       }
     }
 
-    if (!blob) return
+    if (!blob) {
+      // 截图失败 / 取消：清空状态、不弹窗（避免 OcrModal 因 pendingBlob 不变仍展示上次的 ranFor 内容）
+      pendingBlob.value = null
+      visible.value = false
+      return
+    }
     pendingBlob.value = blob
     visible.value = true
   }
