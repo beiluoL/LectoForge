@@ -17,14 +17,15 @@
     <!-- 自绘 macOS 红黄绿：顶掉被 decorations:false 移除的系统窗口按钮 -->
     <WindowControls class="mr-4 shrink-0" />
 
-    <!-- Left: Logo 占位（品牌图标 + 产品名已从顶栏移除，保留 router-link 作为回工作台的热区） -->
+    <!-- Left: 品牌字标 Logo（Serif 900 主色，点击回学习工作台；位于收集箱左侧） -->
     <router-link
       to="/workbench"
-      class="flex items-center shrink-0 min-w-[12px]"
+      class="lf-brand-wordmark shrink-0"
       data-tauri-drag-region="false"
-      style="color: var(--kb-primary)"
-      aria-label="返回工作台"
+      aria-label="LectoForge 返回工作台"
+      @click="closeMenus"
     >
+      LectoForge
     </router-link>
 
     <!-- ============================================================
@@ -547,6 +548,23 @@ async function checkUpdate() {
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+/* 品牌字标 Logo：Serif 900 + 主色，与 Workbench Hero 标题同字体族（Noto Serif SC），
+   视觉上比导航项更重更醒目，hover 微降透明度保持可点感 */
+.lf-brand-wordmark {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  color: var(--kb-primary);
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+.lf-brand-wordmark:hover {
+  opacity: 0.78;
 }
 .nav-item:hover {
   opacity: 0.8;
