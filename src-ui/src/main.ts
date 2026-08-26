@@ -9,6 +9,14 @@ import '@vuepic/vue-datepicker/dist/main.css';
 /* 共享工作台视觉系统（含 .wb-icon-btn 等）提升为全局，确保布局组件
  * DesktopTopNav 等未单独引入的页面也能获得统一图标按钮样式。 */
 import './views/workbench-shared.css';
+import { readUiPrefs, applyUiPrefs, applyTheme } from './utils/ui-prefs';
+
+// 启动即应用 UI 偏好（主题 / 强调色 / 紧凑模式），早于 Vue 挂载避免首帧闪烁
+applyUiPrefs(readUiPrefs());
+// 跟随系统：OS 深浅切换时实时联动（仅当偏好为 system）
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (readUiPrefs().theme === 'system') applyTheme('system');
+});
 
 const pinia = createPinia();
 pinia.use(piniaPluginPersistedstate);

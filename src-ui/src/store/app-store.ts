@@ -26,6 +26,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 import { getAppConfig, initAppConfig } from '@/api/config'
+import type { UiPrefs } from '@/utils/ui-prefs'
 
 /** AI 网关参数（引导页 Step 2 / 设置中心共用） */
 export interface AiSettings {
@@ -38,6 +39,7 @@ export interface AiSettings {
 export interface AppSettings {
   dataDir: string
   ai: AiSettings
+  ui: UiPrefs
 }
 
 /** 默认 AI 参数：与后端 llm.ts 的 DeepSeek 预设一致（引导页默认值即取自此处） */
@@ -49,6 +51,7 @@ function defaultSettings(): AppSettings {
       apiKey: '',
       model: 'deepseek-chat',
     },
+    ui: { theme: 'system', accent: 'blue', compact: false },
   }
 }
 
@@ -96,6 +99,7 @@ export const useAppStore = defineStore(
     function updateSettings(patch: Partial<AppSettings>): void {
       if (patch.dataDir !== undefined) settings.value.dataDir = patch.dataDir
       if (patch.ai) settings.value.ai = { ...settings.value.ai, ...patch.ai }
+      if (patch.ui) settings.value.ui = { ...defaultSettings().ui, ...settings.value.ui, ...patch.ui }
     }
 
     /**
@@ -160,6 +164,9 @@ export const useAppStore = defineStore(
         'settings.dataDir',
         'settings.ai.apiUrl',
         'settings.ai.model',
+        'settings.ui.theme',
+        'settings.ui.accent',
+        'settings.ui.compact',
         'backup.dir',
         'backup.auto',
         'backup.time',

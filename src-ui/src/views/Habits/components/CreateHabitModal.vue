@@ -5,11 +5,11 @@
         <div class="hb-modal" role="dialog" aria-modal="true">
           <header class="hb-modal-head">
             <span class="hb-modal-title">
-              <Icon :name="isEdit ? 'pencil' : 'plus-circle'" :size="16" />
+              <Icon :name="isEdit ? 'pencil' : 'plus-circle'" :size="'md'" />
               {{ isEdit ? '编辑习惯' : '新建习惯' }}
             </span>
             <button class="qcm-close" @click="close">
-              <Icon name="x" :size="15" />
+              <Icon name="x" :size="'15px'" />
             </button>
           </header>
 
@@ -51,7 +51,7 @@
                   :style="form.iconName === ic ? { borderColor: form.color, color: form.color } : {}"
                   @click="form.iconName = ic"
                 >
-                  <Icon :name="ic" :size="18" />
+                  <Icon :name="ic" :size="'lg'" />
                 </button>
               </div>
             </div>
@@ -69,7 +69,7 @@
                   :style="{ background: c }"
                   @click="form.color = c"
                 >
-                  <Icon v-if="form.color === c" name="check" :size="14" />
+                  <Icon v-if="form.color === c" name="check" :size="'sm'" />
                 </button>
               </div>
             </div>
@@ -78,7 +78,7 @@
           <footer class="hb-modal-foot">
             <button class="kb-btn" @click="close">取消</button>
             <button class="kb-btn kb-btn-primary" :disabled="saving || !form.name.trim()" @click="submit">
-              <Icon v-if="saving" name="loader" :size="15" class="hb-spin" />
+              <Icon v-if="saving" name="loader" :size="'15px'" class="hb-spin" />
               {{ saving ? '保存中…' : isEdit ? '保存修改' : '创建习惯' }}
             </button>
           </footer>
@@ -93,13 +93,23 @@ import { computed, reactive, ref, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 import { createHabit, updateHabit, type CreateHabitInput, type Habit } from '@/api/habit';
 import { notify } from '@/utils/toast';
+import { chartColor, cssToken } from '@/utils/palette';
 
 const props = defineProps<{ open: boolean; edit?: Habit | null }>();
 const emit = defineEmits<{ 'update:open': [boolean]; saved: [] }>();
 
 const isEdit = computed(() => !!props.edit);
 
-const COLORS = ['#FF6B35', '#EF4444', '#F59E0B', '#10B981', '#3B6FE0', '#8B5CF6', '#EC4899', '#14B8A6'];
+const COLORS = computed(() => [
+  cssToken('--kb-highlight', '#FF6B35'),
+  cssToken('--kb-destructive', '#EF4444'),
+  chartColor(3),
+  chartColor(2),
+  chartColor(0),
+  chartColor(1),
+  chartColor(4),
+  chartColor(5),
+]);
 const ICONS = [
   'book-open',
   'sun',
@@ -123,7 +133,7 @@ const form = reactive<{ name: string; description: string; iconName: string; col
   name: '',
   description: '',
   iconName: 'check-circle',
-  color: COLORS[4],
+  color: COLORS.value[4],
 });
 const saving = ref(false);
 
@@ -135,12 +145,12 @@ watch(
       form.name = props.edit.name;
       form.description = props.edit.description ?? '';
       form.iconName = props.edit.iconName || 'check-circle';
-      form.color = props.edit.color || COLORS[4];
+      form.color = props.edit.color || COLORS.value[4];
     } else {
       form.name = '';
       form.description = '';
       form.iconName = 'check-circle';
-      form.color = COLORS[4];
+      form.color = COLORS.value[4];
     }
   },
   { immediate: true },
@@ -209,7 +219,7 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-bottom: 1px solid var(--kb-border);
 }
 .hb-modal-title {
@@ -233,14 +243,14 @@ async function submit() {
   gap: 8px;
 }
 .hb-label {
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   color: var(--kb-muted-foreground);
 }
 .hb-input,
 .hb-textarea {
   width: 100%;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -262,7 +272,7 @@ async function submit() {
 .hb-icon-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 6px;
+  gap: 8px;
 }
 .hb-icon-opt {
   aspect-ratio: 1;
@@ -286,7 +296,7 @@ async function submit() {
 /* 颜色选择 */
 .hb-color-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .hb-color-opt {
@@ -311,8 +321,8 @@ async function submit() {
 .hb-modal-foot {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 16px 16px;
   border-top: 1px solid var(--kb-border);
 }
 

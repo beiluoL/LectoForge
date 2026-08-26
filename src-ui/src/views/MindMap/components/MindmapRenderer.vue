@@ -73,6 +73,7 @@ import Icon from '@/components/ui/Icon.vue'
 import { notify } from '@/utils/toast'
 
 import { mapState, outlineStats, outlineToMarkdown } from '../useMindMapStore'
+import { chartColor } from '@/utils/palette'
 
 const svgRef = ref<SVGSVGElement | null>(null)
 const wrapRef = ref<HTMLElement | null>(null)
@@ -84,8 +85,7 @@ let mm: Markmap | null = null
 let pendingDirty = false
 let renderTimer: number | null = null
 
-/** 连线配色：按深度循环取用，与项目各模块的品牌语义色同源 */
-const LINK_PALETTE = ['#3B6FE0', '#FF6B35', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899']
+/** 连线配色：按深度循环取用 chart 色板（双主题联动） */
 
 function buildOptions(initialExpandLevel = -1): Partial<IMarkmapOptions> {
   return {
@@ -98,7 +98,7 @@ function buildOptions(initialExpandLevel = -1): Partial<IMarkmapOptions> {
     paddingX: 14,
     nodeMinHeight: 18,
     // node 由 Partial<IMarkmapOptions> 上下文推断为 markmap 的 INode，无需引入 markmap-common
-    color: (node) => LINK_PALETTE[(node?.state?.depth ?? 0) % LINK_PALETTE.length],
+    color: (node) => chartColor((node?.state?.depth ?? 0) % 6),
     // markmap 会把这段 CSS 注入到 SVG 内的 <style>，${id} 是它给本实例生成的作用域选择器
     style: (id: string) => `
       ${id} { font-family: var(--font-sans); }

@@ -1,6 +1,6 @@
-/* 字体加载：合并为单次请求（Noto Sans SC 正文 + Noto Serif SC 展示标题 + JetBrains Mono 代码）
- * 使用国内镜像 fonts.loli.net 替换 Google Fonts，避免国内访问失败 */
-@import url('https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* 字体自托管：拉丁/扩展子集 + JetBrains Mono 全量在 public/fonts（scripts/fetch-fonts.sh 生成），
+ * CJK 交给 macOS 系统字体（PingFang SC / Songti SC），离线可用、无 CDN 依赖 */
+@import url('/fonts/fonts.css');
 
 @tailwind base;
 @tailwind components;
@@ -57,6 +57,17 @@
   --kb-highlight-soft: rgba(255, 107, 53, 0.10); /* 软背景：徽章底色、卡片高光 */
   --kb-highlight-border: rgba(255, 107, 53, 0.30);
 
+  /* ===== Primary 软背景（强调色换肤联动） ===== */
+  --kb-primary-soft: rgba(59, 111, 224, 0.10);
+
+  /* ===== Chart 数据色板（JS 图表 / 模块色 / 事件色统一引用，双主题联动） ===== */
+  --kb-chart-1: #3B6FE0;      --kb-chart-1-soft: rgba(59, 111, 224, 0.12);
+  --kb-chart-2: #8B5CF6;      --kb-chart-2-soft: rgba(139, 92, 246, 0.12);
+  --kb-chart-3: #10B981;      --kb-chart-3-soft: rgba(16, 185, 129, 0.12);
+  --kb-chart-4: #F59E0B;      --kb-chart-4-soft: rgba(245, 158, 11, 0.12);
+  --kb-chart-5: #EC4899;      --kb-chart-5-soft: rgba(236, 72, 153, 0.12);
+  --kb-chart-6: #14B8A6;      --kb-chart-6-soft: rgba(20, 184, 166, 0.12);
+
   --kb-radius-sm: 6px;
   --kb-radius-md: 10px;
   --kb-radius-lg: 16px;
@@ -72,9 +83,9 @@
    * --font-display Hero 大标题专用，比 serif 更重更紧（900 字重）
    * --font-mono   代码块/数字列（JetBrains Mono，等宽带连字）
    */
-  --font-sans: 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-serif: 'Noto Serif SC', Georgia, 'Times New Roman', serif;
-  --font-display: 'Noto Serif SC', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, 'Times New Roman', serif;
+  --font-display: 'Noto Serif SC', 'Songti SC', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, monospace;
 
   /* =====================================================================
@@ -227,6 +238,15 @@
   --kb-highlight-soft: rgba(255, 133, 86, 0.16);
   --kb-highlight-border: rgba(255, 133, 86, 0.40);
 
+  --kb-primary-soft: rgba(79, 134, 249, 0.16);
+
+  --kb-chart-1: #4F86F9;      --kb-chart-1-soft: rgba(79, 134, 249, 0.16);
+  --kb-chart-2: #A78BFA;      --kb-chart-2-soft: rgba(167, 139, 250, 0.16);
+  --kb-chart-3: #34D399;      --kb-chart-3-soft: rgba(52, 211, 153, 0.16);
+  --kb-chart-4: #FBBF24;      --kb-chart-4-soft: rgba(251, 191, 36, 0.16);
+  --kb-chart-5: #F472B6;      --kb-chart-5-soft: rgba(244, 114, 182, 0.16);
+  --kb-chart-6: #2DD4BF;      --kb-chart-6-soft: rgba(45, 212, 191, 0.16);
+
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
@@ -322,6 +342,63 @@ html.has-global-bg .kb-region-content {
     radial-gradient(100% 60% at 100% 0%, rgba(255, 133, 86, 0.08) 0%, transparent 50%),
     var(--kb-card);
 }
+
+/* =====================================================================
+ * 强调色换肤（data-accent）：预置 6 档，覆盖 primary/ring/soft，
+ * 深色主题下自动叠加提亮档（选择器特异性高于基础 :root 与暗色块）。
+ * ===================================================================== */
+:root[data-accent='indigo'] {
+  --kb-primary: #4F46E5; --kb-ring: #4F46E5; --kb-primary-foreground: #FFFFFF;
+  --kb-primary-soft: rgba(79, 70, 229, 0.12);
+}
+:root[data-accent='purple'] {
+  --kb-primary: #7C3AED; --kb-ring: #7C3AED; --kb-primary-foreground: #FFFFFF;
+  --kb-primary-soft: rgba(124, 58, 237, 0.12);
+}
+:root[data-accent='green'] {
+  --kb-primary: #10B981; --kb-ring: #10B981; --kb-primary-foreground: #1A1D23;
+  --kb-primary-soft: rgba(16, 185, 129, 0.12);
+}
+:root[data-accent='orange'] {
+  --kb-primary: #F59E0B; --kb-ring: #F59E0B; --kb-primary-foreground: #1A1D23;
+  --kb-primary-soft: rgba(245, 158, 11, 0.14);
+}
+:root[data-accent='pink'] {
+  --kb-primary: #EC4899; --kb-ring: #EC4899; --kb-primary-foreground: #1A1D23;
+  --kb-primary-soft: rgba(236, 72, 153, 0.12);
+}
+:root[data-theme='dark'][data-accent='indigo'] {
+  --kb-primary: #818CF8; --kb-ring: #818CF8; --kb-primary-foreground: #0F1115;
+  --kb-primary-soft: rgba(129, 140, 248, 0.16);
+}
+:root[data-theme='dark'][data-accent='purple'] {
+  --kb-primary: #A78BFA; --kb-ring: #A78BFA; --kb-primary-foreground: #0F1115;
+  --kb-primary-soft: rgba(167, 139, 250, 0.16);
+}
+:root[data-theme='dark'][data-accent='green'] {
+  --kb-primary: #34D399; --kb-ring: #34D399; --kb-primary-foreground: #0F1115;
+  --kb-primary-soft: rgba(52, 211, 153, 0.16);
+}
+:root[data-theme='dark'][data-accent='orange'] {
+  --kb-primary: #FBBF24; --kb-ring: #FBBF24; --kb-primary-foreground: #0F1115;
+  --kb-primary-soft: rgba(251, 191, 36, 0.16);
+}
+:root[data-theme='dark'][data-accent='pink'] {
+  --kb-primary: #F472B6; --kb-ring: #F472B6; --kb-primary-foreground: #0F1115;
+  --kb-primary-soft: rgba(244, 114, 182, 0.16);
+}
+
+/* =====================================================================
+ * 紧凑模式（data-density='compact'）：核心模块密度降一档，不做全量 token 收缩。
+ * 设置中心「外观」开关控制，持久化于 localStorage。
+ * ===================================================================== */
+:root[data-density='compact'] .task-row { min-height: 40px; }
+:root[data-density='compact'] .note-row { height: var(--note-row-h, 48px); }
+:root[data-density='compact'] .dl-node-row { height: 30px; }
+:root[data-density='compact'] .wb-icon-btn { width: 28px; height: 28px; }
+:root[data-density='compact'] .qc-tag { height: 24px; }
+:root[data-density='compact'] .lf-card { padding: 16px; }
+:root[data-density='compact'] .cal-event-line { padding-top: 1px; padding-bottom: 1px; }
 
 * {
   margin: 0;
@@ -600,8 +677,8 @@ svg {
   .btn-primary {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
+    gap: 8px;
+    padding: 8px 16px;
     border-radius: var(--kb-radius-sm);
     font-size: 13px;
     font-weight: 500;
@@ -639,8 +716,8 @@ svg {
   .btn-secondary {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
+    gap: 8px;
+    padding: 8px 16px;
     border-radius: var(--kb-radius-sm);
     font-size: 13px;
     font-weight: 500;
@@ -664,9 +741,9 @@ svg {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
     height: 34px;
-    padding: 0 14px;
+    padding: 0 16px;
     border-radius: var(--kb-radius-sm);
     border: 1px solid var(--kb-border);
     background: var(--kb-card);
@@ -709,7 +786,7 @@ svg {
   /* 紧凑变体：用于卡片内联操作 */
   .kb-btn-sm {
     height: 28px;
-    padding: 0 10px;
+    padding: 0 12px;
     font-size: var(--kb-fs-caption);
   }
   /* 纯图标按钮：正方形、无水平内边距，保证图标居中且与文字按钮同高 */
@@ -736,7 +813,7 @@ svg {
     position: fixed;
     z-index: 9999;
     max-width: 240px;
-    padding: 5px 9px;
+    padding: 4px 8px;
     font-size: 12px;
     line-height: 1.4;
     color: #fff;
@@ -810,7 +887,7 @@ svg {
 
   .kb-label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     font-size: var(--kb-fs-body-sm);
     font-weight: 600;
     line-height: var(--kb-lh-body-sm);
@@ -874,7 +951,7 @@ svg {
   /* 紧凑变体：用于空间受限的工具栏 */
   .kb-select.kb-select-sm {
     height: 32px;
-    padding: 0 28px 0 10px;
+    padding: 0 28px 0 12px;
     font-size: var(--kb-fs-body-sm);
     min-width: 110px;
   }
@@ -895,8 +972,8 @@ svg {
   .kb-filter-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: 8px;
+    padding: 8px 16px;
     border-radius: var(--kb-radius-sm);
     font-size: var(--kb-fs-body-sm);
     font-weight: 500;
@@ -1041,13 +1118,13 @@ svg {
     top: 100%;
     left: 50%;
     transform: translateX(-50%) translateY(6px);
-    margin-top: 6px;
+    margin-top: 8px;
     min-width: 168px;
     background: var(--kb-popover);
     border: 1px solid var(--kb-border);
     border-radius: var(--kb-radius-md);
     box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.08);
-    padding: 6px;
+    padding: 8px;
     z-index: 60;
     opacity: 0;
     visibility: hidden;
@@ -1064,7 +1141,7 @@ svg {
     display: flex;
     align-items: center;
     gap: var(--kb-nav-gap);
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: var(--kb-radius-sm);
     font-size: var(--kb-dropdown-text-fs);
     color: var(--kb-foreground);
@@ -1076,7 +1153,7 @@ svg {
 
   /* B-end sidebar nav item */
   .sidebar-group-label {
-    padding: 10px 12px 6px;
+    padding: 12px 12px 8px;
     font-size: var(--kb-sidebar-label-fs);
     font-weight: var(--kb-sidebar-label-fw);
     color: var(--kb-muted-foreground);
@@ -1360,7 +1437,7 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  padding: 8px 16px;
   background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -1378,8 +1455,8 @@ svg {
 .code-copy-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 4px 12px;
   border-radius: 6px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
@@ -1440,7 +1517,7 @@ svg {
   background: #1a1d23;
   overflow-x: auto;
   flex: 1;
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   line-height: 1.6;
 }
 
@@ -1449,7 +1526,7 @@ svg {
   padding: 0;
   color: #e6e8ec;
   font-family: var(--font-mono);
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   line-height: 1.6;
 }
 
@@ -1461,7 +1538,7 @@ svg {
 
 /* 行内代码（非代码块） */
 .prose :not(pre) > code {
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: var(--kb-radius-sm);
   font-size: 0.875em;
   background: var(--kb-muted);
@@ -1674,7 +1751,7 @@ body.kb-review-immersive .kb-app-shell {
   font-family: var(--font-sans);
 }
 .lf-task-dp .dp__menu_inner {
-  padding: 10px;
+  padding: 12px;
 }
 /* 日历头（年月 + 左右切换）收敛留白 */
 .lf-task-dp .dp__calendar_header,
@@ -1715,19 +1792,19 @@ body.kb-review-immersive .kb-app-shell {
 
 /* 快捷预设条（#action-extra） */
 .lf-task-dp .dp__action_extra {
-  padding: 6px 8px 2px;
+  padding: 8px 8px 2px;
   border-top: 1px solid var(--kb-border);
 }
 .lf-dp-presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
 }
 .lf-dp-preset {
   flex: 1 1 auto;
   min-width: 64px;
-  padding: 5px 8px;
+  padding: 4px 8px;
   font-size: var(--kb-fs-xs);
   font-weight: 500;
   color: var(--kb-foreground);
@@ -1749,7 +1826,7 @@ body.kb-review-immersive .kb-app-shell {
 /* 一体化操作栏（#action-row）：左侧预览 + 右侧 清除 / 确定 */
 .lf-task-dp .dp__action_row {
   border-top: 1px solid var(--kb-border);
-  padding: 8px 10px;
+  padding: 8px 12px;
   gap: 8px;
 }
 .lf-dp-actions {
@@ -1768,11 +1845,11 @@ body.kb-review-immersive .kb-app-shell {
 }
 .lf-dp-btns {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex: none;
 }
 .lf-dp-btn {
-  padding: 5px 14px;
+  padding: 4px 16px;
   font-size: var(--kb-fs-xs);
   font-weight: 600;
   border-radius: var(--kb-radius-sm);
