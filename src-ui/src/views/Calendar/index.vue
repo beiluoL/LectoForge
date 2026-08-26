@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col h-full" :style="{ background: 'var(--kb-background)', color: 'var(--kb-foreground)' }">
-    <CalendarHeader @add="openAdd()" />
+    <CalendarHeader @add="openAdd()" @add-anniversary="openAddAnniversary()" />
 
     <!-- 主体：三态（加载 / 空 / 数据） -->
     <div class="relative flex-1 min-h-0 flex flex-col">
@@ -67,6 +67,14 @@
       @saved="onAddSaved"
     />
 
+    <!-- 新建 / 编辑纪念日弹窗 -->
+    <AddAnniversaryModal
+      :open="annivOpen"
+      :anniversary="annivEvent"
+      @close="annivOpen = false"
+      @saved="annivOpen = false"
+    />
+
     <!-- 详情抽屉 -->
     <EventDetailDrawer
       :open="detailOpen"
@@ -94,8 +102,9 @@ import CalendarHeader from './components/CalendarHeader.vue';
 import CalendarMonthView from './components/CalendarMonthView.vue';
 import CalendarTimeGridView from './components/CalendarTimeGridView.vue';
 import AddEventModal from './components/AddEventModal.vue';
+import AddAnniversaryModal from './components/AddAnniversaryModal.vue';
 import EventDetailDrawer from './components/EventDetailDrawer.vue';
-import type { CalendarEvent } from '@/api/calendar';
+import type { Anniversary, CalendarEvent } from '@/api/calendar';
 
 const store = useCalendarStore();
 const { loading, events, viewMode } = storeToRefs(store);
@@ -103,6 +112,7 @@ const router = useRouter();
 
 onMounted(() => {
   store.refreshCurrentView();
+  store.fetchAnniversaryList();
 });
 
 /** 三态派生：首屏加载且无数据→loading；非加载且无数据→empty；其余→data */
@@ -139,6 +149,15 @@ function onAddSaved() {
   // store 内部已乐观更新 + 重拉当前视图，这里只收起弹窗
   addOpen.value = false;
   modalEvent.value = null;
+}
+
+/* ---------------- 纪念日弹窗 ---------------- */
+const annivOpen = ref(false);
+const annivEvent = ref<Anniversary | null>(null);
+
+function openAddAnniversary() {
+  annivEvent.value = null;
+  annivOpen.value = true;
 }
 
 /* ---------------- 详情抽屉 ---------------- */

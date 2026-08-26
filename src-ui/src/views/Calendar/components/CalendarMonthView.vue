@@ -32,7 +32,7 @@
         @dragover.prevent="onCellDragOver"
         @drop.prevent.stop="onCellDrop(cell)"
       >
-        <!-- 日期数字：今天用实心小圆点高亮 -->
+        <!-- 日期数字：今天用实心小圆点高亮；节假日右上角「休/班」胶囊 -->
         <div class="flex items-center gap-1 px-1.5 pt-1 pb-0.5">
           <span
             class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-semibold tabular-nums"
@@ -43,6 +43,14 @@
           </span>
           <span v-if="!cell.inMonth" class="text-[11px]" :style="{ color: 'var(--kb-muted-foreground)' }">
             {{ cell.monthNum }}月
+          </span>
+          <span
+            v-if="holidayTag(cell.key)"
+            class="holiday-tag"
+            :class="holidayTag(cell.key) === '休' ? 'is-off' : 'is-work'"
+            :title="holidayName(cell.key)"
+          >
+            {{ holidayTag(cell.key) }}
           </span>
         </div>
 
@@ -79,6 +87,17 @@
           >
             {{ expandedDays[cell.key] ? '收起' : `+${overflow(cell.key)} 更多` }}
           </button>
+
+          <!-- 纪念日卡片：浅粉背景 + 左侧粉边 + Heart 图标 -->
+          <div
+            v-for="a in anniversariesOf(cell.key)"
+            :key="`anniv-${a.id}`"
+            class="anniv-line truncate rounded px-1 py-[1px] text-[11px] leading-tight"
+            :title="a.name"
+          >
+            <Icon name="heart" size="xs" class="anniv-icon" />
+            <span>{{ a.name }}</span>
+          </div>
         </div>
       </button>
     </div>
@@ -94,9 +113,10 @@
 import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCalendarStore } from '@/store/calendar-store';
-import { buildMonthMatrix, WEEKDAY_LABELS, type DayCell } from '@/lib/calendar';
+import { anniversaryHitsOn, buildMonthMatrix, WEEKDAY_LABELS, type DayCell } from '@/lib/calendar';
 import { formatHM } from '@/lib/date';
-import { isTaskSource, type CalendarEvent } from '@/api/calendar';
+import { isTaskSource, type Anniversary, type CalendarEvent } from '@/api/calendar';
+import { getHoliday, isHolidayOff, isMakeupWorkday } from '@/lib/china-holidays';
 
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
@@ -105,7 +125,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useCalendarStore();
-const { currentDate, eventsByDate } = storeToRefs(store);
+const { currentDate, eventsByDate, anniversaries } = storeToRefs(store);
 
 const weekdayLabels = WEEKDAY_LABELS;
 const MAX_VISIBLE = 2;
@@ -126,6 +146,24 @@ function overflow(key: string): number {
 
 function toggleExpand(key: string): void {
   expandedDays.value[key] = !expandedDays.value[key]
+}
+
+/** 节假日标签：休（红粉胶囊）/ 班（橙灰胶囊）；无节假日返回空串不渲染 */
+function holidayTag(key: string): '' | '休' | '班' {
+  if (isHolidayOff(key)) return '休';
+  if (isMakeupWorkday(key)) return '班';
+  return '';
+}
+/** 节假日名称（title 提示，如「国庆节」） */
+function holidayName(key: string): string {
+  return getHoliday(key)?.name ?? '';
+}
+
+/** 命中的纪念日（每年/每月重复，按名称排序保证稳定） */
+function anniversariesOf(key: string): Anniversary[] {
+  return anniversaries.value
+    .filter((a) => anniversaryHitsOn(key, a.date, a.repeatRule, a.year))
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 }
 
 /** 事件拖拽改期：仅普通事件（任务类来自任务表，不允许拖） */
@@ -257,5 +295,47 @@ function onCellClick(cell: DayCell) {
   background: color-mix(in srgb, var(--kb-muted-foreground) 65%, transparent);
   margin-right: 4px;
   vertical-align: middle;
+}
+
+/* 节假日「休/班」胶囊标签：极小字号、圆角、不干扰事件行 */
+.holiday-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+/* 休：红粉底白字（法定休息日，醒目但不刺眼） */
+.holiday-tag.is-off {
+  background: color-mix(in srgb, var(--kb-destructive) 82%, transparent);
+  color: var(--kb-destructive-foreground);
+}
+/* 班：橙灰底深字（调休补班，语义上仍是上班日，用橙色而非红色避免误读） */
+.holiday-tag.is-work {
+  background: color-mix(in srgb, var(--kb-warning) 24%, transparent);
+  color: var(--kb-warning-foreground);
+}
+
+/* 纪念日卡片：浅粉底 + 左侧粉边 + Heart 小图标（与事件明显区分）。
+   粉色走 --kb-chart-5（#EC4899，色板第五档），软底/边用 color-mix 派生 */
+.anniv-line {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--kb-chart-5-soft);
+  color: var(--kb-foreground);
+  border-left: 2px solid var(--kb-chart-5);
+  margin-top: 1px;
+}
+.anniv-icon {
+  flex-shrink: 0;
+  color: var(--kb-chart-5);
 }
 </style>

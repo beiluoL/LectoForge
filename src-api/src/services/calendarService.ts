@@ -18,9 +18,12 @@
 import { and, asc, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 
 import { db, CURRENT_USER, nowIso } from '../db';
-import { wbCalendarEvent, wbDailyTask, wbTask } from '../db/schema';
+import { wbAnniversary, wbCalendarEvent, wbDailyTask, wbTask } from '../db/schema';
 import { resolvePage } from '../lib/pagination';
 import type {
+  AnniversaryCreateInput,
+  AnniversaryRow,
+  AnniversaryUpdateInput,
   CalendarEventCreateInput,
   CalendarEventRow,
   CalendarEventUpdateInput,
@@ -372,5 +375,148 @@ export function deleteEvent(id: number): { ok: true } {
   const existing = getEventById(id);
   if (!existing) throw new Error('事件不存在');
   db.delete(wbCalendarEvent).where(eq(wbCalendarEvent.id, id)).run();
+  return { ok: true };
+}
+
+/* =====================================================================
+ * 纪念日 / 生日（wb_anniversary）CRUD
+ *
+ * 业务要点：
+ * - date 口径：yearly → MM-DD（正则 ^\d{2}-\d{2}$，含 02-29 这种特殊日期）；
+ *   monthly → DD（^\d{1,2}$，1~31）。渲染时前端把当前年拼上 MM-DD 比对即可，
+ *   每年自动出现，无需把纪念日复制成 wb_calendar_event 的具体事件。
+ * - repeat_rule 只收 yearly / monthly 两个字面量，非法值直接报错（业务字段，
+ *   不像事件颜色那样宽容——错误规则会让「每月」被误读成「每年」）。
+ * - 列表是全量拉取（个人纪念日几十条封顶），不需要分页；
+ *   按 name 排序保证每次渲染顺序稳定。
+ * - 🔴 better-sqlite3 全同步：本段无任何 async/await。
+ * ===================================================================== */
+
+/** MM-DD（yearly）或 DD（monthly）日期格式校验 */
+const DATE_MMDD = /^\d{2}-\d{2}$/;
+const DATE_DD = /^\d{1,2}$/;
+
+/** 纪念日名称：去空白 + 非空 + 长度上限 */
+function normalizeAnniversaryName(v: unknown): string {
+  const s = typeof v === 'string' ? v.trim() : '';
+  if (!s) throw new Error('纪念日名称不能为空');
+  if (s.length > 100) throw new Error('纪念日名称过长（上限 100 字）');
+  return s;
+}
+
+/** 图标名：合法则保留，非法回退 heart（装饰性字段，不值得为它中断一次创建） */
+function normalizeIcon(v: unknown): string {
+  const s = typeof v === 'string' ? v.trim() : '';
+  // 只允许小写字母 + 数字 + 连字符（lucide 图标名的构成），防注入长串
+  return /^[a-z0-9-]{1,50}$/.test(s) ? s : 'heart';
+}
+
+/** 重复规则：只收 yearly / monthly */
+function normalizeRepeatRule(v: unknown): 'yearly' | 'monthly' {
+  const s = String(v ?? 'yearly');
+  if (s !== 'yearly' && s !== 'monthly') throw new Error('repeat_rule 只支持 yearly / monthly');
+  return s;
+}
+
+/**
+ * 校验日期字段口径：
+ * - yearly → MM-DD；
+ * - monthly → DD（1~31）。
+ */
+function normalizeAnniversaryDate(v: unknown, rule: 'yearly' | 'monthly'): string {
+  const s = String(v ?? '').trim();
+  if (rule === 'yearly') {
+    if (!DATE_MMDD.test(s)) throw new Error('日期格式应为 MM-DD（如 03-15）');
+    const month = Number(s.slice(0, 2));
+    const day = Number(s.slice(3, 5));
+    if (month < 1 || month > 12 || day < 1 || day > 31) throw new Error('日期超出合法范围');
+    return s;
+  }
+  if (!DATE_DD.test(s)) throw new Error('每月重复的日期应为日数字（如 15）');
+  const day = Number(s);
+  if (day < 1 || day > 31) throw new Error('每月重复的日期应在 1~31 之间');
+  return String(day);
+}
+
+/** 起始年份：整数且 >= 1900，否则回退 null（不限） */
+function normalizeAnniversaryYear(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1900 || n > 9999) return null;
+  return n;
+}
+
+export function getAnniversaryById(id: number): AnniversaryRow | undefined {
+  return db.select().from(wbAnniversary).where(eq(wbAnniversary.id, id)).get() as
+    | AnniversaryRow
+    | undefined;
+}
+
+/** 获取某用户的全部纪念日（全量，按名称排序保证稳定） */
+export function listAnniversaries(): AnniversaryRow[] {
+  return db
+    .select()
+    .from(wbAnniversary)
+    .where(eq(wbAnniversary.userId, CURRENT_USER))
+    .orderBy(asc(wbAnniversary.name))
+    .all() as AnniversaryRow[];
+}
+
+/** 新建纪念日 */
+export function createAnniversary(input: AnniversaryCreateInput): AnniversaryRow {
+  const name = normalizeAnniversaryName(input.name);
+  const repeatRule = normalizeRepeatRule(input.repeatRule);
+  const date = normalizeAnniversaryDate(input.date, repeatRule);
+  const year = normalizeAnniversaryYear(input.year);
+  const now = nowIso();
+  const res = db
+    .insert(wbAnniversary)
+    .values({
+      userId: CURRENT_USER,
+      name,
+      iconName: normalizeIcon(input.iconName),
+      date,
+      year,
+      repeatRule,
+      note: nullable(input.note),
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  const created = getAnniversaryById(Number(res.lastInsertRowid));
+  if (!created) throw new Error('纪念日创建失败');
+  return created;
+}
+
+/** 局部更新：只有显式出现的字段才会被写 */
+export function updateAnniversary(id: number, input: AnniversaryUpdateInput): AnniversaryRow {
+  const existing = getAnniversaryById(id);
+  if (!existing) throw new Error('纪念日不存在');
+
+  const patch: Record<string, unknown> = { updatedAt: nowIso() };
+  if (input.name !== undefined) patch.name = normalizeAnniversaryName(input.name);
+  if (input.iconName !== undefined) patch.iconName = normalizeIcon(input.iconName);
+  if (input.note !== undefined) patch.note = nullable(input.note);
+  if (input.year !== undefined) patch.year = normalizeAnniversaryYear(input.year);
+  // 日期与规则联动校验：改了规则要按新规则重验日期；只改日期按现有规则验
+  const nextRule =
+    input.repeatRule !== undefined
+      ? normalizeRepeatRule(input.repeatRule)
+      : (existing.repeatRule as 'yearly' | 'monthly');
+  if (input.repeatRule !== undefined) patch.repeatRule = nextRule;
+  if (input.date !== undefined) patch.date = normalizeAnniversaryDate(input.date, nextRule);
+
+  db.update(wbAnniversary).set(patch).where(eq(wbAnniversary.id, id)).run();
+
+  const updated = getAnniversaryById(id);
+  if (!updated) throw new Error('纪念日更新失败');
+  return updated;
+}
+
+/** 物理删除纪念日 */
+export function deleteAnniversary(id: number): { ok: true } {
+  const existing = getAnniversaryById(id);
+  if (!existing) throw new Error('纪念日不存在');
+  db.delete(wbAnniversary).where(eq(wbAnniversary.id, id)).run();
   return { ok: true };
 }

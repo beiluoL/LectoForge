@@ -445,6 +445,44 @@ export const wbCalendarEvent = sqliteTable(
   }),
 );
 
+/* ===== 纪念日 / 生日（每年或每月重复的日期，与日历事件独立）=====
+ * 关键设计：**绝不写入 wb_calendar_event**——那是一条一条的具体事件，需要每年复制；
+ * 纪念日是「每年重复」的模板，date 存 MM-DD（如 03-15），渲染时由前端把当前年
+ * 拼上 MM-DD 与日历格比对，天然每年自动出现，无需任何复制。
+ *
+ * repeat_rule 支持两种：
+ * - 'yearly'  每年重复（生日、结婚纪念日等），date 为 MM-DD；
+ * - 'monthly' 每月重复（还贷日、发薪日等），date 为 DD（仅日，忽略月）。
+ *
+ * year 为可选「起始年份」：null 表示不限；设置了则只有 >= year 的年份才显示
+ * （如只纪念「出生后的年份」，避免 2000 年以前的空转）。
+ */
+export const wbAnniversary = sqliteTable(
+  'wb_anniversary',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').notNull().default(1),
+    /** 纪念日名称（如 小明的生日 / 结婚纪念日） */
+    name: text('name').notNull(),
+    /** lucide 图标名（如 heart / cake / gift），默认 heart */
+    iconName: text('icon_name').notNull().default('heart'),
+    /** 日期：yearly 存 MM-DD（如 03-15）；monthly 存 DD（如 15） */
+    date: text('date').notNull(),
+    /** 起始年份（可选）：null = 不限；设置后仅 >= 该年的年份显示 */
+    year: integer('year'),
+    /** 重复规则：yearly（每年）/ monthly（每月） */
+    repeatRule: text('repeat_rule').notNull().default('yearly'),
+    note: text('note'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => ({
+    /* 唯一查询形态：某用户的全部纪念日（数据量小，全量拉取无压力），
+     * 按名称排序保证列表稳定；user_id 索引是隔离单用户数据的基线。 */
+    ownerIdx: index('idx_wb_anniversary_owner').on(t.userId),
+  }),
+);
+
 /* ===== 模块十：模拟面试题库（离线语音面试/通话的素材层）=====
  * 统一题库：手动导入面经（Markdown/PDF）+ 复用 wb_review_card（问答卡）与 wb_note（康奈尔笔记）。
  * 答案评分复用 recallService 的关键词命中率逻辑（scoreRecall）。

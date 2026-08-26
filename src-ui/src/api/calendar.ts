@@ -84,3 +84,50 @@ export function updateCalendarEvent(id: number, data: UpdateCalendarEventInput):
 export function deleteCalendarEvent(id: number): Promise<{ ok: true }> {
   return apiDelete(`/calendar/events/${id}`);
 }
+
+/* ==================== 纪念日 / 生日 ==================== */
+
+export interface Anniversary {
+  id: number;
+  userId: number;
+  name: string;
+  /** lucide 图标名，默认 heart */
+  iconName: string;
+  /** yearly → MM-DD（如 03-15）；monthly → DD（如 15） */
+  date: string;
+  /** 起始年份（可选），null = 不限 */
+  year: number | null;
+  /** yearly（每年）/ monthly（每月） */
+  repeatRule: 'yearly' | 'monthly';
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAnniversaryInput {
+  name: string;
+  iconName?: string | null;
+  date: string;
+  year?: number | null;
+  repeatRule?: 'yearly' | 'monthly' | null;
+  note?: string | null;
+}
+
+export type UpdateAnniversaryInput = Partial<CreateAnniversaryInput>;
+
+/** 获取全部纪念日（数据量小，全量拉取） */
+export function fetchAnniversaries(): Promise<Anniversary[]> {
+  return apiGet<Anniversary[]>('/calendar/anniversaries');
+}
+
+export function createAnniversary(data: CreateAnniversaryInput): Promise<Anniversary> {
+  return apiPost<Anniversary>('/calendar/anniversaries', data);
+}
+
+export function updateAnniversary(id: number, data: UpdateAnniversaryInput): Promise<Anniversary> {
+  return apiPut<Anniversary>(`/calendar/anniversaries/${id}`, data);
+}
+
+export function deleteAnniversary(id: number): Promise<{ ok: true }> {
+  return apiDelete(`/calendar/anniversaries/${id}`);
+}

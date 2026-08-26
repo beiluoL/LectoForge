@@ -29,6 +29,15 @@
             >
               {{ cell.dayNum }}
             </div>
+            <!-- 节假日「休/班」胶囊标签 -->
+            <div
+              v-if="holidayTag(cell.key)"
+              class="holiday-tag"
+              :class="holidayTag(cell.key) === '休' ? 'is-off' : 'is-work'"
+              :title="holidayName(cell.key)"
+            >
+              {{ holidayTag(cell.key) }}
+            </div>
           </div>
 
           <!-- 全天事件：按需渲染，没有时占 0 高度 -->
@@ -136,6 +145,7 @@ import { useCalendarStore } from '@/store/calendar-store';
 import { buildCells, type DayCell } from '@/lib/calendar';
 import { formatHM } from '@/lib/date';
 import { isTaskSource, type CalendarEvent } from '@/api/calendar';
+import { getHoliday, isHolidayOff, isMakeupWorkday } from '@/lib/china-holidays';
 
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
@@ -181,6 +191,17 @@ function timedOf(key: string): TimedPos[] {
       const durMin = Math.max(ve.diff(vs, 'minute'), 20);
       return { ev, top: (startMin / 1440) * totalH, height: (durMin / 1440) * totalH };
     });
+}
+
+/** 节假日标签：休（红粉胶囊）/ 班（橙灰胶囊）；无节假日返回空串不渲染 */
+function holidayTag(key: string): '' | '休' | '班' {
+  if (isHolidayOff(key)) return '休';
+  if (isMakeupWorkday(key)) return '班';
+  return '';
+}
+/** 节假日名称（title 提示，如「国庆节」） */
+function holidayName(key: string): string {
+  return getHoliday(key)?.name ?? '';
 }
 
 function dayHeaderStyle(cell: DayCell): Record<string, string> {
@@ -279,5 +300,30 @@ const currentTimeTop = computed(() => {
 }
 .dt-event-chip {
   color: #1A1D23;
+}
+
+/* 节假日「休/班」胶囊标签：极小字号、圆角、置于日期数字下方 */
+.holiday-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  margin: 2px auto 0;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+/* 休：红粉底白字（法定休息日） */
+.holiday-tag.is-off {
+  background: color-mix(in srgb, var(--kb-destructive) 82%, transparent);
+  color: var(--kb-destructive-foreground);
+}
+/* 班：橙灰底深字（调休补班，橙色避免误读为休息） */
+.holiday-tag.is-work {
+  background: color-mix(in srgb, var(--kb-warning) 24%, transparent);
+  color: var(--kb-warning-foreground);
 }
 </style>

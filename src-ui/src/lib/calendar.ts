@@ -185,3 +185,35 @@ export function coveredDayKeys(startIso: string, endIso: string | null): string[
   }
   return keys;
 }
+
+/**
+ * 判断某纪念日是否命中某个本地日键（纯计算，无副作用）。
+ *
+ * 匹配规则：
+ * - yearly：date 为 MM-DD，把 dateKey 的年拼上 MM-DD 比对；
+ * - monthly：date 为 DD（仅日），只比对 dateKey 的「日」部分。
+ *
+ * year（起始年份）语义：yearly 模式下若设置了 year，则只有 dateKey 的年份
+ * >= year 才算命中（如「只纪念出生后的年份」）；monthly 不受年份约束。
+ *
+ * @param dateKey 本地日键 YYYY-MM-DD
+ * @param md      纪念日 date 字段（yearly → MM-DD；monthly → DD）
+ * @param rule    重复规则 yearly / monthly
+ * @param year    起始年份（可选），null 表示不限
+ */
+export function anniversaryHitsOn(
+  dateKey: string,
+  md: string,
+  rule: 'yearly' | 'monthly',
+  year?: number | null,
+): boolean {
+  if (rule === 'monthly') {
+    const day = Number(md);
+    const keyDay = Number(dateKey.slice(8, 10));
+    return Number.isInteger(day) && day >= 1 && day <= 31 && day === keyDay;
+  }
+  // yearly：MM-DD 比对（含 02-29 闰日——非闰年不命中，语义正确）
+  const keyYear = Number(dateKey.slice(0, 4));
+  if (year != null && keyYear < year) return false;
+  return dateKey.slice(5) === md;
+}

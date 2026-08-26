@@ -8,7 +8,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { pickPage } from '../lib/pagination';
 import * as calendarService from '../services/calendarService';
-import type { CalendarEventCreateInput, CalendarEventUpdateInput } from '../types/calendar';
+import type {
+  AnniversaryCreateInput,
+  AnniversaryUpdateInput,
+  CalendarEventCreateInput,
+  CalendarEventUpdateInput,
+} from '../types/calendar';
 
 interface IdParam {
   id: string;
@@ -87,5 +92,49 @@ export async function deleteEvent(req: FastifyRequest, reply: FastifyReply) {
     return calendarService.deleteEvent(Number(id));
   } catch (e) {
     return fail(reply, e, '删除失败');
+  }
+}
+
+/* =====================================================================
+ * 纪念日 / 生日（wb_anniversary）HTTP 层
+ * ===================================================================== */
+
+/** GET /calendar/anniversaries —— 获取某用户全部纪念日（全量，无需分页） */
+export async function listAnniversaries(_req: FastifyRequest, reply: FastifyReply) {
+  try {
+    return calendarService.listAnniversaries();
+  } catch (e) {
+    return fail(reply, e, '加载纪念日失败');
+  }
+}
+
+/** POST /calendar/anniversaries —— 新建纪念日 */
+export async function createAnniversary(req: FastifyRequest, reply: FastifyReply) {
+  try {
+    const body = (req.body || {}) as AnniversaryCreateInput;
+    return calendarService.createAnniversary(body);
+  } catch (e) {
+    return fail(reply, e, '创建纪念日失败');
+  }
+}
+
+/** PUT /calendar/anniversaries/:id —— 修改纪念日 */
+export async function updateAnniversary(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as IdParam;
+  try {
+    const body = (req.body || {}) as AnniversaryUpdateInput;
+    return calendarService.updateAnniversary(Number(id), body);
+  } catch (e) {
+    return fail(reply, e, '更新纪念日失败');
+  }
+}
+
+/** DELETE /calendar/anniversaries/:id —— 删除纪念日 */
+export async function deleteAnniversary(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as IdParam;
+  try {
+    return calendarService.deleteAnniversary(Number(id));
+  } catch (e) {
+    return fail(reply, e, '删除纪念日失败');
   }
 }

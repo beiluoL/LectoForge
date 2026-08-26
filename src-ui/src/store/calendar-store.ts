@@ -27,6 +27,15 @@ import {
   type UpdateCalendarEventInput,
 } from '@/api/calendar';
 import {
+  createAnniversary as apiCreateAnniversary,
+  deleteAnniversary as apiDeleteAnniversary,
+  fetchAnniversaries,
+  updateAnniversary as apiUpdateAnniversary,
+  type Anniversary,
+  type CreateAnniversaryInput,
+  type UpdateAnniversaryInput,
+} from '@/api/calendar';
+import {
   coveredDayKeys,
   shiftAnchor,
   todayKey,
@@ -209,6 +218,64 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
   }
 
+  /* ==================== 纪念日 / 生日 ====================
+   * 与 events 完全独立：纪念日是「每年/每月重复」的模板（date=MM-DD），
+   * 全量拉取（个人几十条封顶），不参与范围查询。 */
+
+  const anniversaries = ref<Anniversary[]>([]);
+  const anniversariesLoading = ref(false);
+
+  /** 拉取全部纪念日（组件挂载 / 弹窗保存后调用） */
+  async function fetchAnniversaryList() {
+    anniversariesLoading.value = true;
+    try {
+      anniversaries.value = await fetchAnniversaries();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : '纪念日加载失败', 'error');
+    } finally {
+      anniversariesLoading.value = false;
+    }
+  }
+
+  /** 新建纪念日（成功后重拉列表） */
+  async function addAnniversary(data: CreateAnniversaryInput): Promise<Anniversary | undefined> {
+    try {
+      const created = await apiCreateAnniversary(data);
+      await fetchAnniversaryList();
+      notify('纪念日已添加', 'success');
+      return created;
+    } catch (e) {
+      notify(e instanceof Error ? e.message : '添加失败', 'error');
+      return undefined;
+    }
+  }
+
+  /** 修改纪念日（成功后重拉列表） */
+  async function editAnniversary(id: number, data: UpdateAnniversaryInput): Promise<Anniversary | undefined> {
+    try {
+      const updated = await apiUpdateAnniversary(id, data);
+      await fetchAnniversaryList();
+      notify('纪念日已更新', 'success');
+      return updated;
+    } catch (e) {
+      notify(e instanceof Error ? e.message : '更新失败', 'error');
+      return undefined;
+    }
+  }
+
+  /** 删除纪念日（成功后重拉列表） */
+  async function removeAnniversary(id: number): Promise<boolean> {
+    try {
+      await apiDeleteAnniversary(id);
+      await fetchAnniversaryList();
+      notify('纪念日已删除', 'success');
+      return true;
+    } catch (e) {
+      notify(e instanceof Error ? e.message : '删除失败', 'error');
+      return false;
+    }
+  }
+
   return {
     events,
     currentDate,
@@ -216,6 +283,8 @@ export const useCalendarStore = defineStore('calendar', () => {
     loading,
     error,
     eventsByDate,
+    anniversaries,
+    anniversariesLoading,
     fetchEvents,
     refreshCurrentView,
     setCurrentDate,
@@ -225,5 +294,9 @@ export const useCalendarStore = defineStore('calendar', () => {
     createEvent,
     updateEvent,
     deleteEvent,
+    fetchAnniversaryList,
+    addAnniversary,
+    editAnniversary,
+    removeAnniversary,
   };
 });

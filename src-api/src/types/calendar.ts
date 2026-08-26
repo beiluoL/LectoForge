@@ -100,3 +100,50 @@ export interface CalendarEventUpdateInput {
   description?: string | null;
   location?: string | null;
 }
+
+/* =====================================================================
+ * 纪念日 / 生日（wb_anniversary）DTO
+ *
+ * 与 wb_calendar_event 完全独立：纪念日是「每年/每月重复」的模板（date 存 MM-DD），
+ * 绝不下沉到具体事件表；渲染时前端把当前年拼上 MM-DD 与日历格比对即可。
+ * ===================================================================== */
+
+/** 重复规则：yearly = 每年（date 为 MM-DD）；monthly = 每月（date 为 DD） */
+export type AnniversaryRepeatRule = 'yearly' | 'monthly';
+
+/** 库表行（wb_anniversary），也是单条纪念日对外的 VO */
+export interface AnniversaryRow {
+  id: number;
+  userId: number;
+  name: string;
+  /** lucide 图标名，默认 heart */
+  iconName: string;
+  /** yearly → MM-DD（如 03-15）；monthly → DD（如 15） */
+  date: string;
+  /** 起始年份（可选），null = 不限 */
+  year: number | null;
+  repeatRule: AnniversaryRepeatRule;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** POST /calendar/anniversaries 请求体 */
+export interface AnniversaryCreateInput {
+  name: string;
+  iconName?: string | null;
+  date: string;
+  year?: number | null;
+  repeatRule?: AnniversaryRepeatRule | null;
+  note?: string | null;
+}
+
+/** PUT /calendar/anniversaries/:id 请求体（局部更新） */
+export interface AnniversaryUpdateInput {
+  name?: string;
+  iconName?: string | null;
+  date?: string;
+  year?: number | null;
+  repeatRule?: AnniversaryRepeatRule | null;
+  note?: string | null;
+}

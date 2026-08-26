@@ -302,6 +302,22 @@ CREATE TABLE IF NOT EXISTS wb_calendar_event (
  * 前提是 start_time 永远是同格式的 UTC ISO 串（见 schema.ts 的时间存储口径），
  * 否则字符串比较的顺序就不等于时间顺序，索引会给出错误结果。 */
 CREATE INDEX IF NOT EXISTS idx_wb_calendar_event_range ON wb_calendar_event (user_id, start_time);
+/* ===== 纪念日 / 生日（每年或每月重复，独立于 wb_calendar_event）=====
+ * date 存 MM-DD（yearly）或 DD（monthly），渲染时前端拼当前年比对；
+ * 数据量小（个人几十条），全量拉取，(user_id) 索引兜底单用户隔离。 */
+CREATE TABLE IF NOT EXISTS wb_anniversary (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL,
+  icon_name TEXT NOT NULL DEFAULT 'heart',
+  date TEXT NOT NULL,
+  year INTEGER,
+  repeat_rule TEXT NOT NULL DEFAULT 'yearly',
+  note TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wb_anniversary_owner ON wb_anniversary (user_id);
 /* ===== 任务清单（Things 3 模型）：wb_task_list + wb_task ===== */
 CREATE TABLE IF NOT EXISTS wb_task_list (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
