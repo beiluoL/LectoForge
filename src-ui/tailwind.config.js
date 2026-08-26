@@ -9,6 +9,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        lg: '992px',
+      },
       colors: {
         primary: {
           50: '#EFF4FE',
