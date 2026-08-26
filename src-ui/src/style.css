@@ -1876,3 +1876,306 @@ body.kb-review-immersive .kb-app-shell {
 .lf-dp-btn.primary:hover {
   background: color-mix(in srgb, var(--kb-primary) 88%, #000);
 }
+
+/* =====================================================================
+ * 设置中心三栏式布局（2026-08-26 恢复）：左侧 .kb-set-sidebar 导航 + 右侧 .kb-set-detail 详情面板。
+ * 所有颜色一律引用 --kb-*；间距用 --kb-space-*；字号用 --kb-fs-* 阶梯。
+ * ⚠️ 不重定义 --kb-primary-soft（main 的 data-accent 换肤联动已定义），只补缺失令牌。
+ * ===================================================================== */
+:root {
+  /* 设置页专用令牌 */
+  --kb-sidebar-width: 208px;
+  --kb-setting-row-gap: 12px;
+  --kb-setting-label-min-width: 156px;
+  --kb-switch-width: 40px;
+  --kb-switch-height: 22px;
+  --kb-keybinding-bg: var(--kb-muted);
+  --kb-keybinding-border: var(--kb-border);
+  --kb-color-dot-size: 20px;
+  /* 悬停背景 / 各类 soft 徽章底色：全部用 color-mix 引用主令牌，杜绝硬编码色值 */
+  --kb-hover-bg: color-mix(in srgb, var(--kb-muted) 64%, var(--kb-background));
+  --kb-success: var(--kb-accent);
+  --kb-success-soft: color-mix(in srgb, var(--kb-accent) 14%, transparent);
+  --kb-warning-soft: color-mix(in srgb, var(--kb-warning) 16%, transparent);
+  --kb-destructive-soft: color-mix(in srgb, var(--kb-destructive) 14%, transparent);
+}
+
+/* ---------- 三栏外壳 ---------- */
+.kb-set-root {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--kb-background);
+}
+.kb-set-sidebar {
+  width: var(--kb-sidebar-width);
+  flex-shrink: 0;
+  background: var(--kb-sidebar);
+  border-right: 1px solid var(--kb-border);
+  display: flex;
+  flex-direction: column;
+  padding: var(--kb-space-4) var(--kb-space-3);
+  overflow-y: auto;
+}
+.kb-set-detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--kb-space-6) var(--kb-space-8);
+}
+
+/* 侧栏标题区 */
+.kb-set-side-title {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: var(--kb-fs-body-lg);
+  font-weight: 700;
+  color: var(--kb-foreground);
+  padding: 0 var(--kb-space-2) var(--kb-space-3);
+}
+.kb-set-side-title .kb-set-side-icon { color: var(--kb-primary); }
+
+/* 分组标题 */
+.kb-set-group-label {
+  font-size: var(--kb-fs-caption);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--kb-muted-foreground);
+  padding: var(--kb-space-4) var(--kb-space-2) var(--kb-space-2);
+}
+.kb-set-group-label:first-child { padding-top: var(--kb-space-2); }
+
+/* 导航项 */
+.kb-set-nav-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .6rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--kb-radius-md);
+  color: var(--kb-sidebar-foreground);
+  font-size: var(--kb-fs-body-md);
+  cursor: pointer;
+  position: relative;
+  text-align: left;
+  transition: background .15s ease, color .15s ease;
+}
+.kb-set-nav-item:hover { background: var(--kb-hover-bg); }
+.kb-set-nav-item:focus-visible { outline: 2px solid var(--kb-ring); outline-offset: 1px; }
+.kb-set-nav-item .kb-set-nav-icon { flex-shrink: 0; }
+.kb-set-nav-item .kb-set-nav-label { flex: 1; min-width: 0; }
+/* 激活态：左侧 3px 主色竖条 + 主色文字 + 主色 10% 背景 */
+.kb-set-nav-item.is-active {
+  color: var(--kb-primary);
+  background: var(--kb-primary-soft);
+  font-weight: 600;
+}
+.kb-set-nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--kb-primary);
+}
+/* 角标：warning=橙 / danger=红 / success=绿 */
+.kb-set-nav-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.kb-set-nav-badge.warning { color: var(--kb-warning); background: var(--kb-warning-soft); }
+.kb-set-nav-badge.danger { color: var(--kb-destructive); background: var(--kb-destructive-soft); }
+.kb-set-nav-badge.success { color: var(--kb-success); background: var(--kb-success-soft); }
+
+/* ---------- 详情面板：区块标题 + 卡片 ---------- */
+.kb-set-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: var(--kb-space-5);
+}
+.kb-set-head-title {
+  font-size: var(--kb-fs-h3);
+  font-weight: 600;
+  color: var(--kb-foreground);
+  margin: 0;
+}
+.kb-set-head-sub {
+  font-size: var(--kb-fs-body-sm);
+  color: var(--kb-muted-foreground);
+  margin: .3rem 0 0;
+}
+
+/* 设置卡片（复用 .kb-card 视觉，这里补内部排版） */
+.kb-set-card {
+  background: var(--kb-card);
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-lg);
+  padding: var(--kb-space-5);
+  margin-bottom: var(--kb-space-5);
+  box-shadow: var(--shadow-card);
+}
+.kb-set-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  margin-bottom: var(--kb-space-3);
+}
+.kb-set-card-icon { color: var(--kb-primary); margin-top: 2px; flex-shrink: 0; }
+.kb-set-card-title { font-size: var(--kb-fs-body-lg); font-weight: 600; color: var(--kb-foreground); margin: 0; }
+.kb-set-card-desc { font-size: var(--kb-fs-body-sm); color: var(--kb-muted-foreground); margin: .15rem 0 0; line-height: 1.5; }
+
+/* 卡片内子分组标题（uppercase 小字） */
+.kb-subhead {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin: var(--kb-space-4) 0 var(--kb-space-2);
+  font-size: var(--kb-fs-caption);
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--kb-muted-foreground);
+}
+.kb-subhead:first-child { margin-top: 0; }
+
+/* ---------- 设置行：标签左 + 控件右 ---------- */
+.kb-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kb-setting-row-gap);
+  padding: var(--kb-space-3) 0;
+  border-bottom: 1px solid var(--kb-border);
+}
+.kb-setting-row:last-child { border-bottom: none; }
+.kb-setting-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: var(--kb-setting-label-min-width);
+}
+.kb-setting-label > span:first-child {
+  font-size: var(--kb-fs-body-md);
+  font-weight: 500;
+  color: var(--kb-foreground);
+}
+.kb-setting-desc { font-size: var(--kb-fs-caption); color: var(--kb-muted-foreground); }
+.kb-setting-control {
+  display: flex;
+  align-items: center;
+  gap: var(--kb-space-2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.kb-setting-control .kb-input,
+.kb-setting-control .kb-select { max-width: 260px; }
+
+/* ---------- 自定义开关（复用项目 lf-switch 视觉，抽为全局 .kb-switch） ---------- */
+.kb-switch {
+  position: relative;
+  width: var(--kb-switch-width);
+  height: var(--kb-switch-height);
+  border-radius: 999px;
+  background: var(--kb-border);
+  cursor: pointer;
+  transition: background .2s ease;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.kb-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.kb-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(var(--kb-switch-height) - 4px);
+  height: calc(var(--kb-switch-height) - 4px);
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s ease;
+}
+.kb-switch.is-on { background: var(--kb-primary); }
+.kb-switch.is-on::after { transform: translateX(calc(var(--kb-switch-width) - var(--kb-switch-height))); }
+
+/* 分段开关（开/关 二元），用 .kb-filter-group + .kb-filter-btn 即可，这里补贴标 */
+.kb-seg-label { font-size: var(--kb-fs-body-md); color: var(--kb-foreground); font-weight: 500; }
+
+/* ---------- 颜色圆点 ---------- */
+.kb-color-dot {
+  width: var(--kb-color-dot-size);
+  height: var(--kb-color-dot-size);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color .15s ease, transform .15s ease;
+  padding: 0;
+}
+.kb-color-dot:hover { transform: scale(1.12); }
+.kb-color-dot.is-selected {
+  border-color: var(--kb-foreground);
+  box-shadow: 0 0 0 2px var(--kb-primary-soft);
+}
+
+/* ---------- 按键绑定 ---------- */
+.kb-keybinding {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--kb-keybinding-bg);
+  border: 1px solid var(--kb-keybinding-border);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--kb-fs-body-sm);
+  color: var(--kb-foreground);
+  min-width: 84px;
+  justify-content: center;
+}
+.kb-keybinding.is-listening {
+  border-color: var(--kb-ring);
+  box-shadow: 0 0 0 2px var(--kb-primary-soft);
+  cursor: pointer;
+}
+.kb-keybinding kbd {
+  font-family: var(--font-mono);
+  font-size: var(--kb-fs-body-sm);
+  color: var(--kb-foreground);
+}
+
+/* ---------- 状态徽章 ---------- */
+.kb-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--kb-fs-body-sm);
+  font-weight: 500;
+}
+.kb-status-badge.is-ok { background: var(--kb-success-soft); color: var(--kb-success); }
+.kb-status-badge.is-warning { background: var(--kb-warning-soft); color: var(--kb-warning); }
+.kb-status-badge.is-danger { background: var(--kb-destructive-soft); color: var(--kb-destructive); }
+.kb-status-badge.is-off { background: var(--kb-muted); color: var(--kb-muted-foreground); }
+.kb-status-badge .dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
+
+/* ---------- 紧凑模式：收紧卡片与行间距 ---------- */
+.kb-compact .kb-set-card { padding: var(--kb-space-4); margin-bottom: var(--kb-space-3); }
+.kb-compact .kb-setting-row { padding: 8px 0; }
+.kb-compact .kb-set-detail { padding: var(--kb-space-4) var(--kb-space-6); }
+
+/* 详情面板在窄窗口不溢出（≥1000px 验收） */
+@media (max-width: 1080px) {
+  .kb-set-detail { padding: var(--kb-space-5); }
+  .kb-set-sidebar { width: 184px; }
+}
