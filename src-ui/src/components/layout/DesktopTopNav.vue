@@ -17,7 +17,7 @@
     <!-- 自绘 macOS 红黄绿：顶掉被 decorations:false 移除的系统窗口按钮 -->
     <WindowControls class="mr-4 shrink-0" />
 
-    <!-- Left: 品牌字标 Logo（Serif 900 主色，点击回学习工作台；位于收集箱左侧） -->
+    <!-- Left: 品牌字标 Logo（系统字体栈 semibold，点击回学习工作台；位于收集箱左侧） -->
     <router-link
       to="/workbench"
       class="lf-brand-wordmark shrink-0"
@@ -550,21 +550,25 @@ async function checkUpdate() {
   transition: color 0.15s ease, opacity 0.15s ease, background 0.15s ease;
 }
 
-/* 品牌字标 Logo：Serif 900 + 主色，与 Workbench Hero 标题同字体族（Noto Serif SC），
-   视觉上比导航项更重更醒目，hover 微降透明度保持可点感 */
+/* 品牌字标 Logo：系统默认字体栈 + semibold + tracking-tight（macOS 原生感）。
+   字号取 text-xl 档（--kb-fs-h4 = 20px），比导航文字（14px）更醒目；
+   颜色用 --kb-foreground：浅色自动深灰、深色自动近白，随 data-theme 联动，
+   不写死 dark: 变体（项目主题走 documentElement[data-theme]）。
+   hover 时透明度降 0.8 + 微缩放，transition 200ms 过渡。 */
 .lf-brand-wordmark {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 900;
-  letter-spacing: 0.01em;
-  color: var(--kb-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: var(--kb-fs-h4);
+  font-weight: 600;
+  letter-spacing: -0.025em; /* tracking-tight */
+  color: var(--kb-foreground);
   white-space: nowrap;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .lf-brand-wordmark:hover {
-  opacity: 0.78;
+  opacity: 0.8;
+  transform: scale(1.02);
 }
 .nav-item:hover {
   opacity: 0.8;
