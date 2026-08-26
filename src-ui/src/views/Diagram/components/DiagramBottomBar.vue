@@ -108,12 +108,12 @@ function onDrop(i: number) {
   display: flex;
   align-items: center;
   border-top: 1px solid var(--kb-border);
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   padding: 0 8px;
   box-sizing: border-box;
 }
-:global(.dark) .lf-pages {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-pages {
+  background: var(--kb-card);
 }
 .lf-pages-scroll {
   display: flex;
@@ -130,16 +130,16 @@ function onDrop(i: number) {
   padding: 4px 8px;
   border: 1px solid var(--kb-border);
   border-radius: 6px;
-  background: var(--kb-muted, #f8fafc);
+  background: var(--kb-muted);
   cursor: pointer;
   flex-shrink: 0;
   user-select: none;
 }
-:global(.dark) .lf-page-tab {
+:root[data-theme='dark'] .lf-page-tab {
   background: #2a2a2a;
 }
 .lf-page-tab.is-active {
-  border-color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary);
   background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
 }
 .lf-page-tab.is-dragging {
@@ -155,10 +155,10 @@ function onDrop(i: number) {
 .lf-page-input {
   width: 110px;
   font-size: 12px;
-  border: 1px solid var(--kb-primary, #3b6fe0);
+  border: 1px solid var(--kb-primary);
   border-radius: 4px;
   padding: 1px 4px;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   color: var(--kb-foreground);
 }
 .lf-page-count {
@@ -183,7 +183,7 @@ function onDrop(i: number) {
   flex-shrink: 0;
 }
 .lf-page-del:hover {
-  color: var(--kb-destructive, #dc2626);
+  color: var(--kb-destructive);
   background: color-mix(in srgb, var(--kb-destructive) 12%, transparent);
 }
 .lf-page-add {
@@ -200,7 +200,7 @@ function onDrop(i: number) {
   flex-shrink: 0;
 }
 .lf-page-add:hover {
-  border-color: var(--kb-primary, #3b6fe0);
-  color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary);
+  color: var(--kb-primary);
 }
 </style>

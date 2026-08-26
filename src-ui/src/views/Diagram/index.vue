@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
   flex: 1;
   min-width: 0;
   position: relative;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
 }
 /* 图形库拖拽时的浮动预览（跟随指针） */
 .lf-drag-ghost {
@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 600;
   color: #fff;
-  background: var(--kb-primary, #3b6fe0);
+  background: var(--kb-primary);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   pointer-events: none;

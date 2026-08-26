@@ -203,13 +203,13 @@ function stopResize() {
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  background: var(--kb-muted, #f8fafc);
+  background: var(--kb-muted);
   border-right: 1px solid var(--kb-border);
   padding: 12px;
   box-sizing: border-box;
 }
-:global(.dark) .lf-library {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-library {
+  background: var(--kb-card);
 }
 /* 收起态：竖条，居中显示展开入口 */
 .lf-library.is-collapsed {
@@ -227,13 +227,13 @@ function stopResize() {
   height: 32px;
   border: 1px solid var(--kb-border);
   border-radius: 6px;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   color: var(--kb-muted-foreground);
   cursor: pointer;
 }
 .lf-lib-rail-btn:hover {
-  color: var(--kb-primary, #3b6fe0);
-  border-color: var(--kb-primary, #3b6fe0);
+  color: var(--kb-primary);
+  border-color: var(--kb-primary);
 }
 .lf-library-head {
   display: flex;
@@ -260,7 +260,7 @@ function stopResize() {
   cursor: pointer;
 }
 .lf-lib-collapse:hover {
-  background: var(--kb-muted, #e9eef5);
+  background: var(--kb-muted);
   color: var(--kb-foreground);
 }
 .lf-library-tip {
@@ -286,7 +286,7 @@ function stopResize() {
   text-align: left;
 }
 .lf-group-head:hover {
-  background: var(--kb-muted, #e9eef5);
+  background: var(--kb-muted);
 }
 .lf-group-label {
   font-size: 12px;
@@ -305,12 +305,12 @@ function stopResize() {
   padding: 8px 4px;
   border: 1px solid var(--kb-border);
   border-radius: 8px;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   cursor: grab;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .lf-shape-item:hover {
-  border-color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 .lf-shape-item:active {
@@ -345,6 +345,6 @@ function stopResize() {
   transition: background 0.12s;
 }
 .lf-lib-resizer:hover::after {
-  background: var(--kb-primary, #3b6fe0);
+  background: var(--kb-primary);
 }
 </style>

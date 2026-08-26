@@ -161,13 +161,13 @@ function onDrawingWidth(e: Event) {
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
-  background: var(--kb-muted, #f8fafc);
+  background: var(--kb-muted);
   border-left: 1px solid var(--kb-border);
   padding: 14px;
   box-sizing: border-box;
 }
-:global(.dark) .lf-props {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-props {
+  background: var(--kb-card);
 }
 .lf-props-title {
   font-size: 13px;

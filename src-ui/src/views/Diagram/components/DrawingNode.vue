@@ -62,7 +62,7 @@ const h = computed(() => box.value.h);
   pointer-events: none;
 }
 .lf-drawing.is-selected {
-  outline: 2px solid var(--kb-primary, #3b6fe0);
+  outline: 2px solid var(--kb-primary);
   outline-offset: 2px;
   border-radius: 2px;
 }

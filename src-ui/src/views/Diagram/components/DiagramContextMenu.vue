@@ -209,15 +209,15 @@ function autoLayout() {
   pointer-events: auto;
   min-width: 184px;
   padding: 6px 0;
-  background: var(--kb-popover, #fff);
+  background: var(--kb-popover);
   border: 1px solid var(--kb-border);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
   font-size: 13px;
   color: var(--kb-foreground);
 }
-:global(.dark) .lf-context-menu {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-context-menu {
+  background: var(--kb-card);
 }
 .lf-context-title {
   margin: 0;
@@ -249,7 +249,7 @@ function autoLayout() {
   transition: background 0.12s, border-color 0.12s;
 }
 .lf-context-grid-item:hover {
-  background: var(--kb-muted, #f1f5f9);
+  background: var(--kb-muted);
   border-color: var(--kb-border);
 }
 .lf-context-shape-dot {
@@ -289,10 +289,10 @@ function autoLayout() {
   letter-spacing: 0.3px;
 }
 .lf-context-item:hover {
-  background: var(--kb-muted, #f1f5f9);
+  background: var(--kb-muted);
 }
 .lf-context-item.is-danger {
-  color: var(--kb-destructive, #dc2626);
+  color: var(--kb-destructive);
 }
 .lf-context-item.is-danger .lf-context-shortcut {
   color: color-mix(in srgb, var(--kb-destructive) 70%, var(--kb-muted-foreground));

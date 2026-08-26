@@ -237,7 +237,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   gap: 8px;
   padding: 0 12px;
   border-bottom: 1px solid var(--kb-border);
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   box-sizing: border-box;
   overflow-x: auto;
 }
@@ -297,7 +297,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   padding: 0 10px;
   border: 1px solid var(--kb-border);
   border-radius: 6px;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   color: var(--kb-foreground);
   font-size: 13px;
   flex-shrink: 0;
@@ -312,13 +312,13 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   z-index: 30;
   min-width: 116px;
   padding: 6px;
-  background: var(--kb-popover, #fff);
+  background: var(--kb-popover);
   border: 1px solid var(--kb-border);
   border-radius: 8px;
   box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
 }
-:global(.dark) .lf-align-menu {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-align-menu {
+  background: var(--kb-card);
 }
 .lf-align-title {
   margin: 2px 4px 4px;
@@ -339,7 +339,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   cursor: pointer;
 }
 .lf-align-item:hover:not(:disabled) {
-  background: var(--kb-muted, #f1f5f9);
+  background: var(--kb-muted);
 }
 .lf-align-item:disabled {
   opacity: 0.45;
@@ -360,19 +360,19 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   padding: 0 6px;
   border: 1px solid var(--kb-border);
   border-radius: 6px;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   color: var(--kb-foreground);
   font-size: 12px;
 }
 .lf-ai-btn {
-  color: var(--kb-primary, #3b6fe0);
+  color: var(--kb-primary);
 }
 .lf-tpl-btn {
   color: var(--kb-foreground);
 }
 .kb-btn.is-active {
-  background: var(--kb-primary, #3b6fe0);
+  background: var(--kb-primary);
   color: #fff;
-  border-color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary);
 }
 </style>

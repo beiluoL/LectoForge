@@ -224,7 +224,9 @@
                 <div v-if="palacePickerId === item.id" class="il-menu il-palace" @click.stop>
                   <div class="il-palace-head">
                     <span>选择记忆宫殿</span>
-                    <button class="il-palace-back" title="返回" @click="palacePickerId = null">✕</button>
+                    <button class="il-palace-back" title="返回" aria-label="关闭" @click="palacePickerId = null">
+                      <Icon name="x" :size="14" />
+                    </button>
                   </div>
                   <div v-if="palaceLoading" class="il-palace-loading">
                     <span class="qc-spinner"></span> 加载宫殿…

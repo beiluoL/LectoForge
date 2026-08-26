@@ -240,7 +240,7 @@ onUnmounted(() => {
   width: 10px;
   height: 10px;
   background: #fff;
-  border: 1.5px solid var(--kb-primary, #3b6fe0);
+  border: 1.5px solid var(--kb-primary);
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.12s ease, background 0.12s ease;
 }
@@ -250,7 +250,7 @@ onUnmounted(() => {
   opacity: 1;
 }
 .lf-handle:hover {
-  background: var(--kb-primary, #3b6fe0);
+  background: var(--kb-primary);
   transform: scale(1.25);
 }
 </style>

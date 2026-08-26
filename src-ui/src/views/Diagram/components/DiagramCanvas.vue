@@ -15,7 +15,7 @@
       :edge-types="edgeTypes"
       :connection-mode="ConnectionMode.Loose"
       :connection-line-type="ConnectionLineType.SmoothStep"
-      :connection-line-style="{ stroke: 'var(--kb-primary, #3b6fe0)', strokeWidth: 2 }"
+      :connection-line-style="{ stroke: 'var(--kb-primary)', strokeWidth: 2 }"
       :connection-radius="28"
       :delete-key-code="null"
       :default-edge-options="defaultEdgeOptions"
@@ -414,7 +414,7 @@ defineExpose({ fitNow, exportPng, addNodeAtClient });
   content: '';
   position: absolute;
   inset: 8px;
-  border: 2px dashed var(--kb-primary, #3b6fe0);
+  border: 2px dashed var(--kb-primary);
   border-radius: 12px;
   pointer-events: none;
   z-index: 5;

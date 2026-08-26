@@ -176,7 +176,7 @@ onUnmounted(() => window.removeEventListener('diagram:edit-edge', onEditEdgeEven
   gap: 4px;
   padding: 1px 6px;
   border-radius: 6px;
-  background: var(--kb-popover, #fff);
+  background: var(--kb-popover);
   border: 1px solid transparent;
   font-size: 12px;
   color: var(--kb-foreground);
@@ -187,7 +187,7 @@ onUnmounted(() => window.removeEventListener('diagram:edit-edge', onEditEdgeEven
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .lf-edge-label.is-selected {
-  border-color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary);
 }
 .lf-edge-label.is-empty .lf-edge-label-text {
   opacity: 0;
@@ -215,7 +215,7 @@ onUnmounted(() => window.removeEventListener('diagram:edit-edge', onEditEdgeEven
   height: 20px;
   border: none;
   border-radius: 4px;
-  background: var(--kb-muted, #f1f5f9);
+  background: var(--kb-muted);
   color: var(--kb-foreground);
   cursor: pointer;
 }
@@ -223,7 +223,7 @@ onUnmounted(() => window.removeEventListener('diagram:edit-edge', onEditEdgeEven
   background: color-mix(in srgb, var(--kb-primary) 16%, transparent);
 }
 .lf-edge-btn.is-danger {
-  color: var(--kb-destructive, #dc2626);
+  color: var(--kb-destructive);
 }
 .lf-edge-btn.is-danger:hover {
   background: color-mix(in srgb, var(--kb-destructive) 12%, transparent);

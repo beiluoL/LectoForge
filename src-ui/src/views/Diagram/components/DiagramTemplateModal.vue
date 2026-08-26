@@ -198,14 +198,14 @@ function close() {
   max-height: 86vh;
   display: flex;
   flex-direction: column;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   border: 1px solid var(--kb-border);
   border-radius: 14px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
   overflow: hidden;
 }
-:global(.dark) .lf-tpl-panel {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-tpl-panel {
+  background: var(--kb-card);
 }
 .lf-tpl-head {
   display: flex;
@@ -238,7 +238,7 @@ function close() {
   cursor: pointer;
 }
 .lf-tpl-close:hover {
-  background: var(--kb-muted, #e9eef5);
+  background: var(--kb-muted);
   color: var(--kb-foreground);
 }
 .lf-tpl-grid {
@@ -255,27 +255,27 @@ function close() {
   padding: 10px;
   border: 1px solid var(--kb-border);
   border-radius: 12px;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   cursor: pointer;
   text-align: left;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
-:global(.dark) .lf-tpl-card {
-  background: var(--kb-muted, #18181b);
+:root[data-theme='dark'] .lf-tpl-card {
+  background: var(--kb-muted);
 }
 .lf-tpl-card:hover {
-  border-color: var(--kb-primary, #3b6fe0);
+  border-color: var(--kb-primary);
   box-shadow: 0 6px 16px rgba(59, 111, 224, 0.18);
   transform: translateY(-2px);
 }
 .lf-tpl-thumb {
   height: 96px;
   border-radius: 8px;
-  background: var(--kb-muted, #f8fafc);
+  background: var(--kb-muted);
   border: 1px solid var(--kb-border);
   overflow: hidden;
 }
-:global(.dark) .lf-tpl-thumb {
+:root[data-theme='dark'] .lf-tpl-thumb {
   background: #141417;
 }
 .lf-tpl-thumb svg {
@@ -285,10 +285,10 @@ function close() {
 }
 .lf-tpl-shape {
   fill: #fff;
-  stroke: var(--kb-primary, #3b6fe0);
+  stroke: var(--kb-primary);
   stroke-width: 1.6;
 }
-:global(.dark) .lf-tpl-shape {
+:root[data-theme='dark'] .lf-tpl-shape {
   fill: #232327;
 }
 .lf-tpl-meta {
@@ -306,8 +306,8 @@ function close() {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--kb-primary, #3b6fe0) 14%, transparent);
-  color: var(--kb-primary, #3b6fe0);
+  background: color-mix(in srgb, var(--kb-primary) 14%, transparent);
+  color: var(--kb-primary);
   white-space: nowrap;
 }
 .lf-tpl-desc {

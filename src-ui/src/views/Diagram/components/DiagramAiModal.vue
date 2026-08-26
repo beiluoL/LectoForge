@@ -103,15 +103,15 @@ async function onGenerate() {
 .lf-ai-card {
   width: 460px;
   max-width: 100%;
-  background: var(--kb-background, #fff);
+  background: var(--kb-background);
   border: 1px solid var(--kb-border);
   border-radius: 12px;
   box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
   padding: 18px;
   box-sizing: border-box;
 }
-:global(.dark) .lf-ai-card {
-  background: var(--kb-card, #1f1f1f);
+:root[data-theme='dark'] .lf-ai-card {
+  background: var(--kb-card);
 }
 .lf-ai-head {
   display: flex;
@@ -156,7 +156,7 @@ async function onGenerate() {
   margin-top: 16px;
 }
 .lf-ai-btn {
-  color: var(--kb-primary, #3b6fe0);
+  color: var(--kb-primary);
 }
 .lf-ai-hint {
   font-size: 11px;
