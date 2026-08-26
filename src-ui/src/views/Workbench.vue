@@ -16,7 +16,7 @@
               LectoForge · Learning Loop
             </span>
             <h1 class="wb-title">
-              <Icon name="brain" :size="30" class="wb-title-icon" />
+              <Icon name="brain" :size="'30px'" class="wb-title-icon" />
               学习工作台
             </h1>
             <p class="wb-subtitle">
@@ -25,39 +25,19 @@
             </p>
           </div>
           <button class="kb-btn kb-btn-primary wb-cta" @click="goCapture">
-            <Icon name="plus" :size="16" /> 快速记录灵感
+            <Icon name="plus" :size="'md'" /> 快速记录灵感
           </button>
         </div>
 
-        <!-- 学习闭环可视化 -->
-        <div class="wb-loop" role="navigation" aria-label="学习闭环导航">
-          <template v-for="(m, i) in modules" :key="m.key">
-            <button class="wb-loop-node" :style="{ '--mc': m.color }" @click="router.push(m.path)">
-              <span class="wb-loop-step">{{ m.step }}</span>
-              <span class="wb-loop-icon">
-                <Icon :name="m.icon" :size="22" />
-              </span>
-              <span class="wb-loop-title">{{ m.title }}</span>
-              <span v-if="m.metric != null" class="wb-loop-count">{{ m.metric }}</span>
-            </button>
-            <span v-if="i < modules.length - 1" class="wb-loop-arrow" aria-hidden="true">
-              <Icon name="chevron-right" :size="18" />
-            </span>
-          </template>
-          <span class="wb-loop-return" aria-hidden="true">
-            <Icon name="rotate-ccw" :size="14" />
-            <span>闭环回归</span>
-          </span>
-        </div>
       </div>
     </section>
 
     <!-- ============ 今日聚焦：智能引导（dashboard 实时数据驱动）============ -->
     <section class="wb-focus">
       <h2 class="wb-section-title">
-        <Icon name="target" :size="18" style="color: var(--kb-highlight);" />
-        今日聚焦
-        <span class="wb-section-hint">依据你的学习数据智能推荐</span>
+        <Icon name="target" :size="'lg'" style="color: var(--kb-highlight);" />
+        今日速览
+        <span class="wb-section-hint">数据实时来自本机学习记录</span>
       </h2>
       <div class="wb-focus-grid">
         <button
@@ -68,13 +48,13 @@
           @click="router.push(f.path)"
         >
           <span class="wb-focus-icon" :style="{ background: f.color + '14', color: f.color }">
-            <Icon :name="f.icon" :size="20" />
+            <Icon :name="f.icon" :size="'xl'" />
           </span>
           <span class="wb-focus-body">
             <span class="wb-focus-label">{{ f.label }}</span>
             <span class="wb-focus-num" :style="{ color: f.color }">{{ f.value }}</span>
           </span>
-          <Icon name="arrow-right" :size="16" class="wb-focus-arrow" />
+          <Icon name="arrow-right" :size="'md'" class="wb-focus-arrow" />
         </button>
       </div>
 
@@ -84,22 +64,47 @@
         class="wb-overdue-banner"
         @click="router.push('/inbox?overdue=1')"
       >
-        <Icon name="triangle-alert" :size="18" />
+        <Icon name="triangle-alert" :size="'lg'" />
         <span class="wb-overdue-text">
           有 <strong>{{ overdueCount }}</strong> 条灵感待整理，已积压超过 3 天
         </span>
-        <span class="wb-overdue-cta">立即清理 <Icon name="arrow-right" :size="14" /></span>
+        <span class="wb-overdue-cta">立即清理 <Icon name="arrow-right" :size="'sm'" /></span>
       </button>
       <div v-else class="wb-overdue-done">
-        <Icon name="check-circle-2" :size="16" />
+        <Icon name="check-circle-2" :size="'md'" />
         <span>收集箱已清零，闭环保持中 —— 继续保持「先积累，再沉淀」的节奏</span>
       </div>
     </section>
 
+    <!-- ============ 学习里程碑（成就徽章行） ============ -->
+    <section class="wb-achieve">
+      <h2 class="wb-section-title">
+        <Icon name="award" :size="'lg'" style="color: var(--kb-highlight);" />
+        学习里程碑
+      </h2>
+      <div class="wb-achieve-row">
+        <div
+          v-for="a in achievements"
+          :key="a.key"
+          class="wb-achieve-badge"
+          :style="{ '--mc': a.color }"
+          :title="a.label"
+        >
+          <span class="wb-achieve-icon">
+            <Icon :name="a.icon" :size="'md'" />
+          </span>
+          <span class="wb-achieve-num">{{ a.value }}</span>
+          <span class="wb-achieve-label">{{ a.label }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 主区双栏：四模块闭环 | 侧栏（数据看板 + 快捷入口） ============ -->
+    <div class="wb-main">
     <!-- ============ 四模块闭环 ============ -->
     <section class="wb-modules">
       <h2 class="wb-section-title">
-        <Icon name="git-branch" :size="18" style="color: var(--kb-primary);" />
+        <Icon name="git-branch" :size="'lg'" style="color: var(--kb-primary);" />
         学习闭环四步
       </h2>
       <div class="wb-module-grid">
@@ -113,27 +118,28 @@
           <div class="wb-module-top">
             <span class="wb-module-badge">{{ m.step }}</span>
             <span class="wb-module-icon">
-              <Icon :name="m.icon" :size="24" />
+              <Icon :name="m.icon" :size="'2xl'" />
             </span>
           </div>
           <h3 class="wb-module-title">{{ m.title }}</h3>
           <p class="wb-module-desc">{{ m.desc }}</p>
           <div v-if="m.sub" class="wb-module-sub">
-            <Icon :name="m.subIcon" :size="14" />
+            <Icon :name="m.subIcon" :size="'sm'" />
             <span>{{ m.sub }}</span>
           </div>
           <span class="wb-module-cta">
             进入模块
-            <Icon name="arrow-right" :size="14" />
+            <Icon name="arrow-right" :size="'sm'" />
           </span>
         </button>
       </div>
     </section>
 
+    <aside class="wb-side">
     <!-- ============ 数据看板 ============ -->
     <section class="wb-board">
       <h2 class="wb-section-title">
-        <Icon name="bar-chart-2" :size="18" style="color: var(--kb-primary);" />
+        <Icon name="bar-chart-2" :size="'lg'" style="color: var(--kb-primary);" />
         学习数据看板
       </h2>
 
@@ -157,10 +163,10 @@
       </div>
     </section>
 
-    <!-- ============ 学习方法论 ============ -->
+    <!-- ============ 学习方法论（快捷入口） ============ -->
     <section class="wb-methods">
       <h2 class="wb-section-title">
-        <Icon name="lightbulb" :size="18" style="color: var(--kb-warning);" />
+        <Icon name="lightbulb" :size="'lg'" style="color: var(--kb-warning);" />
         学习方法论
         <span class="wb-section-hint">科学记忆法驱动，让知识留存率倍增</span>
       </h2>
@@ -174,7 +180,7 @@
         >
           <div class="wb-method-head">
             <span class="wb-method-icon">
-              <Icon :name="tip.icon" :size="18" />
+              <Icon :name="tip.icon" :size="'lg'" />
             </span>
             <div>
               <h4 class="wb-method-title">{{ tip.title }}</h4>
@@ -183,10 +189,35 @@
           </div>
           <p class="wb-method-desc">{{ tip.desc }}</p>
           <span class="wb-method-principle">
-            <Icon name="zap" :size="12" />
+            <Icon name="zap" :size="'xs'" />
             {{ tip.principle }}
           </span>
         </button>
+      </div>
+    </section>
+    </aside>
+    </div>
+
+    <!-- ============ 学习闭环导航胶囊条 ============ -->
+    <section class="wb-loop-bar" role="navigation" aria-label="学习闭环导航">
+      <div class="wb-loop">
+        <template v-for="(m, i) in modules" :key="m.key">
+          <button class="wb-loop-node" :style="{ '--mc': m.color }" @click="router.push(m.path)">
+            <span class="wb-loop-step">{{ m.step }}</span>
+            <span class="wb-loop-icon">
+              <Icon :name="m.icon" :size="'22px'" />
+            </span>
+            <span class="wb-loop-title">{{ m.title }}</span>
+            <span v-if="m.metric != null" class="wb-loop-count">{{ m.metric }}</span>
+          </button>
+          <span v-if="i < modules.length - 1" class="wb-loop-arrow" aria-hidden="true">
+            <Icon name="chevron-right" :size="'lg'" />
+          </span>
+        </template>
+        <span class="wb-loop-return" aria-hidden="true">
+          <Icon name="rotate-ccw" :size="'sm'" />
+          <span>闭环回归</span>
+        </span>
       </div>
     </section>
   </div>
@@ -200,6 +231,7 @@ import Icon from '@/components/ui/Icon.vue'
 import { getWorkbenchOverview } from '@/api/workbench'
 import type { WorkbenchOverview } from '@/api/types'
 import { useDashboardStore } from '@/store/dashboard-store'
+import { chartColor, cssToken } from '@/utils/palette'
 
 const router = useRouter()
 const overview = ref<WorkbenchOverview | null>(null)
@@ -217,25 +249,25 @@ const modules = computed(() => {
   return [
     {
       key: 'input', step: '01 输入', title: '知识输入',
-      desc: '收集箱快速捕获灵感、摘录与碎片，先积累再沉淀。', icon: 'inbox', color: '#3B6FE0',
+      desc: '收集箱快速捕获灵感、摘录与碎片，先积累再沉淀。', icon: 'inbox', color: chartColor(0),
       path: '/inbox', metric: ls.step1Count,
       sub: o ? `${o.captureInbox} 条待整理` : '', subIcon: 'inbox',
     },
     {
       key: 'organize', step: '02 整理', title: '知识整理',
-      desc: '康奈尔笔记三栏结构化：线索自测 + 笔记记录 + 总结复述。', icon: 'notebook-pen', color: '#8B5CF6',
+      desc: '康奈尔笔记三栏结构化：线索自测 + 笔记记录 + 总结复述。', icon: 'notebook-pen', color: chartColor(1),
       path: '/workbench/notes', metric: ls.step2Count,
       sub: o ? `${o.noteTotal} 篇笔记` : '', subIcon: 'notebook-pen',
     },
     {
       key: 'review', step: '03 复习', title: '间隔复习',
-      desc: 'SM-2 遗忘曲线自动排程 + 记忆宫殿空间记忆，对抗遗忘。', icon: 'repeat', color: '#F59E0B',
+      desc: 'SM-2 遗忘曲线自动排程 + 记忆宫殿空间记忆，对抗遗忘。', icon: 'repeat', color: chartColor(3),
       path: '/workbench/review', metric: ls.step3Count,
       sub: o ? `${o.reviewDue} 张待复习` : '', subIcon: 'repeat',
     },
     {
       key: 'output', step: '04 输出', title: '知识输出',
-      desc: '费曼故事以教代学，讲不通的卡点就是下一步要补的洞。', icon: 'wand-2', color: '#10B981',
+      desc: '费曼故事以教代学，讲不通的卡点就是下一步要补的洞。', icon: 'wand-2', color: chartColor(2),
       path: '/workbench/story', metric: ls.step4Count,
       sub: o ? `${o.storyDraft} 篇草稿` : '', subIcon: 'wand-2',
     },
@@ -247,10 +279,10 @@ const modules = computed(() => {
 const focusItems = computed(() => {
   const d = dashboard.value
   return [
-    { key: 'today', label: '今日新增灵感', value: d.todayCaptures, icon: 'sparkles', color: '#3B6FE0', path: '/inbox', urgent: false },
-    { key: 'pending', label: '待整理碎片', value: d.pendingCaptures, icon: 'inbox', color: '#6366F1', path: '/inbox', urgent: d.pendingCaptures > 0 },
-    { key: 'review', label: '待复习卡片', value: d.dueReviews, icon: 'repeat', color: '#F59E0B', path: '/review', urgent: d.dueReviews > 0 },
-    { key: 'story', label: '故事草稿', value: d.storyDrafts, icon: 'wand-2', color: '#10B981', path: '/workbench/story', urgent: false },
+    { key: 'today', label: '今日新增灵感', value: d.todayCaptures, icon: 'sparkles', color: chartColor(0), path: '/inbox', urgent: false },
+    { key: 'pending', label: '待整理碎片', value: d.pendingCaptures, icon: 'inbox', color: chartColor(1), path: '/inbox', urgent: d.pendingCaptures > 0 },
+    { key: 'review', label: '待复习卡片', value: d.dueReviews, icon: 'repeat', color: chartColor(3), path: '/review', urgent: d.dueReviews > 0 },
+    { key: 'story', label: '故事草稿', value: d.storyDrafts, icon: 'wand-2', color: chartColor(2), path: '/workbench/story', urgent: false },
   ]
 })
 
@@ -261,42 +293,54 @@ const stats = computed(() => {
   const o = overview.value
   if (!o) return []
   return [
-    { key: 'capture', label: '收集箱', value: o.captureTotal, color: '#3B6FE0', sub: `${o.captureInbox} 待整理` },
-    { key: 'note', label: '康奈尔笔记', value: o.noteTotal, color: '#8B5CF6', sub: '结构化沉淀' },
-    { key: 'review', label: '待复习', value: o.reviewDue, color: '#F59E0B', sub: `近7天 ${o.reviewLast7d} 次` },
-    { key: 'palace', label: '记忆宫殿', value: o.palaceTotal, color: '#6366F1', sub: `${o.lociTotal} 个位点` },
-    { key: 'story', label: '费曼故事', value: o.storyTotal, color: '#10B981', sub: `${o.storyDraft} 待分享` },
-    { key: 'star', label: '标星条目', value: o.captureStarred, color: '#FF6B35', sub: '重点收藏' },
+    { key: 'capture', label: '收集箱', value: o.captureTotal, color: chartColor(0), sub: `${o.captureInbox} 待整理` },
+    { key: 'note', label: '康奈尔笔记', value: o.noteTotal, color: chartColor(1), sub: '结构化沉淀' },
+    { key: 'review', label: '待复习', value: o.reviewDue, color: chartColor(3), sub: `近7天 ${o.reviewLast7d} 次` },
+    { key: 'palace', label: '记忆宫殿', value: o.palaceTotal, color: chartColor(1), sub: `${o.lociTotal} 个位点` },
+    { key: 'story', label: '费曼故事', value: o.storyTotal, color: chartColor(2), sub: `${o.storyDraft} 待分享` },
+    { key: 'star', label: '标星条目', value: o.captureStarred, color: cssToken('--kb-highlight', '#FF6B35'), sub: '重点收藏' },
   ]
 })
 
 const tips = [
   {
-    title: '间隔重复法', tag: 'Spaced Repetition', icon: 'repeat', color: '#F59E0B',
+    title: '间隔重复法', tag: 'Spaced Repetition', icon: 'repeat', color: chartColor(3),
     desc: '基于艾宾浩斯遗忘曲线自动排程，按反馈质量动态拉长复习间隔，把记忆留存率拉到 90% 以上。',
     principle: '对抗遗忘曲线', path: '/workbench/review',
   },
   {
-    title: '记忆宫殿法', tag: 'Memory Palace', icon: 'map-pin', color: '#3B6FE0',
+    title: '记忆宫殿法', tag: 'Memory Palace', icon: 'map-pin', color: chartColor(0),
     desc: '将知识点挂靠到熟悉空间的固定位点，沿路线漫游回忆，调用空间记忆让抽象知识具象、牢固。',
     principle: '空间位置锚定', path: '/workbench/palace',
   },
   {
-    title: '费曼故事法', tag: 'Feynman Technique', icon: 'wand-2', color: '#10B981',
+    title: '费曼故事法', tag: 'Feynman Technique', icon: 'wand-2', color: chartColor(2),
     desc: '用故事讲给外行听，强制简化与重组；讲不通的卡点就是知识漏洞，定位后回炉重学。',
     principle: '以教代学', path: '/workbench/story',
   },
   {
-    title: '康奈尔笔记法', tag: 'Cornell Notes', icon: 'notebook-pen', color: '#8B5CF6',
+    title: '康奈尔笔记法', tag: 'Cornell Notes', icon: 'notebook-pen', color: chartColor(1),
     desc: '线索栏自测 + 笔记栏记录 + 总结栏复述，主动回忆胜过被动阅读，三栏协同内化知识。',
     principle: '主动回忆', path: '/workbench/notes',
   },
   {
-    title: '主动回忆法', tag: 'Active Recall', icon: 'edit-2', color: '#F59E0B',
+    title: '主动回忆法', tag: 'Active Recall', icon: 'edit-2', color: chartColor(3),
     desc: '三轮闭卷默写：即时默写 → 补漏默写 → 1小时复测，自动比对原文高亮遗漏与错误。',
     principle: '强制提取', path: '/workbench/recall',
   },
 ]
+
+/** 学习里程碑（成就徽章）：数据全部来自现有 overview 接口，不新增后端依赖 */
+const achievements = computed(() => {
+  const o = overview.value
+  if (!o) return []
+  return [
+    { key: 'capture', label: '累计收集', value: o.captureTotal, icon: 'inbox', color: cssToken('--kb-highlight', '#FF6B35') },
+    { key: 'note', label: '笔记沉淀', value: o.noteTotal, icon: 'notebook-pen', color: chartColor(1) },
+    { key: 'review', label: '近 7 天复习', value: o.reviewLast7d, icon: 'repeat', color: chartColor(2) },
+    { key: 'story', label: '故事输出', value: o.storyTotal, icon: 'wand-2', color: chartColor(3) },
+  ]
+})
 
 function goCapture() {
   router.push('/inbox')
@@ -329,10 +373,10 @@ onMounted(async () => {
   font-size: 20px;
   font-weight: 700;
   color: var(--kb-foreground);
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 .wb-section-hint {
-  margin-left: 6px;
+  margin-left: 8px;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 400;
@@ -378,10 +422,117 @@ onMounted(async () => {
 }
 .wb-hero-inner {
   position: relative;
-  padding: 28px 28px 24px;
+  padding: 20px 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============ 主区双栏：模块 4 宫格 | 侧栏（看板 + 快捷入口） ============ */
+.wb-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+.wb-side {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .wb-main {
+    grid-template-columns: 1fr;
+  }
+  .wb-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+@media (max-width: 720px) {
+  .wb-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 侧栏紧凑形态：看板 2 列小卡、方法列表单列 */
+.wb-side .wb-metric-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.wb-side .wb-metric-card {
+  padding: 12px;
+}
+.wb-side .wb-metric-num {
+  font-size: 22px;
+}
+.wb-side .wb-method-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.wb-side .wb-method-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px;
+}
+.wb-side .wb-method-desc,
+.wb-side .wb-method-principle {
+  display: none;
+}
+.wb-side .wb-method-head {
+  gap: 8px;
+}
+
+/* 底部闭环导航胶囊条 */
+.wb-loop-bar {
+  padding: 2px 0;
+}
+.wb-loop-bar .wb-loop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px;
+  border-radius: var(--kb-radius-md);
+  background: color-mix(in srgb, var(--kb-card) 72%, transparent);
+  border: 1px solid var(--kb-border);
+  backdrop-filter: blur(8px);
+}
+
+/* 学习里程碑徽章行 */
+.wb-achieve {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.wb-achieve-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wb-achieve-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--mc) 35%, var(--kb-border));
+  background: color-mix(in srgb, var(--mc) 10%, transparent);
+  color: var(--mc);
+  font-size: var(--kb-fs-caption);
+  font-weight: 600;
+}
+.wb-achieve-icon {
+  display: inline-flex;
+  align-items: center;
+}
+.wb-achieve-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
 }
 .wb-hero-head {
   display: flex;
@@ -393,8 +544,8 @@ onMounted(async () => {
 .wb-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 10px;
+  gap: 8px;
+  padding: 4px 12px;
   border-radius: 999px;
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -413,8 +564,8 @@ onMounted(async () => {
 .wb-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 12px 0 6px;
+  gap: 12px;
+  margin: 12px 0 8px;
   font-family: var(--font-serif);
   font-size: 32px;
   font-weight: 900;
@@ -437,8 +588,8 @@ onMounted(async () => {
 .wb-loop {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-md);
   background: rgba(255,255,255,0.72);
   border: 1px solid var(--kb-border);
@@ -449,8 +600,8 @@ onMounted(async () => {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px 8px 8px;
+  gap: 12px;
+  padding: 8px 16px 8px 8px;
   border-radius: var(--kb-radius-sm);
   border: 1px solid transparent;
   background: transparent;
@@ -464,7 +615,7 @@ onMounted(async () => {
 }
 .wb-loop-step {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
   color: var(--mc);
   letter-spacing: 0.05em;
@@ -487,7 +638,7 @@ onMounted(async () => {
 }
 .wb-loop-count {
   min-width: 20px;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 14%, transparent);
   color: var(--kb-foreground);
@@ -504,9 +655,9 @@ onMounted(async () => {
 .wb-loop-return {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin-left: auto;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   background: var(--kb-highlight-soft);
   color: var(--kb-highlight);
@@ -525,7 +676,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -581,9 +732,9 @@ onMounted(async () => {
 .wb-overdue-banner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 16px;
   padding: 12px 16px;
   border: 1px solid color-mix(in srgb, #F59E0B 45%, transparent);
   border-radius: var(--kb-radius-md);
@@ -618,8 +769,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
-  padding: 10px 16px;
+  margin-top: 16px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, #10B981 9%, var(--kb-card));
   border: 1px solid color-mix(in srgb, #10B981 30%, transparent);
@@ -666,7 +817,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .wb-module-badge {
   font-family: var(--font-mono);
@@ -689,7 +840,7 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 700;
   color: var(--kb-foreground);
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }
 .wb-module-desc {
   font-size: var(--kb-fs-caption);
@@ -701,7 +852,7 @@ onMounted(async () => {
 .wb-module-sub {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 3px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 10%, transparent);
@@ -739,7 +890,7 @@ onMounted(async () => {
 .wb-metric-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 8px;
 }
 .wb-metric-dot {
@@ -774,7 +925,7 @@ onMounted(async () => {
   animation: wb-pulse 1.5s ease-in-out infinite;
 }
 .wb-skel-num { height: 26px; width: 50%; margin-bottom: 8px; }
-.wb-skel-label { height: 12px; width: 70%; margin-bottom: 6px; }
+.wb-skel-label { height: 12px; width: 70%; margin-bottom: 8px; }
 .wb-skel-sub { height: 10px; width: 40%; }
 @keyframes wb-pulse {
   0%, 100% { opacity: 1; }
@@ -790,8 +941,8 @@ onMounted(async () => {
 .wb-method-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -819,7 +970,7 @@ onMounted(async () => {
 .wb-method-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .wb-method-icon {
   display: flex;
@@ -840,7 +991,7 @@ onMounted(async () => {
 }
 .wb-method-tag {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
   letter-spacing: 0.03em;
 }
@@ -856,7 +1007,7 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   align-self: flex-start;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 10%, transparent);
   color: var(--mc);
@@ -871,10 +1022,10 @@ onMounted(async () => {
   .wb-metric-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px) {
-  .wb-hero-inner { padding: 22px 18px 18px; }
+  .wb-hero-inner { padding: 24px 16px 16px; }
   .wb-title { font-size: 26px; }
   .wb-loop { gap: 4px; }
-  .wb-loop-node { padding: 6px 10px 6px 6px; }
+  .wb-loop-node { padding: 8px 12px 8px 8px; }
   .wb-loop-title { display: none; }
   .wb-loop-return { margin-left: 0; width: 100%; justify-content: center; }
   .wb-module-grid, .wb-method-grid, .wb-focus-grid { grid-template-columns: 1fr; }

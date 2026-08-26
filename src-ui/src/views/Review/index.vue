@@ -5,7 +5,7 @@
   <div class="rv-wrap" :class="{ 'is-immersive': isImmersive }">
     <!-- 番茄钟状态条：跨页面常驻，专注时随时可见剩余时间，一键暂停/继续（计时引擎在 pomodoroStore，复习中被掐不断） -->
     <div class="rv-pomo" :class="{ 'is-active': isRunning || status === 'paused' }">
-      <Icon name="timer" :size="14" style="color: var(--kb-primary)" />
+      <Icon name="timer" :size="'sm'" style="color: var(--kb-primary)" />
       <span class="rv-pomo-phase">{{ phaseEmoji }} {{ phaseLabel }}</span>
       <span class="rv-pomo-time">{{ timeText }}</span>
       <button
@@ -13,10 +13,12 @@
         class="rv-pomo-btn"
         @click="isRunning ? pomoStore.pauseTimer() : pomoStore.startTimer()"
       >
-        <Icon :name="isRunning ? 'pause' : 'play'" :size="13" />
+        <Icon :name="isRunning ? 'pause' : 'play'" :size="'13px'" />
         {{ isRunning ? '暂停' : '继续' }}
       </button>
-      <router-link to="/pomodoro" class="rv-pomo-link">打开番茄钟</router-link>
+      <router-link to="/pomodoro" class="rv-pomo-link" title="打开番茄钟">
+        <Icon name="timer" :size="'sm'" />
+      </router-link>
     </div>
 
     <!-- 顶部：返回 / 标题 / 卡型 / 进度 / 全屏 / 退出（视觉与复习驾驶舱对齐） -->
@@ -24,9 +26,9 @@
       <div class="rv-title">
         <!-- 返回驾驶舱：沉浸模式下隐藏，保持画面干净 -->
         <button v-if="!isImmersive" class="rv-back" title="返回复习中心" @click="backToCockpit">
-          <Icon name="arrow-left" :size="16" />
+          <Icon name="arrow-left" :size="'md'" />
         </button>
-        <Icon name="brain" :size="18" style="color: var(--kb-primary)" />
+        <Icon name="brain" :size="'lg'" style="color: var(--kb-primary)" />
         间隔复习
         <!-- 当前卡型徽章：与卡面右上角同源，方便沉浸模式下扫一眼就知道难度 -->
         <span v-if="currentBadge" class="rv-type" :class="currentBadge.cls">{{ currentBadge.text }}</span>
@@ -47,16 +49,16 @@
 
       <div class="rv-top-actions">
         <!-- 待复习清单：抽屉里能看全量、挑着背、批量挂起 -->
-        <button v-if="!isImmersive" class="kb-btn rv-list-btn" title="查看待复习清单" @click="store.openQueueList()">
-          <Icon name="layers" :size="15" /> 清单
+        <button v-if="!isImmersive" class="kb-btn kb-btn-icon rv-list-btn" title="查看待复习清单" @click="store.openQueueList()">
+          <Icon name="layers" :size="'md'" />
           <span v-if="remainingCount > 0" class="rv-list-num">{{ remainingCount }}</span>
         </button>
-        <button class="kb-btn rv-fs" :title="isImmersive ? '退出全屏（Esc）' : '全屏专注'" @click="toggleFullscreen">
-          <Icon :name="isImmersive ? 'minimize' : 'maximize'" :size="15" />
+        <button class="kb-btn kb-btn-primary rv-fs" :title="isImmersive ? '退出全屏（Esc）' : '全屏专注'" @click="toggleFullscreen">
+          <Icon :name="isImmersive ? 'minimize' : 'maximize'" :size="'md'" />
           {{ isImmersive ? '退出全屏' : '全屏专注' }}
         </button>
-        <button v-if="!isImmersive" class="kb-btn rv-exit" @click="exit">
-          <Icon name="x" :size="15" /> 退出复习
+        <button v-if="!isImmersive" class="kb-btn kb-btn-icon rv-exit" title="退出复习" @click="exit">
+          <Icon name="x" :size="'md'" />
         </button>
       </div>
     </header>
@@ -64,7 +66,7 @@
     <main class="rv-main">
       <!-- 加载态 -->
       <div v-if="isLoading" class="rv-center">
-        <Icon name="loader" :size="28" class="rv-spin" />
+        <Icon name="loader" :size="'28px'" class="rv-spin" />
         <p>正在加载待复习卡片…</p>
       </div>
 
@@ -90,7 +92,7 @@
             :disabled="busy"
             @click="onFlip"
           >
-            <Icon name="eye" :size="16" /> 显示答案
+            <Icon name="eye" :size="'md'" /> 显示答案
             <kbd class="rv-kbd">空格</kbd>
           </button>
           <div v-else class="rv-rate">
@@ -113,11 +115,11 @@
              与「评分」互斥的逃生通道——遇到今天实在不想背的卡，别硬评一个假分数污染 SM-2。 -->
         <div class="rv-secondary">
           <button class="rv-snooze" :disabled="busy" @click="shuffle">
-            <Icon name="shuffle" :size="14" /> 换一批（当前卡挂起 24h）
+            <Icon name="shuffle" :size="'sm'" /> 换一批（当前卡挂起 24h）
             <kbd class="rv-kbd">0</kbd>
           </button>
           <span v-if="loadingMore" class="rv-more">
-            <Icon name="loader-2" :size="13" class="rv-spin" /> 正在加载下一批…
+            <Icon name="loader-2" :size="'13px'" class="rv-spin" /> 正在加载下一批…
           </span>
         </div>
       </template>
@@ -145,13 +147,13 @@
              逼模型给出聚类洞察而不是流水账。没配 Key 时整块不渲染。 -->
         <section v-if="showSummaryBlock" class="rv-brief">
           <div v-if="summaryLoading" class="rv-brief-state">
-            <Icon name="loader-2" :size="16" class="rv-spin" />
+            <Icon name="loader-2" :size="'md'" class="rv-spin" />
             AI 正在复盘本轮表现…
           </div>
 
           <template v-else-if="summary">
             <h3 class="rv-brief-title">
-              <Icon name="sparkles" :size="15" /> AI 复习简报
+              <Icon name="sparkles" :size="'15px'" /> AI 复习简报
             </h3>
             <p class="rv-brief-headline">{{ summary.headline }}</p>
 
@@ -171,17 +173,17 @@
           </template>
 
           <button v-else class="rv-brief-retry" @click="loadSummary">
-            <Icon name="refresh-cw" :size="13" /> {{ summaryFailed ? '简报生成失败，重试' : '生成 AI 复习简报' }}
+            <Icon name="refresh-cw" :size="'13px'" /> {{ summaryFailed ? '简报生成失败，重试' : '生成 AI 复习简报' }}
           </button>
         </section>
 
         <div class="rv-complete-actions">
           <button class="kb-btn" @click="restart">
-            <Icon name="rotate-ccw" :size="15" /> 重新开始
+            <Icon name="rotate-ccw" :size="'15px'" /> 重新开始
           </button>
           <!-- 结束后回驾驶舱看热力图/遗忘曲线，形成「刷完 → 看战绩」的闭环 -->
           <button class="kb-btn kb-btn-primary" @click="backToCockpit">
-            <Icon name="gauge" :size="15" /> 查看复习战绩
+            <Icon name="gauge" :size="'15px'" /> 查看复习战绩
           </button>
         </div>
       </div>
@@ -480,7 +482,7 @@ onBeforeUnmount(() => {
 .rv-title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: var(--kb-fs-h4);
   font-weight: 700;
   color: var(--kb-foreground);
@@ -510,9 +512,9 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   font-weight: 600;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -537,7 +539,7 @@ onBeforeUnmount(() => {
   min-width: 180px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .rv-progress--mini {
   justify-content: flex-end;
@@ -574,7 +576,7 @@ onBeforeUnmount(() => {
 /* 清单入口上的剩余张数角标 */
 .rv-list-num {
   margin-left: 2px;
-  padding: 0 6px;
+  padding: 0 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -594,7 +596,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
   color: var(--kb-muted-foreground);
 }
 .rv-spin {
@@ -616,7 +618,7 @@ onBeforeUnmount(() => {
 }
 
 .rv-actions {
-  margin-top: 22px;
+  margin-top: 24px;
   min-height: 52px;
   display: flex;
   justify-content: center;
@@ -629,7 +631,7 @@ onBeforeUnmount(() => {
 .rv-kbd {
   font-family: var(--font-mono);
   font-size: 11px;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 5px;
   border: 1px solid var(--kb-border);
   background: var(--kb-muted);
@@ -637,7 +639,7 @@ onBeforeUnmount(() => {
 }
 .rv-rate {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   justify-content: center;
   flex-wrap: wrap;
@@ -649,8 +651,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -689,7 +691,7 @@ onBeforeUnmount(() => {
 .rv-more {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 12px;
   color: var(--kb-muted-foreground);
 }
@@ -700,13 +702,13 @@ onBeforeUnmount(() => {
 .rv-snooze {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   border-radius: 999px;
   border: 1px dashed var(--kb-border);
   background: transparent;
   color: var(--kb-muted-foreground);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
@@ -724,7 +726,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 10px;
+  gap: 12px;
 }
 .rv-complete-ic {
   font-size: 56px;
@@ -750,7 +752,7 @@ onBeforeUnmount(() => {
 }
 .rv-stats {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   margin: 8px 0 4px;
   flex-wrap: wrap;
   justify-content: center;
@@ -760,7 +762,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -775,7 +777,7 @@ onBeforeUnmount(() => {
 }
 .rv-complete-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   margin-top: 16px;
 }
 
@@ -783,8 +785,8 @@ onBeforeUnmount(() => {
 .rv-brief {
   width: 100%;
   max-width: 520px;
-  margin-top: 14px;
-  padding: 16px 18px;
+  margin-top: 16px;
+  padding: 16px 16px;
   text-align: left;
   border-radius: var(--kb-radius-md);
   border: 1px solid color-mix(in srgb, var(--kb-highlight) 30%, var(--kb-border));
@@ -801,7 +803,7 @@ onBeforeUnmount(() => {
 .rv-brief-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 700;
@@ -817,11 +819,11 @@ onBeforeUnmount(() => {
 .rv-brief-topics {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   margin-top: 12px;
 }
 .rv-brief-topic {
-  padding: 8px 11px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -841,27 +843,27 @@ onBeforeUnmount(() => {
 }
 .rv-brief-tips {
   margin: 12px 0 0;
-  padding-left: 18px;
+  padding-left: 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 .rv-brief-tips li {
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   line-height: 1.6;
   color: var(--kb-foreground);
 }
 .rv-brief-cheer {
   margin: 12px 0 0;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px dashed var(--kb-border);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   font-style: italic;
   color: var(--kb-muted-foreground);
 }
 .rv-brief-meta {
   margin: 8px 0 0;
-  font-size: 10.5px;
+  font-size: var(--kb-fs-xs);
   font-family: var(--font-mono);
   color: var(--kb-muted-foreground);
   opacity: 0.7;
@@ -869,13 +871,13 @@ onBeforeUnmount(() => {
 .rv-brief-retry {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 13px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 999px;
   border: 1px dashed var(--kb-border);
   background: transparent;
   color: var(--kb-muted-foreground);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   cursor: pointer;
 }
 .rv-brief-retry:hover {
@@ -891,14 +893,14 @@ onBeforeUnmount(() => {
 .rv-pomo {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 13px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-muted);
   border: 1px solid transparent;
   font-size: var(--kb-fs-body-sm);
   color: var(--kb-muted-foreground);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 .rv-pomo.is-active {
@@ -921,7 +923,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 11px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -938,16 +940,21 @@ onBeforeUnmount(() => {
 .rv-pomo-link {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: 0 8px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   margin-left: auto;
   font-size: 12px;
   color: var(--kb-muted-foreground);
   text-decoration: none;
   white-space: nowrap;
+  border-radius: var(--kb-radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .rv-pomo-link:hover {
   color: var(--kb-primary);
+  background: var(--kb-muted);
 }
 </style>
 
@@ -960,7 +967,7 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
   z-index: 45;
   pointer-events: none;
-  padding: 14px 30px;
+  padding: 16px 32px;
   border-radius: 999px;
   font-size: 22px;
   font-weight: 800;

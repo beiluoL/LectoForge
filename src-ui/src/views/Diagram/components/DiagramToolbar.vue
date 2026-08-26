@@ -21,12 +21,6 @@
       <button class="kb-btn kb-btn-sm" v-tip="'立即保存'" :disabled="isSaving" @click="onSave">
         <Icon name="save" size="sm" /> {{ isSaving ? '保存中' : dirty ? '保存*' : '保存' }}
       </button>
-      <button class="kb-btn kb-btn-sm" v-tip="'导出 PNG'" @click="emit('export-png')">
-        <Icon name="image" size="sm" /> PNG
-      </button>
-      <button class="kb-btn kb-btn-sm" v-tip="'导出 SVG'" @click="store.exportToSVG()">
-        <Icon name="file-image" size="sm" /> SVG
-      </button>
       <button class="kb-btn kb-btn-sm lf-tpl-btn" v-tip="'模板库'" @click="emit('open-template')">
         <Icon name="layout-template" size="sm" /> 模板
       </button>
@@ -50,70 +44,80 @@
 
     <span class="lf-sep" />
 
-    <!-- 连线样式（全局） -->
-    <div class="lf-tools">
-      <label class="lf-field">
-        <span class="lf-field-label">连线</span>
-        <select v-model="edgeLineType" class="kb-select kb-select-sm">
-          <option value="smoothstep">折线</option>
-          <option value="bezier">曲线</option>
-          <option value="straight">直线</option>
-        </select>
-      </label>
-    </div>
-
-    <span class="lf-sep" />
-
-    <!-- 批量对齐 / 分布（需选中 ≥2 节点） -->
-    <div class="lf-tools lf-align">
-      <button class="kb-btn kb-btn-sm" :disabled="selectedNodeIds.length < 2" @click="showAlign = !showAlign" v-tip="'对齐与分布'">
-        对齐
+    <!-- 更多工具抽屉：导出 / 连线样式 / 对齐分布 / 排版色 -->
+    <div class="lf-tools lf-more-wrap">
+      <button class="kb-btn kb-btn-sm" :class="{ 'is-active': showMore }" @click="showMore = !showMore" v-tip="'更多工具'">
+        <Icon name="more-horizontal" size="sm" /> 更多
       </button>
-      <div v-if="showAlign" class="lf-align-menu" @mouseleave="showAlign = false">
-        <p class="lf-align-title">对齐</p>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('left')">左对齐</button>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('right')">右对齐</button>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('top')">顶对齐</button>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('bottom')">底对齐</button>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('hcenter')">水平居中</button>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('vcenter')">垂直居中</button>
-        <p class="lf-align-title">分布</p>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 3" @click="doDistribute('hdistribute')">水平等距</button>
-        <button type="button" class="lf-align-item" :disabled="selectedNodeIds.length < 3" @click="doDistribute('vdistribute')">垂直等距</button>
+      <div v-if="showMore" class="lf-more-menu" @mouseleave="showMore = false">
+        <div class="lf-more-group">
+          <p class="lf-more-title">导出</p>
+          <div class="lf-more-grid">
+            <button type="button" class="lf-more-item" @click="emit('export-png')">
+              <Icon name="image" size="sm" /> PNG
+            </button>
+            <button type="button" class="lf-more-item" @click="store.exportToSVG()">
+              <Icon name="file-image" size="sm" /> SVG
+            </button>
+          </div>
+        </div>
+
+        <div class="lf-more-group">
+          <p class="lf-more-title">连线样式</p>
+          <select v-model="edgeLineType" class="kb-select kb-select-sm lf-more-select">
+            <option value="smoothstep">折线</option>
+            <option value="bezier">曲线</option>
+            <option value="straight">直线</option>
+          </select>
+        </div>
+
+        <div class="lf-more-group">
+          <p class="lf-more-title">对齐与分布</p>
+          <div class="lf-more-grid">
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('left')">左对齐</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('right')">右对齐</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('top')">顶对齐</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('bottom')">底对齐</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('hcenter')">水平居中</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 2" @click="doAlign('vcenter')">垂直居中</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 3" @click="doDistribute('hdistribute')">水平等距</button>
+            <button type="button" class="lf-more-item" :disabled="selectedNodeIds.length < 3" @click="doDistribute('vdistribute')">垂直等距</button>
+          </div>
+        </div>
+
+        <div class="lf-more-group">
+          <p class="lf-more-title">排版色</p>
+          <div class="lf-more-colors">
+            <label class="lf-color" v-tip="'文本色'">
+              <span class="lf-color-dot" :style="{ background: selectedNode?.data?.textColor || brush.textColor }">A</span>
+              <input
+                type="color"
+                :value="selectedNode?.data?.textColor || brush.textColor"
+                @input="onColor('textColor', $event, false)"
+                @change="onColor('textColor', $event, true)"
+              />
+            </label>
+            <label class="lf-color" v-tip="'填充色'">
+              <span class="lf-color-dot" :style="{ background: selectedNode?.data?.fill || brush.fill }">▣</span>
+              <input
+                type="color"
+                :value="selectedNode?.data?.fill || brush.fill"
+                @input="onColor('fill', $event, false)"
+                @change="onColor('fill', $event, true)"
+              />
+            </label>
+            <label class="lf-color" v-tip="'描边色'">
+              <span class="lf-color-dot" :style="{ background: selectedNode?.data?.stroke || brush.stroke }">◯</span>
+              <input
+                type="color"
+                :value="selectedNode?.data?.stroke || brush.stroke"
+                @input="onColor('stroke', $event, false)"
+                @change="onColor('stroke', $event, true)"
+              />
+            </label>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <span class="lf-sep" />
-
-    <!-- 排版：文本色 / 填充色 / 描边色（应用到选中节点，同时作为新节点的默认笔刷） -->
-    <div class="lf-tools">
-      <label class="lf-color" v-tip="'文本色'">
-        <span class="lf-color-dot" :style="{ background: selectedNode?.data?.textColor || brush.textColor }">A</span>
-        <input
-          type="color"
-          :value="selectedNode?.data?.textColor || brush.textColor"
-          @input="onColor('textColor', $event, false)"
-          @change="onColor('textColor', $event, true)"
-        />
-      </label>
-      <label class="lf-color" v-tip="'填充色'">
-        <span class="lf-color-dot" :style="{ background: selectedNode?.data?.fill || brush.fill }">▣</span>
-        <input
-          type="color"
-          :value="selectedNode?.data?.fill || brush.fill"
-          @input="onColor('fill', $event, false)"
-          @change="onColor('fill', $event, true)"
-        />
-      </label>
-      <label class="lf-color" v-tip="'描边色'">
-        <span class="lf-color-dot" :style="{ background: selectedNode?.data?.stroke || brush.stroke }">◯</span>
-        <input
-          type="color"
-          :value="selectedNode?.data?.stroke || brush.stroke"
-          @input="onColor('stroke', $event, false)"
-          @change="onColor('stroke', $event, true)"
-        />
-      </label>
     </div>
 
     <span class="lf-sep" />
@@ -189,6 +193,7 @@ function onPenWidth(e: Event) {
 }
 
 const showAlign = ref(false);
+const showMore = ref(false);
 function doAlign(mode: 'left' | 'right' | 'top' | 'bottom' | 'hcenter' | 'vcenter') {
   store.alignNodes(mode);
   showAlign.value = false;
@@ -244,7 +249,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
 .lf-tools {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .lf-sep {
   width: 1px;
@@ -294,7 +299,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
 .lf-name-input {
   width: 180px;
   height: 30px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--kb-border);
   border-radius: 6px;
   background: var(--kb-background);
@@ -311,7 +316,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   left: 0;
   z-index: 30;
   min-width: 116px;
-  padding: 6px;
+  padding: 8px;
   background: var(--kb-popover);
   border: 1px solid var(--kb-border);
   border-radius: 8px;
@@ -329,7 +334,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
 .lf-align-item {
   display: block;
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px 8px;
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -345,6 +350,73 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* 更多工具抽屉 */
+.lf-more-wrap {
+  position: relative;
+}
+.lf-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 280px;
+  padding: 12px;
+  background: var(--kb-popover);
+  border: 1px solid var(--kb-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+:root[data-theme='dark'] .lf-more-menu {
+  background: var(--kb-card);
+}
+.lf-more-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lf-more-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--kb-muted-foreground);
+}
+.lf-more-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.lf-more-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kb-foreground);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.lf-more-item:hover:not(:disabled) {
+  background: var(--kb-muted);
+}
+.lf-more-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.lf-more-select {
+  width: 100%;
+}
+.lf-more-colors {
+  display: flex;
+  gap: 8px;
+}
 .lf-pen-color {
   width: 28px;
   height: 28px;
@@ -357,7 +429,7 @@ function onColor(field: 'textColor' | 'fill' | 'stroke', e: Event, history: bool
 .lf-pen-width {
   width: 52px;
   height: 28px;
-  padding: 0 6px;
+  padding: 0 8px;
   border: 1px solid var(--kb-border);
   border-radius: 6px;
   background: var(--kb-background);
