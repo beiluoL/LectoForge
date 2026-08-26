@@ -53,7 +53,7 @@
         class="dl-icon-btn"
         title="立即保存（⌘S）"
         :disabled="!docState.activeNoteId || docState.saveStatus === 'saving'"
-        @click="flushSave()"
+        @click="onManualSave"
       >
         <Icon name="save" size="sm" />
       </button>
@@ -228,8 +228,17 @@ function insertTab(e: KeyboardEvent) {
 function onKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
     e.preventDefault()
-    void flushSave()
+    void flushSave().then(() => {
+      if (docState.saveStatus === 'saved') notify('已保存到磁盘', 'success')
+    })
   }
+}
+
+/** 工具栏「立即保存」：与 ⌘S 同链路，成功后 toast 确认（自动保存不打扰） */
+function onManualSave() {
+  void flushSave().then(() => {
+    if (docState.saveStatus === 'saved') notify('已保存到磁盘', 'success')
+  })
 }
 
 // ===== 预览区交互 =====
@@ -517,9 +526,9 @@ void props
 .dl-segment {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 26px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 0;
   border-radius: 5px;
   background: transparent;

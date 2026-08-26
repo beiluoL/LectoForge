@@ -3,7 +3,7 @@
     <!-- ============ Header / Mode Switch ============ -->
     <header class="mp-review-head">
       <button class="kb-btn" @click="$emit('exit')">
-        <Icon name="arrow-left" :size="14" /> 返回编辑
+        <Icon name="arrow-left" :size="'sm'" /> 返回编辑
       </button>
 
       <div class="mp-review-tabs">
@@ -12,14 +12,14 @@
           :class="{ 'is-active': mode === 'sequential' }"
           @click="switchMode('sequential')"
         >
-          <Icon name="list-ordered" :size="14" /> 顺序回忆
+          <Icon name="list-ordered" :size="'sm'" /> 顺序回忆
         </button>
         <button
           class="mp-review-tab"
           :class="{ 'is-active': mode === 'reverse' }"
           @click="switchMode('reverse')"
         >
-          <Icon name="rotate-ccw" :size="14" /> 反向回忆
+          <Icon name="rotate-ccw" :size="'sm'" /> 反向回忆
         </button>
       </div>
 
@@ -31,7 +31,7 @@
 
     <!-- ============ Empty ============ -->
     <div v-if="loci.length === 0" class="mp-review-empty">
-      <Icon name="inbox" :size="40" />
+      <Icon name="inbox" :size="'40px'" />
       <p>当前宫殿还没有位点，无法复习。</p>
     </div>
 
@@ -59,7 +59,7 @@
         </template>
 
         <button v-if="!revealed" class="kb-btn kb-btn-primary mp-review-reveal" @click="revealed = true">
-          <Icon name="eye" :size="14" /> 揭晓答案
+          <Icon name="eye" :size="'sm'" /> 揭晓答案
         </button>
       </div>
 
@@ -82,18 +82,18 @@
 
         <p class="mp-review-grade-title">你记得多少？</p>
         <div class="mp-review-grade-grid">
-          <button class="mp-review-grade-btn" style="--gc: #EF4444" @click="grade(0)">
-            <Icon name="x-circle" :size="16" />
+          <button class="mp-review-grade-btn" style="--gc: var(--kb-destructive)" :disabled="grading" @click="grade(0)">
+            <Icon name="x-circle" size="md" />
             <span class="mp-review-grade-label">忘了</span>
             <span class="mp-review-grade-hint">重置熟练度</span>
           </button>
-          <button class="mp-review-grade-btn" style="--gc: #F59E0B" @click="grade(2)">
-            <Icon name="thumbs-down" :size="16" />
+          <button class="mp-review-grade-btn" style="--gc: var(--kb-warning)" :disabled="grading" @click="grade(2)">
+            <Icon name="thumbs-down" size="md" />
             <span class="mp-review-grade-label">模糊</span>
             <span class="mp-review-grade-hint">熟练度 +0</span>
           </button>
-          <button class="mp-review-grade-btn" style="--gc: #10B981" @click="grade(4)">
-            <Icon name="thumbs-up" :size="16" />
+          <button class="mp-review-grade-btn" style="--gc: var(--kb-accent)" :disabled="grading" @click="grade(4)">
+            <Icon name="thumbs-up" size="md" />
             <span class="mp-review-grade-label">记住</span>
             <span class="mp-review-grade-hint">熟练度 +1</span>
           </button>
@@ -103,11 +103,11 @@
 
     <!-- ============ 完成 ============ -->
     <div v-else-if="finished" class="mp-review-finished">
-      <Icon name="trophy" :size="48" />
+      <Icon name="trophy" :size="'48px'" />
       <h3>本轮复习完成</h3>
       <p>共复习 {{ progress.total }} 个位点，已记录熟练度。</p>
       <button class="kb-btn kb-btn-primary" @click="restart">
-        <Icon name="rotate-ccw" :size="14" /> 再来一轮
+        <Icon name="rotate-ccw" :size="'sm'" /> 再来一轮
       </button>
       <button class="kb-btn" @click="$emit('exit')">返回</button>
     </div>
@@ -136,6 +136,8 @@ const mode = ref<Mode>('sequential')
 const queue = ref<WbPalaceLoci[]>([])
 const index = ref(0)
 const revealed = ref(false)
+/** 评分提交忙锁：防止同一题连点重复提交 */
+const grading = ref(false)
 const finished = computed(() => !current.value && queue.value.length > 0 && index.value >= queue.value.length)
 
 const sortedLoci = computed(() => [...props.loci].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
@@ -183,7 +185,8 @@ function switchMode(m: Mode) {
 }
 
 function grade(targetLevel: number) {
-  if (!current.value) return
+  if (!current.value || grading.value) return
+  grading.value = true
   emit('grade', current.value.loci.id, targetLevel)
   // 前进到下一题
   if (index.value + 1 < queue.value.length) {
@@ -192,6 +195,10 @@ function grade(targetLevel: number) {
   } else {
     index.value = queue.value.length // 触发 finished
   }
+  // 下一题渲染后解锁（同题重复提交由 current.value 变化 + 短暂锁双重防护）
+  requestAnimationFrame(() => {
+    grading.value = false
+  })
 }
 
 function restart() {
@@ -210,14 +217,14 @@ watch(
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   padding: 24px;
   min-height: 480px;
 }
 .mp-review-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 .mp-review-tabs {
@@ -229,7 +236,7 @@ watch(
   border: 1px solid var(--kb-border);
 }
 .mp-review-tab {
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   color: var(--kb-muted-foreground);
@@ -249,7 +256,7 @@ watch(
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 160px;
 }
 .mp-review-counter {
@@ -299,7 +306,7 @@ watch(
 }
 .mp-review-q-label {
   display: inline-block;
-  padding: 2px 10px;
+  padding: 2px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
   color: var(--kb-primary);
@@ -313,7 +320,7 @@ watch(
   font-size: 22px;
   line-height: 1.55;
   color: var(--kb-foreground);
-  margin: 16px 0 6px;
+  margin: 16px 0 8px;
   font-weight: 600;
 }
 .mp-review-q-num {
@@ -330,19 +337,19 @@ watch(
   margin: 0 0 16px;
 }
 .mp-review-reveal {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .mp-review-answer {
   margin-top: 24px;
-  padding-top: 22px;
+  padding-top: 24px;
   border-top: 1px dashed var(--kb-border);
 }
 .mp-review-answer-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px 18px;
-  margin-bottom: 18px;
+  gap: 12px 16px;
+  margin-bottom: 16px;
 }
 .mp-review-answer-hint-col {
   grid-column: 1 / -1;
@@ -366,7 +373,7 @@ watch(
   font-size: 13px;
   color: var(--kb-highlight);
   background: color-mix(in srgb, var(--kb-highlight) 8%, transparent);
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-sm);
   margin: 0;
 }
@@ -374,19 +381,19 @@ watch(
   font-size: 13px;
   color: var(--kb-muted-foreground);
   text-align: center;
-  margin: 4px 0 10px;
+  margin: 4px 0 12px;
 }
 .mp-review-grade-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 .mp-review-grade-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 14px 8px;
+  padding: 16px 8px;
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, var(--gc) 12%, transparent);
   color: var(--gc);
@@ -398,13 +405,19 @@ watch(
   transform: translateY(-2px);
   filter: brightness(0.96);
 }
+.mp-review-grade-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+  filter: none;
+}
 .mp-review-grade-label {
   font-size: 14px;
   font-weight: 600;
 }
 .mp-review-grade-hint {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   opacity: 0.7;
 }
 

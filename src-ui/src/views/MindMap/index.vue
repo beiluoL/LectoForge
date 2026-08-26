@@ -59,7 +59,7 @@
         class="kb-btn kb-btn-sm"
         :disabled="!mapState.dirty"
         title="立即保存（⌘S）"
-        @click="flushSave"
+        @click="onManualSave"
       >
         <Icon name="save" size="xs" /> 保存
       </button>
@@ -146,7 +146,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 
 import Icon from '@/components/ui/Icon.vue'
-import { confirmDialog } from '@/utils/toast'
+import { confirmDialog, notify } from '@/utils/toast'
 
 import AIGenerator from './components/AIGenerator.vue'
 import FlowchartEditor from './components/FlowchartEditor.vue'
@@ -206,8 +206,17 @@ async function onGenerateStory() {
 function onKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
     e.preventDefault()
-    void flushSave()
+    void flushSave().then(() => {
+      if (mapState.saveStatus === 'saved') notify('已保存', 'success')
+    })
   }
+}
+
+/** 工具栏「保存」：⌘S 同链路，成功后 toast 确认（自动保存不打扰） */
+function onManualSave() {
+  void flushSave().then(() => {
+    if (mapState.saveStatus === 'saved') notify('已保存', 'success')
+  })
 }
 
 const route = useRoute()

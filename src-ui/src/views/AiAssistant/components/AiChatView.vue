@@ -40,8 +40,11 @@
             思考中<span class="lf-dots"><i></i><i></i><i></i></span>
           </div>
 
-          <!-- 正文 -->
-          <div v-else class="lf-body" :class="{ 'lf-md': m.role === 'assistant' }" v-html="rendered(m)"></div>
+          <!-- 正文（流式输出中末尾渲染呼吸光标） -->
+          <div v-else class="lf-body" :class="{ 'lf-md': m.role === 'assistant' }">
+            <span v-html="rendered(m)"></span>
+            <span v-if="m.loading && m.content" class="lf-stream-caret" aria-hidden="true"></span>
+          </div>
 
           <!-- 来源胶囊 -->
           <div v-if="m.sourceRefs && m.sourceRefs.length" class="lf-sources">
@@ -61,6 +64,14 @@
 
           <!-- 操作栏（hover） -->
           <div class="lf-ops" :class="{ 'is-user': m.role === 'user' }">
+            <button
+              v-if="store.loading && i === store.messages.length - 1"
+              type="button"
+              title="停止生成"
+              @click="store.stopStreaming()"
+            >
+              <Icon name="square" size="sm" />
+            </button>
             <button v-if="m.role === 'assistant'" type="button" title="复制" @click="copy(m.content)">
               <Icon name="copy" size="sm" />
             </button>
@@ -269,7 +280,7 @@ function jumpTo(index: number) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 24px 10px;
+  padding: 16px 24px 12px;
   border-bottom: 1px solid var(--kb-border);
 }
 .lf-chat-title {
@@ -291,9 +302,9 @@ function jumpTo(index: number) {
 .lf-new2 {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
@@ -312,7 +323,7 @@ function jumpTo(index: number) {
   align-items: center;
   gap: 8px;
   margin: 0 24px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: 10px;
   font-size: 13px;
   color: var(--kb-destructive);
@@ -377,7 +388,7 @@ function jumpTo(index: number) {
 .lf-bubble {
   position: relative;
   max-width: min(780px, 92%);
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: 14px;
   font-size: 14px;
   line-height: 1.65;
@@ -396,28 +407,28 @@ function jumpTo(index: number) {
   border-bottom-left-radius: 4px;
 }
 .lf-body.lf-md :deep(p) {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 .lf-body.lf-md :deep(p:last-child) {
   margin-bottom: 0;
 }
 .lf-body.lf-md :deep(ul),
 .lf-body.lf-md :deep(ol) {
-  margin: 0 0 10px;
-  padding-left: 22px;
+  margin: 0 0 12px;
+  padding-left: 24px;
 }
 .lf-body.lf-md :deep(h1),
 .lf-body.lf-md :deep(h2),
 .lf-body.lf-md :deep(h3),
 .lf-body.lf-md :deep(h4) {
-  margin: 14px 0 8px;
+  margin: 16px 0 8px;
   line-height: 1.3;
 }
 .lf-body.lf-md :deep(a) {
   color: var(--kb-primary);
 }
 .lf-body.lf-md :deep(code):not(.hljs) {
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 5px;
   font-size: 0.9em;
   background: var(--kb-muted);
@@ -438,7 +449,7 @@ function jumpTo(index: number) {
 .lf-typing {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--kb-muted-foreground);
 }
 .lf-dots {
@@ -466,15 +477,15 @@ function jumpTo(index: number) {
 .lf-sources {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 12px;
 }
 .lf-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   max-width: 240px;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 9999px;
   font-size: 12px;
   color: var(--kb-muted-foreground);
@@ -494,7 +505,7 @@ function jumpTo(index: number) {
 }
 .lf-pill-anchor {
   flex-shrink: 0;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 9999px;
   font-size: 11px;
   font-family: var(--font-mono);
@@ -553,20 +564,20 @@ function jumpTo(index: number) {
 }
 
 .lf-input-bar {
-  padding: 12px 24px 18px;
+  padding: 12px 24px 16px;
   border-top: 1px solid var(--kb-border);
   background: color-mix(in srgb, var(--kb-card) 80%, transparent);
 }
 .lf-input-row {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 .lf-input {
   flex: 1 1 auto;
   resize: none;
   max-height: 140px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
@@ -582,9 +593,9 @@ function jumpTo(index: number) {
 .lf-send {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
@@ -597,5 +608,21 @@ function jumpTo(index: number) {
 .lf-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 流式输出呼吸光标：仅生成中且已有内容时显示 */
+.lf-stream-caret {
+  display: inline-block;
+  width: 3px;
+  height: 16px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--kb-primary);
+  animation: lf-caret-blink 1s steps(2, start) infinite;
+}
+@keyframes lf-caret-blink {
+  to {
+    visibility: hidden;
+  }
 }
 </style>

@@ -6,14 +6,14 @@
           <!-- 头部 -->
           <header class="hb-drawer-head">
             <span class="hb-drawer-icon" :style="{ background: habit?.color + '22', color: habit?.color }">
-              <Icon :name="habit?.iconName || 'check-circle'" :size="20" />
+              <Icon :name="habit?.iconName || 'check-circle'" :size="'xl'" />
             </span>
             <div class="hb-drawer-titles">
               <h2 class="hb-drawer-title">{{ habit?.name }}</h2>
               <p v-if="habit?.description" class="hb-drawer-desc">{{ habit.description }}</p>
             </div>
             <button class="qcm-close" @click="close">
-              <Icon name="x" :size="16" />
+              <Icon name="x" :size="'md'" />
             </button>
           </header>
 
@@ -40,12 +40,16 @@
           <!-- 热力图 -->
           <section class="hb-heat-section">
             <div class="wb-section-title">
-              <Icon name="calendar-days" :size="16" />
+              <Icon name="calendar-days" :size="'md'" />
               近一年打卡热力图
               <span class="wb-section-hint">点击格子可补卡 / 取消（绿色越深表示连续越久）</span>
             </div>
 
-            <div v-if="weeks.length" class="hb-heat-wrap">
+            <div v-if="loadingStats" class="hb-heat-loading">
+              <Icon name="loader" size="sm" class="hb-spin" />
+              正在统计打卡数据…
+            </div>
+            <div v-else-if="weeks.length" class="hb-heat-wrap">
               <!-- 周几标签 -->
               <div class="hb-heat-weekdays">
                 <span v-for="(w, i) in WEEK_LABELS" :key="i" class="hb-heat-wd">{{ w }}</span>
@@ -81,11 +85,11 @@
 
           <div class="hb-drawer-foot">
             <button class="kb-btn" @click="onEdit">
-              <Icon name="pencil" :size="15" />
+              <Icon name="pencil" :size="'15px'" />
               编辑
             </button>
             <button class="kb-btn kb-btn-danger" @click="onDelete">
-              <Icon name="trash-2" :size="15" />
+              <Icon name="trash-2" :size="'15px'" />
               删除习惯
             </button>
           </div>
@@ -254,7 +258,7 @@ watch(
   border-left: 1px solid var(--kb-border);
   box-shadow: var(--shadow-lg);
   overflow-y: auto;
-  padding: 20px 22px 26px;
+  padding: 20px 24px 24px;
 }
 
 /* 头部 */
@@ -309,15 +313,15 @@ watch(
 .hb-stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin: 18px 0;
+  gap: 12px;
+  margin: 16px 0;
 }
 .hb-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 12px 6px;
+  padding: 12px 8px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -335,7 +339,7 @@ watch(
 
 /* 热力图 */
 .hb-heat-section {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 .hb-heat-wrap {
   display: flex;
@@ -353,7 +357,7 @@ watch(
 .hb-heat-wd {
   width: 14px;
   height: 13px;
-  font-size: 9px;
+  font-size: var(--kb-fs-xs);
   line-height: 13px;
   color: var(--kb-muted-foreground);
   text-align: center;
@@ -405,6 +409,22 @@ watch(
   font-size: 13px;
   color: var(--kb-muted-foreground);
 }
+.hb-heat-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--kb-muted-foreground);
+}
+.hb-spin {
+  animation: hb-rotate 0.8s linear infinite;
+}
+@keyframes hb-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .hb-heat-legend {
   display: flex;
   align-items: center;
@@ -421,8 +441,8 @@ watch(
 /* 底部 */
 .hb-drawer-foot {
   display: flex;
-  gap: 10px;
-  margin-top: 22px;
+  gap: 12px;
+  margin-top: 24px;
 }
 .hb-drawer-foot .kb-btn {
   flex: 1;

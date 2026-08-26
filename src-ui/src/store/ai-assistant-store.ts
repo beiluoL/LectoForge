@@ -50,6 +50,8 @@ export const useAiAssistantStore = defineStore('ai-assistant', () => {
   const messages = ref<ChatMessage[]>([]);
   /** 是否有流式请求进行中（用于禁用输入/按钮） */
   const loading = ref(false);
+  /** 当前生成中的 AbortController（「停止生成」用） */
+  let activeAbort: AbortController | null = null;
   const searchQuery = ref('');
   /** 最近一次错误的可读提示（含「未配置 AI」等引导） */
   const error = ref<string | null>(null);
@@ -151,7 +153,12 @@ export const useAiAssistantStore = defineStore('ai-assistant', () => {
 
     try {
       const convId = await ensureConversation();
-      const gen = postSSE('/ai-assistant/chat/completions', { conversationId: convId, query: q });
+      activeAbort = new AbortController();
+      const gen = postSSE(
+        '/ai-assistant/chat/completions',
+        { conversationId: convId, query: q },
+        { signal: activeAbort.signal },
+      );
       let metaConvId = convId;
       for await (const ev of gen) {
         if (ev.event === 'meta') {
@@ -183,9 +190,20 @@ export const useAiAssistantStore = defineStore('ai-assistant', () => {
       // 保留一个可见的助手气泡，避免页面「空无一物」看起来像没响应
       if (!assistant.content) assistant.content = `⚠️ ${msg}`;
     } finally {
+      activeAbort = null;
       assistant.loading = false;
       loading.value = false;
     }
+  }
+
+  /** 停止当前流式生成（AbortError 由 postSSE 吞掉，正常走 finally） */
+  function stopStreaming() {
+    if (!loading.value || !activeAbort) return
+    activeAbort.abort()
+    const last = messages.value[messages.value.length - 1]
+    if (last && last.role === 'assistant' && last.loading) last.loading = false
+    loading.value = false
+    activeAbort = null
   }
 
   async function rateMessage(msgId: number, rating: 'like' | 'dislike' | 'none') {
@@ -210,7 +228,8 @@ export const useAiAssistantStore = defineStore('ai-assistant', () => {
     error.value = null;
 
     try {
-      const gen = postSSE(`/ai-assistant/messages/${msgId}/regenerate`, {});
+      activeAbort = new AbortController();
+      const gen = postSSE(`/ai-assistant/messages/${msgId}/regenerate`, {}, { signal: activeAbort.signal });
       for await (const ev of gen) {
         if (ev.event === 'meta') {
           const d = ev.data as { messageId?: number };
@@ -238,6 +257,7 @@ export const useAiAssistantStore = defineStore('ai-assistant', () => {
       error.value = msg;
       if (!target.content) target.content = `⚠️ ${msg}`;
     } finally {
+      activeAbort = null;
       target.loading = false;
       loading.value = false;
     }
@@ -261,5 +281,6 @@ export const useAiAssistantStore = defineStore('ai-assistant', () => {
     sendMessage,
     rateMessage,
     regenerateMessage,
+    stopStreaming,
   };
 });
