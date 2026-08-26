@@ -2,12 +2,18 @@
   <div class="dl-tree-node">
     <div
       class="dl-node-row"
-      :class="{ 'is-active': isActive }"
+      :class="{ 'is-active': isActive, 'is-drop': isDragTarget }"
       role="treeitem"
       :aria-expanded="isFolder ? isOpen : undefined"
       :aria-selected="isActive"
       :title="node.name"
       tabindex="0"
+      draggable="true"
+      @dragstart="onDragStart"
+      @dragend="onDragEnd"
+      @dragover.prevent="onDragOver"
+      @dragleave="onDragLeave"
+      @drop.prevent.stop="onDrop"
       @click="ctx.select(node)"
       @keydown.enter.prevent="ctx.select(node)"
       @keydown.space.prevent="ctx.select(node)"
@@ -61,7 +67,7 @@
 <script setup lang="ts">
 // 文件树的递归节点。自身不持有状态，展开态与选中态都读全局 store，
 // 交互回调通过 inject 拿容器提供的函数，避免逐层 emit 透传。
-import { computed, inject } from 'vue'
+import { computed, inject, ref } from 'vue'
 
 import type { LibTreeNode } from '@/api/library'
 import Icon from '@/components/ui/Icon.vue'
@@ -77,9 +83,38 @@ const isFolder = computed(() => props.node.type === 'folder')
 const isOpen = computed(() => docState.expanded.has(props.node.id))
 const loadingKids = computed(() => docState.loadingFolders.has(props.node.id))
 const isActive = computed(() => props.node.type === 'file' && docState.activeNoteId === props.node.id)
+/** 拖拽悬停目标高亮（仅文件夹） */
+const isDragTarget = ref(false)
 
 const iconName = computed(() => {
   if (!isFolder.value) return 'file-text'
   return isOpen.value ? 'folder-open' : 'folder'
 })
+
+function onDragStart(e: DragEvent) {
+  ctx.dragNode.value = props.node
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', props.node.id)
+  }
+}
+function onDragEnd() {
+  ctx.dragNode.value = null
+  isDragTarget.value = false
+}
+function onDragOver() {
+  if (!isFolder.value) return
+  const dragging = ctx.dragNode.value
+  if (dragging && dragging.id !== props.node.id) isDragTarget.value = true
+}
+function onDragLeave() {
+  isDragTarget.value = false
+}
+function onDrop() {
+  isDragTarget.value = false
+  const dragging = ctx.dragNode.value
+  ctx.dragNode.value = null
+  if (!isFolder.value || !dragging || dragging.id === props.node.id) return
+  ctx.moveNode(dragging, props.node.id)
+}
 </script>

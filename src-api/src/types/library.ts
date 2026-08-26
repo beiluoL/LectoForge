@@ -57,6 +57,11 @@ export interface RenameEntryDTO {
   filePath?: string;
   newName?: string;
 }
+export interface MoveEntryDTO {
+  filePath?: string;
+  /** 目标目录的相对 id（空字符串 / '.' 表示移动到根目录） */
+  targetDir?: string;
+}
 export interface DeleteEntryDTO {
   filePath?: string;
   recursive?: boolean;

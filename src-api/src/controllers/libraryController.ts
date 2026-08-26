@@ -7,6 +7,7 @@ import type {
   CreateFolderDTO,
   CreateNoteDTO,
   DeleteEntryDTO,
+  MoveEntryDTO,
   RenameEntryDTO,
   UpdateNoteDTO,
   WorkspaceInitDTO,
@@ -98,6 +99,11 @@ export async function updateNote(req: FastifyRequest) {
 export async function rename(req: FastifyRequest) {
   const b = (req.body ?? {}) as RenameEntryDTO;
   return libraryService.renameNoteEntry(b);
+}
+
+export async function move(req: FastifyRequest) {
+  const b = (req.body ?? {}) as MoveEntryDTO;
+  return libraryService.moveNoteEntry(b);
 }
 
 export async function remove(req: FastifyRequest, reply: FastifyReply) {

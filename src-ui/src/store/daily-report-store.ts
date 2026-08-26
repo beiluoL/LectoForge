@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-import { generateDailyCards, generateDailyReport, getDailyReport } from '@/api/insight';
+import { generateDailyCards, generateDailyReport, getDailyReport, getInsightTrend } from '@/api/insight';
 import { getApiError, notify } from '@/utils/toast';
 import type { DailyReportContent, DailyReportStats, GenerateCardsResult } from '@/types/insight';
 
@@ -16,6 +16,9 @@ export const useDailyReportStore = defineStore('daily-report', () => {
   const error = ref<string | null>(null);
   /** 未配置 AI 时为 true，前端据此引导去设置页 */
   const aiHint = ref(false);
+  /** 近 30 天趋势（折线图数据） */
+  const trend = ref<{ days: number; series: { date: string; captures: number; reviews: number; habits: number }[] } | null>(null);
+  const trendLoading = ref(false);
 
   function resetAiHint() {
     aiHint.value = false;
@@ -30,6 +33,17 @@ export const useDailyReportStore = defineStore('daily-report', () => {
       error.value = getApiError(e, '加载学习日报失败');
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function fetchTrend() {
+    trendLoading.value = true;
+    try {
+      trend.value = await getInsightTrend(30);
+    } catch {
+      /* 趋势图非关键路径，失败静默 */
+    } finally {
+      trendLoading.value = false;
     }
   }
 
@@ -77,7 +91,10 @@ export const useDailyReportStore = defineStore('daily-report', () => {
     cardBusy,
     error,
     aiHint,
+    trend,
+    trendLoading,
     fetchReport,
+    fetchTrend,
     generateReport,
     generateCards,
     resetAiHint,

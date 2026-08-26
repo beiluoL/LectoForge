@@ -739,6 +739,62 @@ fn apply_shell_style<'a, R: tauri::Runtime, M: Manager<R>>(
         .resizable(true)
 }
 
+/// 窗口尺寸 / 位置记忆：resize/move 时防抖写盘，启动时恢复（越界钳制）。
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
+struct WindowState {
+    #[serde(default)]
+    width: f64,
+    #[serde(default)]
+    height: f64,
+    #[serde(default)]
+    x: f64,
+    #[serde(default)]
+    y: f64,
+}
+
+fn window_state_path(app: &tauri::AppHandle) -> std::path::PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join("window-state.json")
+}
+
+fn read_window_state(app: &tauri::AppHandle) -> Option<WindowState> {
+    let raw = std::fs::read_to_string(window_state_path(app)).ok()?;
+    let mut st: WindowState = serde_json::from_str(&raw).ok()?;
+    // 钳制到合理范围：尺寸不低于 min_inner_size，位置不丢出屏幕太远
+    st.width = st.width.clamp(960.0, 6000.0);
+    st.height = st.height.clamp(640.0, 6000.0);
+    st.x = st.x.clamp(-200.0, 4000.0);
+    st.y = st.y.clamp(-100.0, 4000.0);
+    Some(st)
+}
+
+fn flush_window_state(win: &tauri::WebviewWindow, path: &std::path::Path) {
+    let st = WindowState {
+        width: win.outer_size().map(|s| s.width as f64).unwrap_or(1200.0),
+        height: win.outer_size().map(|s| s.height as f64).unwrap_or(800.0),
+        x: win.outer_position().map(|p| p.x as f64).unwrap_or(100.0),
+        y: win.outer_position().map(|p| p.y as f64).unwrap_or(100.0),
+    };
+    let _ = std::fs::write(path, serde_json::to_vec(&st).unwrap_or_default());
+}
+
+fn maybe_flush_window_state(
+    app: &tauri::AppHandle,
+    last_write: &Mutex<std::time::Instant>,
+    state: &Mutex<WindowState>,
+) {
+    let mut lw = last_write.lock().unwrap();
+    if lw.elapsed() >= std::time::Duration::from_millis(400) {
+        *lw = std::time::Instant::now();
+        drop(lw);
+        if let Ok(s) = state.lock() {
+            let _ = std::fs::write(window_state_path(app), serde_json::to_vec(&*s).unwrap_or_default());
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -860,6 +916,14 @@ pub fn run() {
                 .build()?;
             }
 
+            // 窗口尺寸 / 位置记忆：启动恢复上次状态
+            if let Some(win) = app.get_webview_window("main") {
+                if let Some(st) = read_window_state(app.handle()) {
+                    let _ = win.set_size(tauri::PhysicalSize::new(st.width as u32, st.height as u32));
+                    let _ = win.set_position(tauri::PhysicalPosition::new(st.x as i32, st.y as i32));
+                }
+            }
+
             // 无边框窗口原生阴影：对 "main" 窗口调用 NSWindow 原生 setHasShadow，
             // 恢复 decorations:false 后被系统停掉的层次感。仅 macOS / Windows 生效；
             // Linux 下该函数为空实现（crate 内部按 target_os 分流），调用安全无副作用。
@@ -970,15 +1034,39 @@ pub fn run() {
             // 菜单栏番茄钟（状态栏常驻图标 + 实时倒计时 + 快捷菜单 + 原生通知）
             tray::create_tray(app.handle())?;
 
-            // 关闭主窗口时不退出应用，仅隐藏——配合托盘实现「后台运行，无需主窗口」
+            // 关闭主窗口时不退出应用，仅隐藏——配合托盘实现「后台运行，无需主窗口」；
+            // 同时在 resize / move 时防抖记录窗口状态，关闭前强制写一次最终状态
             let app_for_close = app.handle().clone();
             if let Some(win) = app.get_webview_window("main") {
+                let state_path = window_state_path(&app_for_close);
+                let last_write = Arc::new(Mutex::new(
+                    std::time::Instant::now() - std::time::Duration::from_secs(2),
+                ));
+                let window_state = Arc::new(Mutex::new(WindowState::default()));
                 win.on_window_event(move |e| {
-                    if let WindowEvent::CloseRequested { api, .. } = e {
-                        api.prevent_close();
-                        if let Some(w) = app_for_close.get_webview_window("main") {
-                            let _ = w.hide();
+                    match e {
+                        WindowEvent::CloseRequested { api, .. } => {
+                            api.prevent_close();
+                            if let Some(w) = app_for_close.get_webview_window("main") {
+                                flush_window_state(&w, &state_path);
+                                let _ = w.hide();
+                            }
                         }
+                        WindowEvent::Resized(size) => {
+                            if let Ok(mut st) = window_state.lock() {
+                                st.width = size.width as f64;
+                                st.height = size.height as f64;
+                            }
+                            maybe_flush_window_state(&app_for_close, &last_write, &window_state);
+                        }
+                        WindowEvent::Moved(pos) => {
+                            if let Ok(mut st) = window_state.lock() {
+                                st.x = pos.x as f64;
+                                st.y = pos.y as f64;
+                            }
+                            maybe_flush_window_state(&app_for_close, &last_write, &window_state);
+                        }
+                        _ => {}
                     }
                 });
             }

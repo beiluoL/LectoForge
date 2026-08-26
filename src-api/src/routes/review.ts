@@ -19,6 +19,7 @@ export default async function (app: FastifyInstance) {
   app.post('/reviews/submit', reviewController.submit);
   // 挂起 24h：service 内置同卡 1 小时防刷守卫，被拦时回 429 + retryAfterSec
   app.put('/reviews/snooze', reviewController.snooze);
+  app.post('/reviews/batch', reviewController.batch);
   // 采纳 AI 助记口诀 → 写入源表 image_hint
   app.put('/reviews/mnemonic', reviewController.mnemonic);
   app.get('/reviews/heatmap', reviewController.heatmap);

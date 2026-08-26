@@ -172,6 +172,15 @@ export function snoozeReview(payload: SnoozeReviewPayload) {
   return apiPut<SnoozeReviewResult>('/reviews/snooze', payload);
 }
 
+/** 批量操作：标记已掌握 / 挂起（待复习清单多选用） */
+export function batchReviews(
+  items: { cardId: number; sourceType: ReviewSourceType }[],
+  action: 'mastered' | 'snooze',
+  days?: number,
+) {
+  return apiPost<{ ok: number; skipped: number }>('/reviews/batch', { items, action, days });
+}
+
 /** 复习热力图：按天聚合的日活跃数据 */
 export function getReviewHeatmap(days = 30) {
   return apiGet<ReviewHeatmapResult>('/reviews/heatmap', { days });

@@ -11,6 +11,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import * as reviewService from '../services/reviewService';
 import type {
   AdoptMnemonicDTO,
+  BatchReviewDTO,
   DueQuery,
   ReviewSourceType,
   SnoozeReviewDTO,
@@ -119,6 +120,17 @@ export async function snooze(req: FastifyRequest, reply: FastifyReply) {
   }
   if (outcome.kind === 'notFound') return reply.code(404).send({ message: '卡片不存在' });
   return outcome.data;
+}
+
+/** POST /reviews/batch：批量标记已掌握 / 挂起 */
+export async function batch(req: FastifyRequest, reply: FastifyReply) {
+  const b = (req.body ?? {}) as BatchReviewDTO;
+  if (!Array.isArray(b.items) || b.items.length === 0) {
+    return reply.code(400).send({ message: '缺少 items（至少一张卡）' });
+  }
+  const action = b.action === 'mastered' ? 'mastered' : b.action === 'snooze' ? 'snooze' : null;
+  if (!action) return reply.code(400).send({ message: 'action 仅支持 mastered / snooze' });
+  return reviewService.batchReviewAction(b.items, action, b.days);
 }
 
 export async function heatmap(req: FastifyRequest) {

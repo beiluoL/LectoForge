@@ -29,6 +29,8 @@
         :class="cell.inMonth ? 'is-in-month' : 'is-out'"
         :style="cellStyle(cell)"
         @click="onCellClick(cell)"
+        @dragover.prevent="onCellDragOver"
+        @drop.prevent.stop="onCellDrop(cell)"
       >
         <!-- 日期数字：今天用实心小圆点高亮 -->
         <div class="flex items-center gap-1 px-1.5 pt-1 pb-0.5">
@@ -39,20 +41,24 @@
           >
             {{ cell.dayNum }}
           </span>
-          <span v-if="!cell.inMonth" class="text-[10px]" :style="{ color: 'var(--kb-muted-foreground)' }">
+          <span v-if="!cell.inMonth" class="text-[11px]" :style="{ color: 'var(--kb-muted-foreground)' }">
             {{ cell.monthNum }}月
           </span>
         </div>
 
-        <!-- 当日事件列表（最多 4 条，余下 +N） -->
+        <!-- 当日事件列表（默认 2 条，点击「+N 更多」展开全部） -->
         <div class="px-1 space-y-0.5">
           <div
-            v-for="ev in visibleEvents(cell.key)"
+            v-for="(ev, i) in visibleEvents(cell.key)"
             :key="eventKey(ev)"
+            v-show="i < MAX_VISIBLE || expandedDays[cell.key]"
             class="event-line truncate rounded px-1 py-[1px] text-[11px] leading-tight cursor-pointer"
+            :draggable="!isTaskSource(ev)"
             :style="eventLineStyle(ev)"
             :title="ev.title"
             @click.stop="onEventClick(cell.key, ev)"
+            @dragstart.stop="onEventDragStart(ev, $event)"
+            @dragend="onEventDragEnd"
           >
             <!-- 任务类条目：极简样式（圆点 + 左边框），点击跳转 /tasks -->
             <template v-if="isTaskSource(ev)">
@@ -64,14 +70,15 @@
               <span class="opacity-80">{{ formatHM(ev.startTime) }}</span> {{ ev.title }}
             </template>
           </div>
-          <div
-            v-if="overflow(cell.key) > 0"
-            class="text-[10px] px-1 cursor-pointer hover:underline"
+          <button
+            v-if="dayEvents(cell.key).length > MAX_VISIBLE"
+            type="button"
+            class="text-[11px] px-1 cursor-pointer hover:underline"
             :style="{ color: 'var(--kb-muted-foreground)' }"
-            @click.stop="emit('add', cell.key)"
+            @click.stop="toggleExpand(cell.key)"
           >
-            +{{ overflow(cell.key) }} 更多
-          </div>
+            {{ expandedDays[cell.key] ? '收起' : `+${overflow(cell.key)} 更多` }}
+          </button>
         </div>
       </button>
     </div>
@@ -84,7 +91,7 @@
 // 点击空白格 → 在该日新建；点击事件 → 打开详情抽屉；点击「+N 更多」→ 在该日新建。
 //
 // 性能：事件分组只读 store.eventsByDate（按日索引的派生，避免 42 格各自 filter 一遍 events）。
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCalendarStore } from '@/store/calendar-store';
 import { buildMonthMatrix, WEEKDAY_LABELS, type DayCell } from '@/lib/calendar';
@@ -101,7 +108,9 @@ const store = useCalendarStore();
 const { currentDate, eventsByDate } = storeToRefs(store);
 
 const weekdayLabels = WEEKDAY_LABELS;
-const MAX_VISIBLE = 4;
+const MAX_VISIBLE = 2;
+/** 已展开全部事件的日期（点「+N 更多」切换） */
+const expandedDays = ref<Record<string, boolean>>({});
 
 const cells = computed<DayCell[]>(() => buildMonthMatrix(currentDate.value));
 
@@ -109,10 +118,48 @@ function dayEvents(key: string): CalendarEvent[] {
   return eventsByDate.value[key] ?? [];
 }
 function visibleEvents(key: string): CalendarEvent[] {
-  return dayEvents(key).slice(0, MAX_VISIBLE);
+  return dayEvents(key);
 }
 function overflow(key: string): number {
   return Math.max(0, dayEvents(key).length - MAX_VISIBLE);
+}
+
+function toggleExpand(key: string): void {
+  expandedDays.value[key] = !expandedDays.value[key]
+}
+
+/** 事件拖拽改期：仅普通事件（任务类来自任务表，不允许拖） */
+const dragEv = ref<CalendarEvent | null>(null)
+
+function onEventDragStart(ev: CalendarEvent, e: DragEvent) {
+  if (isTaskSource(ev)) return
+  dragEv.value = ev
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(ev.id))
+  }
+}
+function onEventDragEnd() {
+  dragEv.value = null
+}
+function onCellDragOver() {
+  /* prevent 即允许放置 */
+}
+function onCellDrop(cell: DayCell) {
+  const ev = dragEv.value
+  dragEv.value = null
+  if (!ev || isTaskSource(ev)) return
+  // 目标日 = 落点格日期，保留原开始时刻
+  const target = new Date(`${cell.key}T00:00:00`)
+  const orig = new Date(ev.startTime)
+  target.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), 0)
+  const startIso = target.toISOString()
+  let endIso: string | null = null
+  if (ev.endTime) {
+    const durationMs = new Date(ev.endTime).getTime() - orig.getTime()
+    endIso = new Date(target.getTime() + Math.max(durationMs, 0)).toISOString()
+  }
+  void store.updateEvent(ev.id, { startTime: startIso, endTime: endIso })
 }
 
 function cellStyle(cell: DayCell): Record<string, string> {
@@ -196,6 +243,9 @@ function onCellClick(cell: DayCell) {
 }
 .is-out:hover {
   background: color-mix(in srgb, var(--kb-border) 25%, var(--kb-background)) !important;
+}
+.event-line:hover {
+  filter: brightness(0.96);
 }
 
 /* 日程计划任务前面的小灰点 */

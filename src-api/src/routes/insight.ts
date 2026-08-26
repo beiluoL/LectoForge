@@ -41,6 +41,16 @@ export default async function (app: FastifyInstance) {
       return fail(reply, e);
     }
   });
+
+  // 近 N 天学习趋势（30 日折线数据源，本地日分组）
+  app.get('/trend', async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const days = (req.query as { days?: string } | null)?.days;
+      return insightService.getTrend(days);
+    } catch (e) {
+      return fail(reply, e);
+    }
+  });
 }
 
 /** Service 的 AiResult → HTTP 响应 */

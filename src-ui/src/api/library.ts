@@ -115,6 +115,10 @@ export function updateNote(filePath: string, content: string) {
 export function renameEntry(filePath: string, newName: string) {
   return apiPost<LibTreeNode>('/library/notes/rename', { filePath, newName })
 }
+/** 移动文件/文件夹到目标目录（targetDir 为空表示移动到根目录） */
+export function moveEntry(filePath: string, targetDir: string) {
+  return apiPost<LibTreeNode>('/library/notes/move', { filePath, targetDir })
+}
 
 /** 删除文件或文件夹（文件夹非空时需 recursive=true） */
 export function deleteEntry(filePath: string, recursive = false) {

@@ -30,6 +30,7 @@ export default async function (app: FastifyInstance) {
   app.post('/folders/create', libraryController.createFolder);
   app.put('/notes/update', libraryController.updateNote);
   app.post('/notes/rename', libraryController.rename);
+  app.post('/notes/move', libraryController.move);
   app.delete('/notes/delete', libraryController.remove);
   // 功能 A：扫描全库 Markdown 中的未完成待办（文档库 → 任务清单）
   app.get('/notes/todos', libraryController.scanTodos);

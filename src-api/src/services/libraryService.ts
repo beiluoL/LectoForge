@@ -20,6 +20,7 @@ import {
   getRootDir,
   listAllNotes,
   listChildren,
+  moveEntry,
   readNote,
   renameEntry,
   safeResolve,
@@ -35,6 +36,7 @@ import type {
   CreateNoteDTO,
   DeleteEntryDTO,
   LibraryTodoItem,
+  MoveEntryDTO,
   RenameEntryDTO,
   UpdateNoteDTO,
   WorkspaceInitDTO,
@@ -139,6 +141,12 @@ export function updateNoteContent(input: UpdateNoteDTO) {
 export function renameNoteEntry(input: RenameEntryDTO): Promise<TreeNode> {
   if (!input.filePath) throw new VaultError('缺少参数 filePath');
   return renameEntry(input.filePath, input.newName ?? '');
+}
+
+/** 移动文件/文件夹（拖拽排序 / 跨目录移动） */
+export function moveNoteEntry(input: MoveEntryDTO): Promise<TreeNode> {
+  if (!input.filePath) throw new VaultError('缺少参数 filePath');
+  return moveEntry(input.filePath, input.targetDir ?? '');
 }
 
 // ===== TODO 自动提取（功能 A：文档库 → 任务清单） =====

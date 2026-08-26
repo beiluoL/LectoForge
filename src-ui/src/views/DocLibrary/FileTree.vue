@@ -51,7 +51,12 @@
     </div>
 
     <!-- 树主体 -->
-    <div class="dl-scroll" @contextmenu.prevent="openMenu($event, null)">
+    <div
+      class="dl-scroll"
+      @contextmenu.prevent="openMenu($event, null)"
+      @dragover.prevent
+      @drop.prevent="onDropToRoot"
+    >
       <div v-if="docState.loadingTree && !docState.fileTree.length" class="pt-2">
         <div v-for="i in 6" :key="i" class="dl-skel" :style="{ width: `${55 + ((i * 13) % 35)}%` }"></div>
       </div>
@@ -144,6 +149,7 @@ import {
   newFolder,
   newNote,
   openNote,
+  moveNode,
   refreshTree,
   removeNode,
   renameNode,
@@ -154,6 +160,8 @@ import {
 
 const keyword = ref('')
 let searchTimer: number | null = null
+/** 当前被拖拽的节点（拖拽移动用） */
+const dragNode = ref<LibTreeNode | null>(null)
 
 /** 搜索框输入：防抖后走后端全库检索（大库下不依赖内存中的部分树） */
 watch(keyword, (val) => {
@@ -189,6 +197,13 @@ function select(node: LibTreeNode) {
   closeMenu()
   if (node.type === 'folder') void toggleFolder(node.id)
   else void openNote(node.id)
+}
+
+/** 拖拽到树空白处 = 移动到根目录 */
+function onDropToRoot() {
+  const node = dragNode.value
+  dragNode.value = null
+  if (node) moveNode(node, '')
 }
 
 async function onNewNote(parentDir: string) {
@@ -272,6 +287,8 @@ onBeforeUnmount(() => {
 
 provide(TREE_CTX, {
   select,
+  moveNode,
+  dragNode,
   openMenu,
   quickNewNote: (parentDir: string) => {
     closeMenu()
@@ -284,7 +301,7 @@ provide(TREE_CTX, {
 .dl-filter {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 30px;
   padding: 0 8px;
   border: 1px solid var(--kb-border);
@@ -320,14 +337,14 @@ provide(TREE_CTX, {
   position: fixed;
   z-index: 90;
   min-width: 168px;
-  padding: 5px;
+  padding: 4px;
   border: 1px solid var(--kb-border);
   border-radius: var(--kb-radius-md);
   background: var(--kb-popover);
   box-shadow: var(--shadow-lg);
 }
 .dl-menu-label {
-  padding: 5px 9px 7px;
+  padding: 4px 8px 8px;
   margin-bottom: 3px;
   border-bottom: 1px solid var(--kb-border);
   font-size: var(--kb-fs-xs);
@@ -341,7 +358,7 @@ provide(TREE_CTX, {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 7px 9px;
+  padding: 8px 8px;
   border: 0;
   border-radius: var(--kb-radius-sm);
   background: transparent;

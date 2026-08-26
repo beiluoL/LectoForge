@@ -100,6 +100,22 @@ export interface SnoozeReviewDTO {
   cardId?: number | null;
   sourceType?: string;
 }
+/** POST /reviews/batch 入参 */
+export interface BatchReviewItem {
+  cardId: number;
+  sourceType: ReviewSourceType;
+}
+export interface BatchReviewDTO {
+  items: BatchReviewItem[];
+  action: 'mastered' | 'snooze';
+  /** mastered 时顺延天数（1~365，缺省 365） */
+  days?: number;
+}
+/** POST /reviews/batch 出参 */
+export interface BatchReviewVO {
+  ok: number;
+  skipped: number;
+}
 
 /** PUT /reviews/snooze 出参 */
 export interface SnoozeReviewVO {

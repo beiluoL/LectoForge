@@ -37,6 +37,7 @@ import {
   getDueReviews,
   getDueStats,
   getReviewDay,
+  batchReviews,
   submitReview,
   snoozeReview,
   adoptMnemonic,
@@ -380,6 +381,22 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
+  /** 批量操作（待复习清单多选）：标记已掌握 / 挂起，成功后重拉清单 */
+  async function batchAction(
+    items: { cardId: number; sourceType: ReviewSourceType }[],
+    action: 'mastered' | 'snooze',
+    days?: number,
+  ): Promise<void> {
+    if (!items.length) return
+    try {
+      const res = await batchReviews(items, action, days)
+      notify(`已处理 ${res.ok} 张卡片${res.skipped ? `，跳过 ${res.skipped} 张` : ''}`, 'success')
+      await loadPendingList()
+    } catch (e) {
+      notify(getApiError(e, '批量操作失败'), 'error')
+    }
+  }
+
   function openQueueList(): void {
     queueListVisible.value = true;
     void loadPendingList();
@@ -543,6 +560,7 @@ export const useReviewStore = defineStore('review', () => {
     openQueueList,
     closeQueueList,
     promoteCard,
+    batchAction,
     // 助记口诀
     applyMnemonic,
     // AI 可用性

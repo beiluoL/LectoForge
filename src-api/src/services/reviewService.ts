@@ -321,6 +321,62 @@ export function snoozeCard(cardId: number, sourceType: ReviewSourceType): Snooze
   return { kind: 'ok', data: { ok: true, sourceType, cardId, nextDue } };
 }
 
+/** 批量操作：标记已掌握 / 挂起。逐卡执行，返回成功与跳过计数（永不抛异常）。 */
+export function batchReviewAction(
+  items: { cardId: number; sourceType: ReviewSourceType }[],
+  action: 'mastered' | 'snooze',
+  rawDays?: unknown,
+): { ok: number; skipped: number } {
+  let ok = 0;
+  let skipped = 0;
+  const now = new Date().toISOString();
+  for (const it of items) {
+    if (action === 'snooze') {
+      const r = snoozeCard(it.cardId, it.sourceType);
+      if (r.kind === 'ok') ok += 1;
+      else skipped += 1;
+      continue;
+    }
+    const days = Math.max(1, Math.min(365, Number(rawDays) || 365));
+    const nextDue = new Date(Date.now() + days * 86400000).toISOString();
+    if (it.sourceType === 'note') {
+      const card = db.select().from(wbNote).where(eq(wbNote.id, it.cardId)).get();
+      if (!card) {
+        skipped += 1;
+        continue;
+      }
+      db.update(wbNote)
+        .set({
+          dueDate: nextDue,
+          repetitions: Math.max(card.repetitions ?? 0, 5),
+          intervalDay: days,
+          lastReviewedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(wbNote.id, it.cardId))
+        .run();
+    } else {
+      const card = db.select().from(wbPalaceLoci).where(eq(wbPalaceLoci.id, it.cardId)).get();
+      if (!card) {
+        skipped += 1;
+        continue;
+      }
+      db.update(wbPalaceLoci)
+        .set({
+          dueDate: nextDue,
+          repetitions: Math.max(card.repetitions ?? 0, 5),
+          intervalDay: days,
+          lastReviewedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(wbPalaceLoci.id, it.cardId))
+        .run();
+    }
+    ok += 1;
+  }
+  return { ok, skipped };
+}
+
 /** 归一化 days 参数：1~365，缺省 30 */
 function normalizeDays(rawDays: unknown): number {
   return Math.max(1, Math.min(365, Number(rawDays) || 30));

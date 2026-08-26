@@ -499,6 +499,30 @@ export async function renameEntry(targetPath: string, newName: string): Promise<
   return { id: toRelId(nextAbs), name: safeName, type: isDir ? 'folder' : 'file' };
 }
 
+/** 移动文件/文件夹到目标目录（targetDirRel 为空表示移动到根目录） */
+export async function moveEntry(targetPath: string, targetDirRel: string): Promise<TreeNode> {
+  const abs = safeResolve(targetPath);
+  if (!fs.existsSync(abs)) throw new VaultError('目标不存在，可能已被移动或删除', 404);
+  const isDir = fs.statSync(abs).isDirectory();
+  const name = path.basename(abs);
+  const dirRel = targetDirRel && targetDirRel !== '.' ? String(targetDirRel).replace(/^\/+|\/+$/g, '') : '';
+  const targetDirAbs = safeResolve(dirRel);
+  if (!fs.existsSync(targetDirAbs) || !fs.statSync(targetDirAbs).isDirectory()) {
+    throw new VaultError('目标文件夹不存在', 404);
+  }
+  // 禁止移动到自身或其子目录
+  const movingIntoItself = isDir && targetDirAbs !== abs && (targetDirAbs + path.sep).startsWith(abs + path.sep);
+  if (abs === targetDirAbs || movingIntoItself) {
+    throw new VaultError('不能把文件夹移动到自身或其子目录', 409);
+  }
+  const nextAbs = path.join(targetDirAbs, name);
+  if (nextAbs === abs) return { id: toRelId(abs), name, type: isDir ? 'folder' : 'file' };
+  if (fs.existsSync(nextAbs)) throw new VaultError(`目标位置已存在同名${isDir ? '文件夹' : '文件'}：${name}`, 409);
+
+  await fsp.rename(abs, nextAbs);
+  return { id: toRelId(nextAbs), name, type: isDir ? 'folder' : 'file' };
+}
+
 /** 删除文件；文件夹需显式 recursive（前端会二次确认） */
 export async function deleteEntry(targetPath: string, recursive = false): Promise<void> {
   const abs = safeResolve(targetPath);

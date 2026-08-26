@@ -7,7 +7,7 @@
          左侧「返回」优先回上一页，无历史时兜底回工作台；右侧提示未保存改动。 -->
     <div class="lf-backbar">
       <button type="button" class="kb-btn lf-back-btn" :title="backTitle" @click="goBack">
-        <Icon name="arrow-left" :size="15" />
+        <Icon name="arrow-left" :size="'15px'" />
         {{ backLabel }}
         <kbd class="lf-kbd">Esc</kbd>
       </button>
@@ -19,7 +19,7 @@
     <!-- 页头 -->
     <header class="lf-head">
       <h1 class="lf-title">
-        <Icon name="settings" :size="22" class="lf-title-icon" /> 设置
+        <Icon name="settings" :size="'22px'" class="lf-title-icon" /> 设置
       </h1>
       <p class="lf-sub">管理数据目录与 AI 服务。所有配置只保存在本机，随时可改。</p>
     </header>
@@ -27,7 +27,7 @@
     <!-- ============ 卡片 1：通用配置 ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="folder-open" :size="18" class="lf-card-icon" />
+        <Icon name="folder-open" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">知识库数据目录</h2>
           <p class="lf-card-desc">笔记、复习卡片、记忆宫殿等数据的存放位置。</p>
@@ -42,17 +42,92 @@
           spellcheck="false"
         />
         <button class="kb-btn" :disabled="picking" @click="pickDirectory">
-          <Icon :name="picking ? 'loader' : 'folder-search'" :size="15" :class="picking ? 'lf-spin' : ''" />
+          <Icon :name="picking ? 'loader' : 'folder-search'" :size="'15px'" :class="picking ? 'lf-spin' : ''" />
           选择文件夹
         </button>
       </div>
       <p class="lf-hint">修改后建议重启应用生效；迁移既有数据请手动拷贝。</p>
     </section>
 
+    <!-- ============ 卡片 2：外观（主题 / 强调色 / 紧凑模式） ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="palette" :size="'lg'" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">外观</h2>
+          <p class="lf-card-desc">主题、强调色与界面密度即时生效，并保存在本机。</p>
+        </div>
+      </div>
+
+      <div class="lf-field">
+        <label class="kb-label">主题</label>
+        <div class="lf-radio-row">
+          <label
+            v-for="t in themeOptions"
+            :key="t.value"
+            class="lf-radio"
+            :class="{ 'is-active': appStore.settings.ui.theme === t.value }"
+          >
+            <input type="radio" v-model="appStore.settings.ui.theme" :value="t.value" @change="onThemeChange" />
+            <span>{{ t.label }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="lf-field">
+        <label class="kb-label">强调色</label>
+        <div class="lf-accent-row">
+          <button
+            v-for="a in accentOptions"
+            :key="a.value"
+            type="button"
+            class="lf-accent-swatch"
+            :class="{ 'is-on': appStore.settings.ui.accent === a.value }"
+            :style="{ background: a.color }"
+            :title="a.label"
+            :aria-label="a.label"
+            @click="onAccentChange(a.value)"
+          >
+            <Icon v-if="appStore.settings.ui.accent === a.value" name="check" :size="'sm'" />
+          </button>
+        </div>
+        <p class="lf-hint">强调色影响按钮、链接与选中态；深色主题下自动切换提亮档。</p>
+      </div>
+
+      <label class="lf-switch">
+        <input type="checkbox" v-model="appStore.settings.ui.compact" @change="onCompactChange" />
+        <span class="lf-switch-track"></span>
+        <span class="lf-switch-label">紧凑模式</span>
+      </label>
+      <p class="lf-hint">减小任务、笔记、文件树等列表行高与间距，单屏显示更多内容。</p>
+    </section>
+
+    <!-- ============ 卡片 3：数据导出 ============ -->
+    <section class="lf-card">
+      <div class="lf-card-head">
+        <Icon name="download" :size="'lg'" class="lf-card-icon" />
+        <div>
+          <h2 class="lf-card-title">数据导出</h2>
+          <p class="lf-card-desc">把学习数据导出为 CSV，随时可迁移或留档。</p>
+        </div>
+      </div>
+      <div class="lf-export-row">
+        <button class="kb-btn kb-btn-sm" @click="downloadCsv('reviews')">
+          <Icon name="file-text" :size="'sm'" /> 复习记录
+        </button>
+        <button class="kb-btn kb-btn-sm" @click="downloadCsv('habits')">
+          <Icon name="calendar-check" :size="'sm'" /> 习惯打卡
+        </button>
+        <button class="kb-btn kb-btn-sm" @click="downloadCsv('tasks')">
+          <Icon name="list-checks" :size="'sm'" /> 任务清单
+        </button>
+      </div>
+    </section>
+
     <!-- ============ 卡片 2：AI 模型配置（多服务商接入 + 开箱即用） ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="bot" :size="18" class="lf-card-icon" />
+        <Icon name="bot" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">AI 模型服务</h2>
           <p class="lf-card-desc">选择服务商、粘贴 API Key 即可使用。所有 AI 能力均为可选增强，不配置也不影响原有功能。</p>
@@ -86,7 +161,7 @@
 
       <!-- 当前选中服务商的帮助引导 -->
       <div v-if="currentPreset" class="lf-help-panel">
-        <Icon name="circle-help" :size="16" />
+        <Icon name="circle-help" :size="'md'" />
         <div class="lf-help-body">
           <p class="lf-help-text">{{ currentPreset.helpText }}</p>
           <a
@@ -96,7 +171,7 @@
             rel="noopener noreferrer"
             class="lf-help-link"
           >
-            <Icon name="external-link" :size="12" /> 直达注册 / 获取 API Key
+            <Icon name="external-link" :size="'xs'" /> 直达注册 / 获取 API Key
           </a>
         </div>
       </div>
@@ -119,7 +194,7 @@
               title="清空已保存的 Key"
               @click="clearKey"
             >
-              <Icon name="trash-2" :size="14" /> 清空
+              <Icon name="trash-2" :size="'sm'" /> 清空
             </button>
           </div>
           <p class="lf-field-hint">只保存在本机数据目录（权限 600），不会上传、不进版本库。</p>
@@ -165,7 +240,7 @@
         <!-- 高级：自定义 baseUrl -->
         <div class="lf-field lf-span-2">
           <button type="button" class="lf-advanced-toggle" @click="showAdvanced = !showAdvanced">
-            <Icon :name="showAdvanced ? 'chevron-up' : 'chevron-down'" :size="14" />
+            <Icon :name="showAdvanced ? 'chevron-up' : 'chevron-down'" :size="'sm'" />
             {{ showAdvanced ? '收起高级设置' : '展开高级设置（API 网关地址）' }}
           </button>
           <div v-if="showAdvanced" class="lf-advanced-body">
@@ -179,15 +254,15 @@
       <!-- 操作栏：测试连通性 + 保存设置 -->
       <div class="lf-actions">
         <button class="kb-btn kb-btn-sm" :disabled="testing" @click="onTest">
-          <Icon :name="testing ? 'loader' : 'plug-zap'" :size="14" :class="testing ? 'lf-spin' : ''" />
+          <Icon :name="testing ? 'loader' : 'plug-zap'" :size="'sm'" :class="testing ? 'lf-spin' : ''" />
           测试连通性
         </button>
         <button class="kb-btn kb-btn-primary" :disabled="saving" @click="saveAll">
-          <Icon :name="saving ? 'loader' : 'save'" :size="16" :class="saving ? 'lf-spin' : ''" />
+          <Icon :name="saving ? 'loader' : 'save'" :size="'md'" :class="saving ? 'lf-spin' : ''" />
           保存设置
         </button>
         <span v-if="testState" class="lf-test-result" :class="testState.ok ? 'is-ok' : 'is-fail'">
-          <Icon :name="testState.ok ? 'check-circle' : 'x-circle'" :size="14" />
+          <Icon :name="testState.ok ? 'check-circle' : 'x-circle'" :size="'sm'" />
           {{ testState.text }}
         </span>
       </div>
@@ -195,9 +270,9 @@
       <!-- 向量化服务（内容关联，可选，与原 /settings/ai 一致） -->
       <div class="lf-embed">
         <div class="lf-card-head" style="margin-bottom: .5rem;">
-          <Icon name="boxes" :size="16" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
+          <Icon name="boxes" :size="'md'" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
           <div>
-            <h3 class="lf-card-title" style="font-size: .9375rem;">向量化服务（内容关联）</h3>
+            <h3 class="lf-card-title" style="font-size: var(--kb-fs-body-md);">向量化服务（内容关联）</h3>
             <p class="lf-card-desc">用于「内容关联 / 学习路径」，与聊天服务可独立配置，可选。</p>
           </div>
           <span class="lf-status" :class="saved.embeddingsConfigured ? 'is-ok' : 'is-off'">
@@ -236,7 +311,7 @@
                 title="清空已保存的向量化 Key"
                 @click="clearEmbeddingKey"
               >
-                <Icon name="trash-2" :size="14" /> 清空
+                <Icon name="trash-2" :size="'sm'" /> 清空
               </button>
             </div>
           </div>
@@ -247,7 +322,7 @@
     <!-- ============ 卡片 2b：本地模型（离线模拟面试） ============ -->
     <section class="lf-card" id="local-model">
       <div class="lf-card-head">
-        <Icon name="cpu" :size="18" class="lf-card-icon" />
+        <Icon name="cpu" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">本地模型（离线模拟面试）</h2>
           <p class="lf-card-desc">配置本地 LLM 与 Whisper 语音识别，实现完全离线的模拟面试 / 语音通话。</p>
@@ -285,7 +360,7 @@
       <div class="lf-divider"></div>
 
       <div class="lf-subhead">
-        <Icon name="audio-lines" :size="16" />
+        <Icon name="audio-lines" :size="'md'" />
         <span>语音识别模型（按需下载，不随安装包内置）</span>
       </div>
       <p class="lf-field-hint lf-mb-2">
@@ -356,14 +431,14 @@
 
       <div class="lf-actions">
         <button class="kb-btn kb-btn-primary" :disabled="speechSaving" @click="saveSpeechSettings">
-          <Icon :name="speechSaving ? 'loader' : 'save'" :size="16" :class="speechSaving ? 'lf-spin' : ''" />
+          <Icon :name="speechSaving ? 'loader' : 'save'" :size="'md'" :class="speechSaving ? 'lf-spin' : ''" />
           保存语音识别设置
         </button>
       </div>
 
       <div class="lf-actions">
         <button class="kb-btn kb-btn-primary" :disabled="saving" @click="saveAll">
-          <Icon :name="saving ? 'loader' : 'save'" :size="16" :class="saving ? 'lf-spin' : ''" />
+          <Icon :name="saving ? 'loader' : 'save'" :size="'md'" :class="saving ? 'lf-spin' : ''" />
           保存本地模型设置
         </button>
       </div>
@@ -372,7 +447,7 @@
     <!-- ============ 卡片 2c：语音合成引擎（TTS 引擎 + 本地神经网络音色） ============ -->
     <section class="lf-card" id="tts-engine">
       <div class="lf-card-head">
-        <Icon name="audio-lines" :size="18" class="lf-card-icon" />
+        <Icon name="audio-lines" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">语音合成引擎</h2>
           <p class="lf-card-desc">
@@ -438,7 +513,7 @@
 
       <div class="lf-actions">
         <button class="kb-btn kb-btn-primary" :disabled="ttsSaving" @click="saveTtsEngine">
-          <Icon :name="ttsSaving ? 'loader' : 'save'" :size="16" :class="ttsSaving ? 'lf-spin' : ''" />
+          <Icon :name="ttsSaving ? 'loader' : 'save'" :size="'md'" :class="ttsSaving ? 'lf-spin' : ''" />
           保存引擎设置
         </button>
       </div>
@@ -447,7 +522,7 @@
     <!-- ============ 卡片 2d：朗读嗓音（系统语音 Web Speech 微调） ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="audio-lines" :size="18" class="lf-card-icon" />
+        <Icon name="audio-lines" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">朗读嗓音（语音合成）</h2>
           <p class="lf-card-desc">模拟面试官/点评的播报嗓音；选更高质量的嗓音可显著减少「人机感」。</p>
@@ -471,7 +546,7 @@
 
       <div class="lf-actions">
         <button class="kb-btn" :disabled="ttsPreviewing" @click="previewTtsVoice">
-          <Icon :name="ttsPreviewing ? 'loader' : 'play'" :size="16" :class="ttsPreviewing ? 'lf-spin' : ''" />
+          <Icon :name="ttsPreviewing ? 'loader' : 'play'" :size="'md'" :class="ttsPreviewing ? 'lf-spin' : ''" />
           {{ ttsPreviewing ? '试听中…' : '试听示例' }}
         </button>
       </div>
@@ -480,7 +555,7 @@
     <!-- ============ 卡片 3：AI 能力清单 ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="brain-circuit" :size="18" class="lf-card-icon" />
+        <Icon name="brain-circuit" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">已接入的 AI 能力</h2>
           <p class="lf-card-desc">每项能力都是「按需触发 + 结果可编辑」：AI 只把结果填进输入框，是否采纳由你决定。</p>
@@ -489,13 +564,13 @@
 
       <div class="lf-cap-grid">
         <article v-for="c in capabilities" :key="c.name" class="lf-cap">
-          <span class="lf-cap-icon"><Icon :name="c.icon" :size="16" /></span>
+          <span class="lf-cap-icon"><Icon :name="c.icon" :size="'md'" /></span>
           <div class="lf-cap-body">
             <p class="lf-cap-name">{{ c.name }}</p>
             <p class="lf-cap-desc">{{ c.desc }}</p>
           </div>
           <router-link :to="c.to" class="kb-btn kb-btn-sm lf-cap-go">
-            前往 <Icon name="chevron-right" :size="12" />
+            前往 <Icon name="chevron-right" :size="'xs'" />
           </router-link>
         </article>
       </div>
@@ -504,7 +579,7 @@
     <!-- ============ 卡片 4：关于 ============ -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="info" :size="18" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
+        <Icon name="info" :size="'lg'" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
         <div>
           <h2 class="lf-card-title">关于</h2>
           <p class="lf-card-desc">本机离线运行的个人学习工作台。</p>
@@ -513,15 +588,15 @@
       <dl class="lf-about">
         <div><dt>应用</dt><dd>LectoForge 学习工作台</dd></div>
         <div><dt>版本</dt><dd>v1.0.0</dd></div>
-        <div><dt>运行模式</dt><dd><span class="lf-badge"><Icon name="hard-drive" :size="12" /> 本地离线</span></dd></div>
+        <div><dt>运行模式</dt><dd><span class="lf-badge"><Icon name="hard-drive" :size="'xs'" /> 本地离线</span></dd></div>
       </dl>
 
       <!-- 数据备份：立即备份 + 每日自动备份开关与时刻 + 最近备份列表 -->
       <div class="lf-backup">
         <div class="lf-card-head" style="margin: 1.1rem 0 .75rem;">
-          <Icon name="archive" :size="18" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
+          <Icon name="archive" :size="'lg'" class="lf-card-icon" style="color: var(--kb-muted-foreground);" />
           <div>
-            <h3 class="lf-card-title" style="font-size: .9375rem;">数据备份</h3>
+            <h3 class="lf-card-title" style="font-size: var(--kb-fs-body-md);">数据备份</h3>
             <p class="lf-card-desc">定期把数据库、上传文件与配置打包成 zip，换机或重装后可一键恢复。</p>
           </div>
         </div>
@@ -534,21 +609,21 @@
             spellcheck="false"
           />
           <button class="kb-btn" :disabled="pickingBackup" @click="pickBackupDir">
-            <Icon :name="pickingBackup ? 'loader' : 'folder-search'" :size="15" :class="pickingBackup ? 'lf-spin' : ''" />
+            <Icon :name="pickingBackup ? 'loader' : 'folder-search'" :size="'15px'" :class="pickingBackup ? 'lf-spin' : ''" />
             选择文件夹
           </button>
         </div>
 
         <div class="lf-actions">
           <button class="kb-btn kb-btn-primary" :disabled="backupBusy" @click="onBackupNow">
-            <Icon :name="backupBusy ? 'loader' : 'download'" :size="15" :class="backupBusy ? 'lf-spin' : ''" />
+            <Icon :name="backupBusy ? 'loader' : 'download'" :size="'15px'" :class="backupBusy ? 'lf-spin' : ''" />
             立即备份
           </button>
           <button class="kb-btn kb-btn-sm" @click="openBackupFolder">
-            <Icon name="folder-open" :size="14" /> 打开目录
+            <Icon name="folder-open" :size="'sm'" /> 打开目录
           </button>
           <span v-if="backupMsg" class="lf-test-result" :class="backupMsg.ok ? 'is-ok' : 'is-fail'">
-            <Icon :name="backupMsg.ok ? 'check-circle' : 'x-circle'" :size="14" />
+            <Icon :name="backupMsg.ok ? 'check-circle' : 'x-circle'" :size="'sm'" />
             {{ backupMsg.text }}
           </span>
         </div>
@@ -568,7 +643,7 @@
           <p class="lf-field-hint">最近备份（共 {{ backupList.length }} 个）</p>
           <ul>
             <li v-for="b in backupList" :key="b.name">
-              <Icon name="file" :size="14" />
+              <Icon name="file" :size="'sm'" />
               <span class="lf-bname">{{ b.name }}</span>
               <span class="lf-bmeta">{{ formatSize(b.size) }} · {{ formatTime(b.modifiedAt) }}</span>
             </li>
@@ -578,7 +653,7 @@
 
       <div class="lf-actions">
         <button class="kb-btn kb-btn-sm" @click="rerunOnboarding">
-          <Icon name="rotate-ccw" :size="14" /> 重新运行新手引导
+          <Icon name="rotate-ccw" :size="'sm'" /> 重新运行新手引导
         </button>
       </div>
     </section>
@@ -604,6 +679,13 @@ import { mkdir } from '@tauri-apps/plugin-fs'
 import Icon from '@/components/ui/Icon.vue'
 import { notify, getApiError, confirmDialog, toastState } from '@/utils/toast'
 import { useAppStore } from '@/store/app-store'
+import {
+  applyTheme,
+  applyAccent,
+  applyDensity,
+  type ThemePref,
+  type AccentPref,
+} from '@/utils/ui-prefs'
 import { useSearchStore } from '@/store/search-store'
 import { useInboxStore } from '@/store/inbox-store'
 import { useNoteStore } from '@/store/note-store'
@@ -645,6 +727,39 @@ import {
 
 const router = useRouter()
 const appStore = useAppStore()
+
+/** 外观：主题三选一（浅色 / 深色 / 跟随系统） */
+const themeOptions: { value: ThemePref; label: string }[] = [
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+  { value: 'system', label: '跟随系统' },
+]
+
+/** 外观：强调色 6 档（色值与 style.css data-accent 预设保持一致，双主题联动） */
+const accentOptions: { value: AccentPref; label: string; color: string }[] = [
+  { value: 'blue', label: '默认蓝', color: '#3B6FE0' },
+  { value: 'indigo', label: '靛蓝', color: '#4F46E5' },
+  { value: 'purple', label: '紫罗兰', color: '#7C3AED' },
+  { value: 'green', label: '翡翠绿', color: '#10B981' },
+  { value: 'orange', label: '琥珀橙', color: '#F59E0B' },
+  { value: 'pink', label: '玫红', color: '#EC4899' },
+]
+
+function onThemeChange(): void {
+  applyTheme(appStore.settings.ui.theme)
+}
+function onAccentChange(accent: AccentPref): void {
+  appStore.settings.ui.accent = accent
+  applyAccent(accent)
+}
+function onCompactChange(): void {
+  applyDensity(appStore.settings.ui.compact)
+}
+
+/** 数据导出：CSV 附件下载（同源 /api/export/*） */
+function downloadCsv(kind: 'reviews' | 'habits' | 'tasks') {
+  window.open(`/api/export/${kind}`, '_blank')
+}
 // 仅用于 Esc 互斥判断：这三个全局弹层由 App.vue 的 window keydown 统一消费 Esc，
 // 弹层开着时本页不能抢走这次 Esc，否则会「关弹层的同时把页面也退掉」。
 const searchStore = useSearchStore()
@@ -1343,7 +1458,7 @@ function formatTime(secs: number): string {
   background: var(--kb-muted);
   color: var(--kb-muted-foreground);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   line-height: 1.5;
 }
 .lf-dirty {
@@ -1376,7 +1491,7 @@ function formatTime(secs: number): string {
 .lf-hint { font-size: var(--kb-fs-caption); color: var(--kb-muted-foreground); margin-top: .75rem; line-height: 1.5; }
 
 .lf-dir-row { display: flex; gap: .5rem; align-items: center; }
-.lf-dir-row .kb-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12.5px; }
+.lf-dir-row .kb-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--kb-fs-body-sm); }
 
 /* 状态徽标 */
 .lf-status { display: inline-flex; align-items: center; gap: .375rem; font-size: var(--kb-fs-caption); padding: .15rem .55rem; border-radius: 999px; margin-left: auto; align-self: center; background: var(--kb-muted); color: var(--kb-muted-foreground); }
@@ -1457,7 +1572,7 @@ function formatTime(secs: number): string {
 
 /* 数据备份子区 */
 .lf-backup { border-top: 1px solid var(--kb-border); padding-top: .25rem; margin-top: -.25rem; }
-.lf-dir-row .kb-input { font-family: var(--font-mono); font-size: 12.5px; }
+.lf-dir-row .kb-input { font-family: var(--font-mono); font-size: var(--kb-fs-body-sm); }
 .lf-backup-list { margin-top: .9rem; }
 .lf-backup-list ul { list-style: none; margin: .4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 12rem; overflow-y: auto; }
 .lf-backup-list li { display: flex; align-items: center; gap: .5rem; padding: .35rem .55rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md); background: var(--kb-muted); }
@@ -1484,6 +1599,29 @@ function formatTime(secs: number): string {
 .lf-radio { display: inline-flex; align-items: center; gap: .45rem; padding: .4rem .7rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md); cursor: pointer; font-size: var(--kb-fs-body-sm); color: var(--kb-foreground); transition: border-color .15s, background .15s; }
 .lf-radio.is-active { border-color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 10%, transparent); }
 .lf-radio input { accent-color: var(--kb-primary); }
+.lf-accent-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.lf-accent-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.lf-accent-swatch:hover { transform: scale(1.08); }
+.lf-accent-swatch.is-on {
+  border-color: var(--kb-foreground);
+  box-shadow: 0 0 0 2px var(--kb-card), 0 0 0 4px var(--kb-foreground);
+}
+.lf-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
 .lf-model-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 .lf-model-item { display: grid; grid-template-columns: 1fr auto; gap: .35rem .75rem; align-items: center; padding: .6rem .75rem; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md); background: var(--kb-muted); }

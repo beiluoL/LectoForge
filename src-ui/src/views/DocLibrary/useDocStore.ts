@@ -22,6 +22,7 @@ import {
   getNoteContent,
   getWorkspace,
   initWorkspace,
+  moveEntry as apiMoveEntry,
   renameEntry as apiRenameEntry,
   searchLibrary,
   updateNote,
@@ -474,6 +475,21 @@ export async function renameNode(node: LibTreeNode, newName: string): Promise<vo
     notify('重命名成功', 'success')
   } catch (e) {
     notify(getApiError(e, '重命名失败'), 'error')
+  }
+}
+
+/** 移动文件/文件夹到目标目录（targetDir 空 = 根目录），成功后刷新树 */
+export async function moveNode(node: LibTreeNode, targetDir: string): Promise<void> {
+  try {
+    await apiMoveEntry(node.id, targetDir)
+    if (docState.activeNoteId === node.id) {
+      docState.activeNoteId = ''
+      docState.currentContent = ''
+    }
+    await refreshTree()
+    notify(`已移动「${node.name}」`, 'success')
+  } catch (e) {
+    notify(getApiError(e, '移动失败'), 'error')
   }
 }
 

@@ -16,3 +16,11 @@ export function generateDailyReport() {
 export function generateDailyCards() {
   return apiPost<GenerateCardsResult>('/insight/daily-report/generate-cards');
 }
+
+/** 近 N 天学习趋势（30 日折线数据源） */
+export function getInsightTrend(days = 30) {
+  return apiGet<{ days: number; series: { date: string; captures: number; reviews: number; habits: number }[] }>(
+    '/insight/trend',
+    { days },
+  );
+}

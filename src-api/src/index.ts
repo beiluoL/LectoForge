@@ -38,6 +38,7 @@ import diagram from './routes/diagram';
 import { aiDiagramRoutes } from './routes/ai-diagram';
 import ttsVoices from './routes/ttsVoices';
 import insight from './routes/insight';
+import exportRoutes from './routes/export';
 import * as insightService from './services/insightService';
 
 const app = Fastify({ logger: false });
@@ -202,6 +203,7 @@ app.register(aiDiagramRoutes, { prefix: '/api/ai' });
  * 端点 /insight/daily-report（只读聚合）、/insight/daily-report/generate（AI 文案）、
  * /insight/daily-report/generate-cards（薄弱点→wb_review_card）。 */
 app.register(insight, { prefix: '/api/insight' });
+app.register(exportRoutes, { prefix: '/api/export' });
 
 /* ===== 数据自动备份（设置中心「数据备份」区 + Rust 每日调度器共用）=====
  * 独立前缀 /api：端点 /backup（立即备份）、/backup/schedule（GET/PUT 计划）。

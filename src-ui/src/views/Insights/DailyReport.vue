@@ -5,7 +5,7 @@
       <header class="dr-head">
         <div>
           <h1 class="kb-h1 dr-title">
-            <Icon name="calendar-clock" :size="24" style="color: var(--kb-highlight);" />
+            <Icon name="calendar-clock" :size="'2xl'" style="color: var(--kb-highlight);" />
             学习日报
           </h1>
           <p class="kb-body dr-sub">
@@ -14,20 +14,20 @@
           </p>
         </div>
         <button class="kb-btn" :disabled="loading" @click="onRefresh">
-          <Icon :name="loading ? 'loader' : 'refresh-cw'" :size="16" :class="loading ? 'ai-spin' : ''" />
+          <Icon :name="loading ? 'loader' : 'refresh-cw'" :size="'md'" :class="loading ? 'ai-spin' : ''" />
           {{ loading ? '刷新中…' : '一键刷新' }}
         </button>
       </header>
 
       <!-- 未配置 AI 提示 -->
       <div v-if="aiHint" class="ai-hint">
-        <Icon name="info" :size="14" />
+        <Icon name="info" :size="'sm'" />
         <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可生成日报文案。</span>
       </div>
 
       <!-- 错误条 -->
       <div v-else-if="error && !stats" class="ai-hint" style="border-color: var(--kb-destructive);">
-        <Icon name="alert-circle" :size="14" style="color: var(--kb-destructive);" />
+        <Icon name="alert-circle" :size="'sm'" style="color: var(--kb-destructive);" />
         <span>{{ error }}</span>
       </div>
 
@@ -35,7 +35,7 @@
       <section class="dr-grid">
         <!-- 📥 昨日输入 -->
         <article class="dr-stat-card" :style="{ '--accent': 'var(--kb-highlight)' }">
-          <div class="dr-stat-icon"><Icon name="inbox" :size="22" /></div>
+          <div class="dr-stat-icon"><Icon name="inbox" :size="'22px'" /></div>
           <p class="dr-stat-label">📥 昨日输入</p>
           <p class="dr-stat-value">{{ stats?.capturesYesterday ?? '—' }}</p>
           <p class="dr-stat-foot">条收集箱新增</p>
@@ -43,7 +43,7 @@
 
         <!-- 📚 昨日复习 -->
         <article class="dr-stat-card" :style="{ '--accent': 'var(--kb-primary)' }">
-          <div class="dr-stat-icon"><Icon name="book-open" :size="22" /></div>
+          <div class="dr-stat-icon"><Icon name="book-open" :size="'22px'" /></div>
           <p class="dr-stat-label">📚 昨日复习</p>
           <p class="dr-stat-value">{{ stats?.reviewsYesterday ?? '—' }}</p>
           <p class="dr-stat-foot">次间隔复习</p>
@@ -51,7 +51,7 @@
 
         <!-- 🎯 薄弱知识点 -->
         <article class="dr-stat-card" :style="{ '--accent': 'var(--kb-accent)' }">
-          <div class="dr-stat-icon"><Icon name="target" :size="22" /></div>
+          <div class="dr-stat-icon"><Icon name="target" :size="'22px'" /></div>
           <p class="dr-stat-label">🎯 薄弱知识点</p>
           <div v-if="stats && stats.weakPoints.length" class="dr-tags">
             <span v-for="(w, i) in stats.weakPoints" :key="i" class="dr-tag">{{ w }}</span>
@@ -62,7 +62,7 @@
 
         <!-- 🔄 7 天转化率 -->
         <article class="dr-stat-card" :style="{ '--accent': 'var(--kb-highlight)' }">
-          <div class="dr-stat-icon"><Icon name="repeat" :size="22" /></div>
+          <div class="dr-stat-icon"><Icon name="repeat" :size="'22px'" /></div>
           <p class="dr-stat-label">🔄 7 天转化率</p>
           <p class="dr-stat-value">{{ stats ? stats.conversion7d : '—' }}<span class="dr-pct">%</span></p>
           <div class="dr-bar"><i :style="{ width: (stats ? stats.conversion7d : 0) + '%' }" /></div>
@@ -70,18 +70,31 @@
         </article>
       </section>
 
+      <!-- 近 30 天学习趋势 -->
+      <section class="dr-trend">
+        <h2 class="dr-section-title">
+          <Icon name="trending-up" :size="'lg'" style="color: var(--kb-primary);" />
+          近 30 天学习趋势
+        </h2>
+        <div v-if="trendLoading" class="dr-trend-state">加载中…</div>
+        <div v-else-if="trend" class="dr-trend-chart">
+          <Line :data="trendChartData" :options="trendChartOptions" />
+        </div>
+        <div v-else class="dr-trend-state">暂无趋势数据</div>
+      </section>
+
       <!-- AI 日报面板（磨砂玻璃） -->
       <section class="dr-glass" v-if="content || generating">
         <div class="ai-panel-head">
           <span class="ai-panel-title">
-            <Icon name="ai-sparkle" :size="14" style="color: var(--kb-highlight);" />
+            <Icon name="ai-sparkle" :size="'sm'" style="color: var(--kb-highlight);" />
             {{ content?.title || '生成中…' }}
           </span>
           <span v-if="content" class="ai-meta">{{ content.model }} · {{ content.latencyMs }}ms</span>
         </div>
 
         <div v-if="generating && !content" class="dr-loading">
-          <Icon name="loader" :size="18" class="ai-spin" />
+          <Icon name="loader" :size="'lg'" class="ai-spin" />
           <span>AI 正在复盘昨日学习…</span>
         </div>
 
@@ -94,7 +107,7 @@
           </div>
 
           <div v-if="content.encouragement" class="dr-encourage">
-            <Icon name="sparkles" :size="16" style="color: var(--kb-highlight);" />
+            <Icon name="sparkles" :size="'md'" style="color: var(--kb-highlight);" />
             <span>{{ content.encouragement }}</span>
           </div>
 
@@ -109,11 +122,11 @@
         <!-- 操作按钮 -->
         <div class="dr-actions">
           <button class="kb-btn ai-btn" :disabled="generating" @click="onRegenerate">
-            <Icon :name="generating ? 'loader' : 'repeat'" :size="14" :class="generating ? 'ai-spin' : ''" />
+            <Icon :name="generating ? 'loader' : 'repeat'" :size="'sm'" :class="generating ? 'ai-spin' : ''" />
             {{ generating ? '重新生成中…' : '🔁 重新生成' }}
           </button>
           <button class="kb-btn ai-btn" :disabled="cardBusy || !hasWeakPoints" @click="onGenerateCards">
-            <Icon :name="cardBusy ? 'loader' : 'brain-circuit'" :size="14" :class="cardBusy ? 'ai-spin' : ''" />
+            <Icon :name="cardBusy ? 'loader' : 'brain-circuit'" :size="'sm'" :class="cardBusy ? 'ai-spin' : ''" />
             {{ cardBusy ? '生成中…' : '🧠 一键生成 3 张复习闪卡' }}
           </button>
         </div>
@@ -122,7 +135,7 @@
 
       <!-- 空态：AI 未生成（未配置或尚未触发） -->
       <section v-else-if="stats && !aiHint" class="ai-hint">
-        <Icon name="sparkles" :size="14" style="color: var(--kb-highlight);" />
+        <Icon name="sparkles" :size="'sm'" style="color: var(--kb-highlight);" />
         <span>点击「🔁 重新生成」让 AI 为你复盘昨日学习，并基于薄弱点生成复习卡。</span>
       </section>
     </div>
@@ -132,13 +145,26 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { Line } from 'vue-chartjs';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 
 import '../ai-shared.css';
 import { useDailyReportStore } from '@/store/daily-report-store';
+import { chartColor } from '@/utils/palette';
+
+ChartJS.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const store = useDailyReportStore();
 // storeToRefs 把 state 解构成模板可用的顶层 ref（action 仍走 store.xxx 调用）
-const { stats, content, loading, generating, cardBusy, error, aiHint } = storeToRefs(store);
+const { stats, content, loading, generating, cardBusy, error, aiHint, trend, trendLoading } = storeToRefs(store);
 
 const hasWeakPoints = computed(() => !!store.stats?.weakPoints.length);
 const suggestionList = computed(() =>
@@ -161,8 +187,33 @@ function onGenerateCards() {
   store.generateCards();
 }
 
+const trendChartData = computed(() => {
+  const s = trend.value?.series ?? []
+  return {
+    labels: s.map((p) => p.date.slice(5)),
+    datasets: [
+      { label: '收集', data: s.map((p) => p.captures), borderColor: chartColor(0), backgroundColor: 'transparent', tension: 0.25 },
+      { label: '复习', data: s.map((p) => p.reviews), borderColor: chartColor(2), backgroundColor: 'transparent', tension: 0.25 },
+      { label: '打卡', data: s.map((p) => p.habits), borderColor: chartColor(4), backgroundColor: 'transparent', tension: 0.25 },
+    ],
+  }
+})
+
+const trendChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { boxWidth: 12, font: { size: 12 } } },
+  },
+  scales: {
+    x: { ticks: { maxTicksLimit: 10, font: { size: 11 } } },
+    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } } },
+  },
+}
+
 onMounted(() => {
   store.fetchReport();
+  store.fetchTrend();
   // 首次进入即主动生成（后端按日期缓存 1h，重复进入不会刷爆 LLM）
   store.generateReport();
 });
@@ -176,14 +227,14 @@ onMounted(() => {
   background:
     radial-gradient(1200px 480px at 100% -10%, color-mix(in srgb, var(--kb-highlight) 8%, transparent), transparent 60%),
     var(--kb-background);
-  padding: 22px 26px 40px;
+  padding: 24px 24px 40px;
 }
 .dr-container {
   max-width: 920px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 .dr-head {
   display: flex;
@@ -208,14 +259,14 @@ onMounted(() => {
 .dr-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 .dr-stat-card {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 16px 18px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-lg);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -239,7 +290,7 @@ onMounted(() => {
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .dr-stat-label {
   margin: 0;
@@ -274,11 +325,11 @@ onMounted(() => {
 .dr-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-top: 4px;
 }
 .dr-tag {
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -295,7 +346,7 @@ onMounted(() => {
   border-radius: 999px;
   background: var(--kb-muted);
   overflow: hidden;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 .dr-bar > i {
   display: block;
@@ -313,7 +364,7 @@ onMounted(() => {
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
   box-shadow: var(--shadow-card);
-  padding: 18px 20px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -327,7 +378,7 @@ onMounted(() => {
 .dr-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .dr-feedback {
   margin: 0;
@@ -339,7 +390,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, var(--kb-highlight) 10%, transparent);
   font-size: 14px;
@@ -355,7 +406,7 @@ onMounted(() => {
 }
 .dr-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
   margin-top: 4px;
 }
@@ -363,6 +414,32 @@ onMounted(() => {
   margin: 0;
   font-size: 12px;
   color: var(--kb-muted-foreground);
+}
+
+.dr-trend {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-lg);
+  background: var(--kb-card);
+}
+.dr-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: var(--kb-fs-h4);
+  font-weight: 600;
+  color: var(--kb-foreground);
+}
+.dr-trend-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-body-sm);
+}
+.dr-trend-chart {
+  height: 260px;
 }
 
 @keyframes dr-pop {

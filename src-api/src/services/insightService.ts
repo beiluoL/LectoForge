@@ -9,10 +9,10 @@
  * 时区红线：本地昨天的判定一律用 SQLite 的 date(col, 'localtime') = date('now','-1 day','localtime')，
  * 不可只用 date('now','-1 day')（那会得到 UTC 昨天，与中国本地时区差 8 小时）。
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 
 import { CURRENT_USER, db } from '../db';
-import { wbCapture, wbNote, wbReviewCard, wbReviewLog } from '../db/schema';
+import { wbCapture, wbHabitLog, wbNote, wbReviewCard, wbReviewLog } from '../db/schema';
 import { chatJson, isReady } from '../lib/llm';
 import { generateFlashcards } from './aiContentService';
 import { buildDailyReportPrompt, type DailyReportOutput } from '../lib/prompts';
@@ -56,6 +56,60 @@ export interface DailyReportBundle {
   stats: DailyReportStats;
   /** AI 文案；未配置 AI 时为 null（不调用 LLM） */
   content: DailyReportContent | null;
+}
+
+export interface TrendPoint {
+  date: string;
+  captures: number;
+  reviews: number;
+  habits: number;
+}
+export interface TrendVO {
+  days: number;
+  series: TrendPoint[];
+}
+
+/** 本地日期键 YYYY-MM-DD（时区红线：一律本地时区） */
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** 近 N 天学习趋势：每日 收集 / 复习 / 习惯打卡 三序列（本地日分组） */
+export function getTrend(rawDays?: unknown): TrendVO {
+  const days = Math.max(7, Math.min(365, Number(rawDays) || 30));
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - days + 1);
+  const startIso = start.toISOString();
+
+  const map: Record<string, TrendPoint> = {};
+  for (let i = 0; i < days; i += 1) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const key = localDateKey(d);
+    map[key] = { date: key, captures: 0, reviews: 0, habits: 0 };
+  }
+
+  const caps = db.select({ createdAt: wbCapture.createdAt }).from(wbCapture).where(gte(wbCapture.createdAt, startIso)).all();
+  for (const c of caps) {
+    const k = localDateKey(new Date(c.createdAt));
+    if (map[k]) map[k].captures += 1;
+  }
+  const revs = db.select({ reviewedAt: wbReviewLog.reviewedAt }).from(wbReviewLog).where(gte(wbReviewLog.reviewedAt, startIso)).all();
+  for (const r of revs) {
+    const k = localDateKey(new Date(r.reviewedAt));
+    if (map[k]) map[k].reviews += 1;
+  }
+  // wb_habit_log.log_date 本身就是本地日期键（YYYY-MM-DD）
+  const hlogs = db.select({ logDate: wbHabitLog.logDate }).from(wbHabitLog).all();
+  for (const h of hlogs) {
+    if (map[h.logDate]) map[h.logDate].habits += 1;
+  }
+
+  return { days, series: Object.values(map).sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
 // ===================== 本地时区辅助 =====================

@@ -15,6 +15,10 @@ import type { LibTreeNode } from '@/api/library'
 export interface TreeContext {
   /** 点击节点：文件则打开，文件夹则折叠/展开 */
   select: (node: LibTreeNode) => void
+  /** 拖拽移动：把 node 移动到 targetDir（空 = 根目录） */
+  moveNode: (node: LibTreeNode, targetDir: string) => void
+  /** 当前被拖拽的节点（用于高亮目标文件夹与落点移动） */
+  dragNode: import('vue').Ref<LibTreeNode | null>
   /** 打开上下文菜单（右键或「更多」按钮） */
   openMenu: (event: MouseEvent, node: LibTreeNode) => void
   /** 在指定文件夹下新建笔记 */
