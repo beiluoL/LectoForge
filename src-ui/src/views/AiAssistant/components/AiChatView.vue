@@ -315,9 +315,9 @@ function jumpTo(index: number) {
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 13px;
-  color: var(--kb-destructive, #d92d20);
-  background: color-mix(in srgb, var(--kb-destructive, #d92d20) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--kb-destructive, #d92d20) 30%, transparent);
+  color: var(--kb-destructive);
+  background: color-mix(in srgb, var(--kb-destructive) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kb-destructive) 30%, transparent);
 }
 .lf-error :deep(svg) {
   flex-shrink: 0;
@@ -506,28 +506,32 @@ function jumpTo(index: number) {
   position: absolute;
   top: -14px;
   right: 8px;
-  display: none;
+  visibility: hidden;
+  opacity: 0;
   align-items: center;
   gap: 2px;
   padding: 3px;
   border-radius: 9px;
-  background: var(--kb-popover, var(--kb-card));
+  background: var(--kb-popover);
   border: 1px solid var(--kb-border);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: opacity 0.12s ease, visibility 0.12s ease;
 }
 .lf-ops.is-user {
   right: auto;
   left: 8px;
 }
-.lf-msg:hover .lf-ops {
-  display: flex;
+.lf-msg:hover .lf-ops,
+.lf-msg:focus-within .lf-ops {
+  visibility: visible;
+  opacity: 1;
 }
 .lf-ops button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 7px;
   color: var(--kb-muted-foreground);
   background: transparent;

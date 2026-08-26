@@ -322,8 +322,8 @@ async function onShare(id: number) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   border-radius: 7px;
   color: var(--kb-muted-foreground);
   background: transparent;
@@ -332,7 +332,8 @@ async function onShare(id: number) {
   opacity: 0;
   transition: opacity 0.12s ease, background 0.12s ease;
 }
-.lf-item:hover .lf-more {
+.lf-item:hover .lf-more,
+.lf-item:focus-within .lf-more {
   opacity: 1;
 }
 .lf-more:hover {
@@ -348,7 +349,7 @@ async function onShare(id: number) {
   min-width: 132px;
   padding: 4px;
   border-radius: 10px;
-  background: var(--kb-popover, var(--kb-card));
+  background: var(--kb-popover);
   border: 1px solid var(--kb-border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   display: flex;
@@ -371,9 +372,9 @@ async function onShare(id: number) {
   background: var(--kb-muted);
 }
 .lf-menu button.danger {
-  color: var(--kb-destructive, #d92d20);
+  color: var(--kb-destructive);
 }
 .lf-menu button.danger:hover {
-  background: color-mix(in srgb, var(--kb-destructive, #d92d20) 12%, transparent);
+  background: color-mix(in srgb, var(--kb-destructive) 12%, transparent);
 }
 </style>
