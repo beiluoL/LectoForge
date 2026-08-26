@@ -25,7 +25,7 @@
             </div>
             <div
               class="inline-flex items-center justify-center w-6 h-6 mt-0.5 rounded-full text-sm font-semibold tabular-nums"
-              :style="cell.isToday ? { background: 'var(--kb-primary)', color: '#fff' } : { color: 'var(--kb-foreground)' }"
+              :style="cell.isToday ? { background: 'var(--kb-primary)', color: 'var(--kb-primary-foreground)' } : { color: 'var(--kb-foreground)' }"
             >
               {{ cell.dayNum }}
             </div>
@@ -37,7 +37,7 @@
               v-for="ev in allDayOf(cell.key)"
               :key="eventKey(ev)"
               class="truncate rounded px-1 py-[1px] text-[10px] cursor-pointer"
-              :class="[isTaskSource(ev) ? 'dt-task-line' : 'text-white', ev.taskCompleted === 1 ? 'line-through opacity-55' : '']"
+              :class="[isTaskSource(ev) ? 'dt-task-line' : 'dt-event-chip', ev.taskCompleted === 1 ? 'line-through opacity-55' : '']"
               :style="isTaskSource(ev) ? taskLineStyle(ev) : { background: ev.color }"
               :title="ev.title"
               @click.stop="onEventClick(cell.key, ev)"
@@ -96,8 +96,8 @@
               :title="pos.ev.title"
               @click.stop="onEventClick(cell.key, pos.ev)"
             >
-              <div class="font-medium truncate" style="color:#fff">{{ pos.ev.title }}</div>
-              <div class="opacity-90 truncate text-[10px]" style="color:#fff">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
+              <div class="font-medium truncate" style="color:#1A1D23">{{ pos.ev.title }}</div>
+              <div class="opacity-90 truncate text-[10px]" style="color:#1A1D23">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
             </div>
           </div>
 
@@ -273,8 +273,11 @@ const currentTimeTop = computed(() => {
   width: 4px;
   height: 4px;
   border-radius: 999px;
-  background: #b0b0b0;
+  background: color-mix(in srgb, var(--kb-muted-foreground) 65%, transparent);
   margin-right: 4px;
   flex: none;
+}
+.dt-event-chip {
+  color: #1A1D23;
 }
 </style>

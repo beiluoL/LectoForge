@@ -355,7 +355,7 @@ watch(
   color: var(--kb-foreground);
 }
 .fc-back-md :deep(pre) {
-  background: #1a1d23;
+  background: var(--kb-immersive-bg);
   border-radius: 10px;
   padding: 12px 14px;
   overflow-x: auto;
@@ -364,7 +364,7 @@ watch(
 .fc-back-md :deep(pre code) {
   background: transparent;
   padding: 0;
-  color: #e6e6e6;
+  color: var(--kb-immersive-foreground);
 }
 .fc-back-md :deep(blockquote) {
   border-left: 3px solid var(--kb-primary);

@@ -131,7 +131,7 @@ function dayNumStyle(cell: DayCell): Record<string, string> {
   if (cell.isToday) {
     return {
       background: 'var(--kb-primary)',
-      color: '#fff',
+      color: 'var(--kb-primary-foreground)',
     };
   }
   return {
@@ -162,7 +162,7 @@ function eventLineStyle(ev: CalendarEvent): Record<string, string> {
     };
   }
   if (ev.isAllDay) {
-    return { background: ev.color, color: '#fff' };
+    return { background: ev.color, color: '#1A1D23' };
   }
   return {
     background: `color-mix(in srgb, ${ev.color} 12%, transparent)`,
@@ -204,7 +204,7 @@ function onCellClick(cell: DayCell) {
   width: 4px;
   height: 4px;
   border-radius: 999px;
-  background: #b0b0b0;
+  background: color-mix(in srgb, var(--kb-muted-foreground) 65%, transparent);
   margin-right: 4px;
   vertical-align: middle;
 }
