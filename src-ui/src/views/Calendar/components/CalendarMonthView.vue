@@ -32,8 +32,8 @@
         @dragover.prevent="onCellDragOver"
         @drop.prevent.stop="onCellDrop(cell)"
       >
-        <!-- 日期数字：今天用实心小圆点高亮；节假日右上角「休/班」胶囊 -->
-        <div class="flex items-center gap-1 px-1.5 pt-1 pb-0.5">
+        <!-- 日期数字：今天用实心小圆点高亮；节日胶囊（休/班/节名）在数字下方 -->
+        <div class="px-1.5 pt-1 pb-0.5 flex items-center gap-1">
           <span
             class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-semibold tabular-nums"
             :class="cell.isToday ? 'is-today' : ''"
@@ -44,14 +44,29 @@
           <span v-if="!cell.inMonth" class="text-[11px]" :style="{ color: 'var(--kb-muted-foreground)' }">
             {{ cell.monthNum }}月
           </span>
+        </div>
+
+        <!-- 节日胶囊（法定休红 / 补班橙 / 传统节日蓝），最多 2 个 + 溢出计数 -->
+        <div v-if="festivalChips(cell.key).length" class="px-1.5 pb-0.5 flex items-center gap-0.5 flex-wrap">
           <span
-            v-if="holidayTag(cell.key)"
-            class="holiday-tag"
-            :class="holidayTag(cell.key) === '休' ? 'is-off' : 'is-work'"
-            :title="holidayName(cell.key)"
+            v-for="chip in festivalChips(cell.key)"
+            :key="chip.label"
+            class="festival-chip"
+            :class="chip.tone"
+            :title="chip.title"
           >
-            {{ holidayTag(cell.key) }}
+            {{ chip.label }}
           </span>
+        </div>
+
+        <!-- 纪念日 Heart 徽章（粉色，数量 >0 时显示） -->
+        <div
+          v-if="anniversaryCountOf(cell.key) > 0"
+          class="px-1.5 pb-0.5 flex items-center"
+          :title="`${anniversaryCountOf(cell.key)} 个纪念日`"
+        >
+          <Icon name="heart" size="xs" class="festival-heart-icon" />
+          <span v-if="anniversaryCountOf(cell.key) > 1" class="festival-heart-count">{{ anniversaryCountOf(cell.key) }}</span>
         </div>
 
         <!-- 当日事件列表（默认 2 条，点击「+N 更多」展开全部） -->
@@ -113,10 +128,11 @@
 import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useCalendarStore } from '@/store/calendar-store';
+import { useCalendarFestivals } from '@/composables/useCalendarFestivals';
 import { anniversaryHitsOn, buildMonthMatrix, WEEKDAY_LABELS, type DayCell } from '@/lib/calendar';
 import { formatHM } from '@/lib/date';
 import { isTaskSource, type Anniversary, type CalendarEvent } from '@/api/calendar';
-import { getHoliday, isHolidayOff, isMakeupWorkday } from '@/lib/china-holidays';
+import type { Festival } from '@/lib/festival';
 
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
@@ -131,6 +147,14 @@ const weekdayLabels = WEEKDAY_LABELS;
 const MAX_VISIBLE = 2;
 /** 已展开全部事件的日期（点「+N 更多」切换） */
 const expandedDays = ref<Record<string, boolean>>({});
+
+/** 节日组合式：每日节日信息（法定/传统/现代/动态） */
+const { festivalOf } = useCalendarFestivals(currentDate, storeToRefs(store).viewMode);
+
+/** 某天命中纪念日数量（粉色 Heart 徽章） */
+function anniversaryCountOf(key: string): number {
+  return anniversaries.value.filter((a) => anniversaryHitsOn(key, a.date, a.repeatRule, a.year)).length;
+}
 
 const cells = computed<DayCell[]>(() => buildMonthMatrix(currentDate.value));
 
@@ -148,15 +172,28 @@ function toggleExpand(key: string): void {
   expandedDays.value[key] = !expandedDays.value[key]
 }
 
-/** 节假日标签：休（红粉胶囊）/ 班（橙灰胶囊）；无节假日返回空串不渲染 */
-function holidayTag(key: string): '' | '休' | '班' {
-  if (isHolidayOff(key)) return '休';
-  if (isMakeupWorkday(key)) return '班';
-  return '';
-}
-/** 节假日名称（title 提示，如「国庆节」） */
-function holidayName(key: string): string {
-  return getHoliday(key)?.name ?? '';
+/** 节日胶囊（最多 2 个 + 溢出计数）：
+ * - 法定休 → 红色「休」；法定班 → 橙色「班」；
+ * - 传统/现代节日（observance）→ 主题蓝胶囊显示 shortName（如 中秋 / 母亲节）。
+ */
+function festivalChips(key: string): { label: string; title: string; tone: 'is-off' | 'is-work' | 'is-observance' }[] {
+  const f = festivalOf(key);
+  if (!f) return [];
+  const chips: { label: string; title: string; tone: 'is-off' | 'is-work' | 'is-observance' }[] = [];
+  if (f.type === 'statutory') {
+    chips.push({
+      label: f.isOffDay ? '休' : '班',
+      title: f.name,
+      tone: f.isOffDay ? 'is-off' : 'is-work',
+    });
+    // 法定休的节日名（如春节）额外给一个蓝胶囊（若还有空间）
+    if (f.isOffDay && f.shortName !== '休') {
+      chips.push({ label: f.shortName, title: f.name, tone: 'is-observance' });
+    }
+  } else {
+    chips.push({ label: f.shortName, title: f.name, tone: 'is-observance' });
+  }
+  return chips.slice(0, 2);
 }
 
 /** 命中的纪念日（每年/每月重复，按名称排序保证稳定） */
@@ -297,30 +334,49 @@ function onCellClick(cell: DayCell) {
   vertical-align: middle;
 }
 
-/* 节假日「休/班」胶囊标签：极小字号、圆角、不干扰事件行 */
-.holiday-tag {
+/* 节日胶囊：极小字号、圆角、不干扰事件行 */
+.festival-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
+  height: 15px;
+  padding: 0 4px;
   border-radius: 4px;
   font-size: 9px;
   font-weight: 600;
   line-height: 1;
   flex-shrink: 0;
-  margin-top: 1px;
+  max-width: 48px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-/* 休：红粉底白字（法定休息日，醒目但不刺眼） */
-.holiday-tag.is-off {
+/* 休：红粉底白字（法定休息日） */
+.festival-chip.is-off {
   background: color-mix(in srgb, var(--kb-destructive) 82%, transparent);
   color: var(--kb-destructive-foreground);
 }
-/* 班：橙灰底深字（调休补班，语义上仍是上班日，用橙色而非红色避免误读） */
-.holiday-tag.is-work {
-  background: color-mix(in srgb, var(--kb-warning) 24%, transparent);
+/* 班：橙底深字（调休补班，用橙色避免误读为休息） */
+.festival-chip.is-work {
+  background: color-mix(in srgb, var(--kb-warning) 26%, transparent);
   color: var(--kb-warning-foreground);
+}
+/* 传统/现代节日：主题蓝软底蓝字 */
+.festival-chip.is-observance {
+  background: var(--kb-primary-soft);
+  color: var(--kb-primary);
+}
+
+/* 纪念日 Heart 徽章：粉色图标 + 数量 */
+.festival-heart-icon {
+  flex-shrink: 0;
+  color: var(--kb-chart-5);
+}
+.festival-heart-count {
+  margin-left: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--kb-chart-5);
 }
 
 /* 纪念日卡片：浅粉底 + 左侧粉边 + Heart 小图标（与事件明显区分）。

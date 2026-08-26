@@ -23,20 +23,33 @@
             <div class="text-[11px]" :style="{ color: 'var(--kb-muted-foreground)' }">
               {{ cell.weekdayLabel }}
             </div>
-            <div
-              class="inline-flex items-center justify-center w-6 h-6 mt-0.5 rounded-full text-sm font-semibold tabular-nums"
-              :style="cell.isToday ? { background: 'var(--kb-primary)', color: 'var(--kb-primary-foreground)' } : { color: 'var(--kb-foreground)' }"
-            >
-              {{ cell.dayNum }}
+            <div class="inline-flex items-center justify-center gap-1 mt-0.5">
+              <!-- 今日：主题色圆形；若恰逢节日，圆环色跟随节日（红/橙） -->
+              <span
+                class="inline-flex items-center justify-center w-6 h-6 rounded-full text-sm font-semibold tabular-nums"
+                :style="dayNumStyle(cell)"
+              >
+                {{ cell.dayNum }}
+              </span>
+              <!-- 节日名称（带图标）：18 周三 中秋 -->
+              <span
+                v-if="festivalOf(cell.key)"
+                class="festival-label"
+                :class="festivalToneClass(cell.key)"
+                :title="festivalOf(cell.key)!.name"
+              >
+                <Icon :name="festivalOf(cell.key)!.icon || 'sparkles'" size="xs" />
+                {{ festivalOf(cell.key)!.shortName }}
+              </span>
             </div>
-            <!-- 节假日「休/班」胶囊标签 -->
+            <!-- 纪念日 Heart 徽章 -->
             <div
-              v-if="holidayTag(cell.key)"
-              class="holiday-tag"
-              :class="holidayTag(cell.key) === '休' ? 'is-off' : 'is-work'"
-              :title="holidayName(cell.key)"
+              v-if="anniversaryCountOf(cell.key) > 0"
+              class="mt-0.5 inline-flex items-center gap-0.5"
+              :title="`${anniversaryCountOf(cell.key)} 个纪念日`"
             >
-              {{ holidayTag(cell.key) }}
+              <Icon name="heart" size="xs" class="festival-heart-icon" />
+              <span v-if="anniversaryCountOf(cell.key) > 1" class="festival-heart-count">{{ anniversaryCountOf(cell.key) }}</span>
             </div>
           </div>
 
@@ -85,7 +98,7 @@
             v-for="cell in cells"
             :key="cell.key"
             class="relative flex-1 min-w-[100px] border-r"
-            :style="{ borderColor: 'var(--kb-border)', height: totalH + 'px', background: cell.isToday ? 'color-mix(in srgb, var(--kb-primary) 3%, transparent)' : '' }"
+            :style="columnStyle(cell)"
             @click="onColumnClick(cell, $event)"
           >
             <!-- 24 条小时网格线 -->
@@ -142,10 +155,10 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import dayjs from 'dayjs';
 import { useCalendarStore } from '@/store/calendar-store';
-import { buildCells, type DayCell } from '@/lib/calendar';
+import { useCalendarFestivals } from '@/composables/useCalendarFestivals';
+import { anniversaryHitsOn, buildCells, type DayCell } from '@/lib/calendar';
 import { formatHM } from '@/lib/date';
-import { isTaskSource, type CalendarEvent } from '@/api/calendar';
-import { getHoliday, isHolidayOff, isMakeupWorkday } from '@/lib/china-holidays';
+import { isTaskSource, type Anniversary, type CalendarEvent } from '@/api/calendar';
 
 const emit = defineEmits<{
   (e: 'select', ev: CalendarEvent): void;
@@ -154,13 +167,60 @@ const emit = defineEmits<{
 }>();
 
 const store = useCalendarStore();
-const { currentDate, viewMode, eventsByDate } = storeToRefs(store);
+const { currentDate, viewMode, eventsByDate, anniversaries } = storeToRefs(store);
 
 const HOUR_H = 40; // 每小时像素高（紧凑）
 const GUTTER = 48; // 左侧时间轴宽度
 const totalH = 24 * HOUR_H;
 
 const cells = computed<DayCell[]>(() => buildCells(currentDate.value, viewMode.value));
+
+/** 节日组合式：每日节日信息（法定/传统/现代/动态） */
+const { festivalOf } = useCalendarFestivals(currentDate, viewMode);
+
+/** 某天命中纪念日数量（粉色 Heart 徽章） */
+function anniversaryCountOf(key: string): number {
+  return anniversaries.value.filter((a) => anniversaryHitsOn(key, a.date, a.repeatRule, a.year)).length;
+}
+
+/** 节日名称的 tone class：法定休红 / 补班橙 / 传统节日主题蓝 */
+function festivalToneClass(key: string): string {
+  const f = festivalOf(key);
+  if (!f) return '';
+  if (f.type === 'statutory') return f.isOffDay ? 'is-off' : 'is-work';
+  return 'is-observance';
+}
+
+/** 今日高亮圆环：恰逢节日时边框跟随节日色（红/橙），否则主题蓝 */
+function dayNumStyle(cell: DayCell): Record<string, string> {
+  if (!cell.isToday) {
+    return { color: 'var(--kb-foreground)' };
+  }
+  const f = festivalOf(cell.key);
+  if (f?.type === 'statutory') {
+    const ring = f.isOffDay ? 'var(--kb-destructive)' : 'var(--kb-warning)';
+    return {
+      background: 'var(--kb-primary)',
+      color: 'var(--kb-primary-foreground)',
+      boxShadow: `inset 0 0 0 2px ${ring}`,
+    };
+  }
+  return { background: 'var(--kb-primary)', color: 'var(--kb-primary-foreground)' };
+}
+
+/** 日列背景：法定休 → 极浅红铺底；今天 → 主题蓝 3% */
+function columnStyle(cell: DayCell): Record<string, string> {
+  const base: Record<string, string> = { borderColor: 'var(--kb-border)', height: totalH + 'px' };
+  const f = festivalOf(cell.key);
+  if (f?.type === 'statutory' && f.isOffDay) {
+    base.background = 'color-mix(in srgb, var(--kb-destructive) 5%, transparent)';
+    return base;
+  }
+  if (cell.isToday) {
+    base.background = 'color-mix(in srgb, var(--kb-primary) 3%, transparent)';
+  }
+  return base;
+}
 
 function dayEvents(key: string): CalendarEvent[] {
   return eventsByDate.value[key] ?? [];
@@ -194,16 +254,6 @@ function timedOf(key: string): TimedPos[] {
 }
 
 /** 节假日标签：休（红粉胶囊）/ 班（橙灰胶囊）；无节假日返回空串不渲染 */
-function holidayTag(key: string): '' | '休' | '班' {
-  if (isHolidayOff(key)) return '休';
-  if (isMakeupWorkday(key)) return '班';
-  return '';
-}
-/** 节假日名称（title 提示，如「国庆节」） */
-function holidayName(key: string): string {
-  return getHoliday(key)?.name ?? '';
-}
-
 function dayHeaderStyle(cell: DayCell): Record<string, string> {
   return cell.isToday
     ? { background: 'color-mix(in srgb, var(--kb-primary) 8%, transparent)', borderColor: 'var(--kb-border)' }
@@ -302,28 +352,45 @@ const currentTimeTop = computed(() => {
   color: #1A1D23;
 }
 
-/* 节假日「休/班」胶囊标签：极小字号、圆角、置于日期数字下方 */
-.holiday-tag {
+/* 节日名称标签（日期数字旁，带图标）：如「18 周三 中秋」 */
+.festival-label {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  margin: 2px auto 0;
+  gap: 2px;
+  max-width: 64px;
+  padding: 1px 4px;
   border-radius: 4px;
   font-size: 9px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* 休：红粉底白字（法定休息日） */
-.holiday-tag.is-off {
+/* 法定休：红粉底白字 */
+.festival-label.is-off {
   background: color-mix(in srgb, var(--kb-destructive) 82%, transparent);
   color: var(--kb-destructive-foreground);
 }
-/* 班：橙灰底深字（调休补班，橙色避免误读为休息） */
-.holiday-tag.is-work {
-  background: color-mix(in srgb, var(--kb-warning) 24%, transparent);
+/* 补班：橙底深字 */
+.festival-label.is-work {
+  background: color-mix(in srgb, var(--kb-warning) 26%, transparent);
   color: var(--kb-warning-foreground);
+}
+/* 传统/现代节日：主题蓝软底蓝字 */
+.festival-label.is-observance {
+  background: var(--kb-primary-soft);
+  color: var(--kb-primary);
+}
+
+/* 纪念日 Heart 徽章 */
+.festival-heart-icon {
+  flex-shrink: 0;
+  color: var(--kb-chart-5);
+}
+.festival-heart-count {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--kb-chart-5);
 }
 </style>
