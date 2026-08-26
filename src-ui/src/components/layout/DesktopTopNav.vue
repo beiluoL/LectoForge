@@ -539,7 +539,7 @@ async function checkUpdate() {
   display: inline-flex;
   align-items: center;
   gap: var(--kb-nav-gap);
-  padding: 6px 8px;
+  padding: 8px 8px;
   border-radius: 8px;
   font-size: var(--kb-nav-text-fs);
   font-weight: var(--kb-nav-text-fw);
@@ -572,7 +572,7 @@ async function checkUpdate() {
   height: 16px;
   padding: 0 4px;
   border-radius: 9999px;
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   line-height: 16px;
   font-weight: 600;
   color: var(--kb-warning-foreground);
@@ -616,13 +616,13 @@ async function checkUpdate() {
 .wb-search-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 .wb-kbd {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   line-height: 1;
-  padding: 2px 5px;
+  padding: 2px 4px;
   border-radius: 5px;
   border: 1px solid var(--kb-border);
   background: var(--kb-muted);

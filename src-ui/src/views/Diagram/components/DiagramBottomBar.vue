@@ -118,14 +118,14 @@ function onDrop(i: number) {
 .lf-pages-scroll {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   overflow-x: auto;
   width: 100%;
 }
 .lf-page-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   max-width: 160px;
   padding: 4px 8px;
   border: 1px solid var(--kb-border);
@@ -166,7 +166,7 @@ function onDrop(i: number) {
   color: var(--kb-muted-foreground);
   background: color-mix(in srgb, var(--kb-muted-foreground) 14%, transparent);
   border-radius: 8px;
-  padding: 0 6px;
+  padding: 0 8px;
   flex-shrink: 0;
 }
 .lf-page-del {
@@ -190,7 +190,7 @@ function onDrop(i: number) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border: 1px dashed var(--kb-border);
   border-radius: 6px;
   background: transparent;

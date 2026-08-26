@@ -11,13 +11,13 @@
             <header class="rdd-head">
               <div class="rdd-head-main">
                 <h3 class="rdd-title">
-                  <Icon name="calendar-check" :size="16" />
+                  <Icon name="calendar-check" :size="'md'" />
                   {{ dateLabel }}
                 </h3>
                 <p class="rdd-sub">复习明细 · 数据来自复习流水</p>
               </div>
               <button class="rdd-icon-btn" title="关闭（Esc）" @click="close">
-                <Icon name="x" :size="18" />
+                <Icon name="x" :size="'lg'" />
               </button>
             </header>
 
@@ -50,12 +50,12 @@
             <!-- 主体 -->
             <div class="rdd-body">
               <div v-if="dayDetailLoading" class="rdd-state">
-                <Icon name="loader-2" :size="20" class="rdd-spin" />
+                <Icon name="loader-2" :size="'xl'" class="rdd-spin" />
                 <span>加载中…</span>
               </div>
 
               <div v-else-if="!detail || detail.items.length === 0" class="rdd-state">
-                <Icon name="coffee" :size="26" class="rdd-state-ic" />
+                <Icon name="coffee" :size="'26px'" class="rdd-state-ic" />
                 <p class="rdd-state-title">这天没有复习记录</p>
                 <p class="rdd-state-desc">偶尔断一天没关系，明天继续就好</p>
               </div>
@@ -87,7 +87,7 @@
 
             <footer class="rdd-foot">
               <p class="rdd-foot-tip">
-                <Icon name="info" :size="12" />
+                <Icon name="info" :size="'xs'" />
                 「没记住」= 评分为困难（quality &lt; 2），与遗忘曲线口径一致
               </p>
               <button class="kb-btn rdd-foot-btn" @click="close">关闭</button>
@@ -215,7 +215,7 @@ watch(dayDetailVisible, (v) => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 18px 18px 12px;
+  padding: 16px 16px 12px;
   border-bottom: 1px solid var(--kb-border);
 }
 .rdd-head-main {
@@ -225,7 +225,7 @@ watch(dayDetailVisible, (v) => {
 .rdd-title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   margin: 0;
   font-size: 15px;
   font-weight: 700;
@@ -260,14 +260,14 @@ watch(dayDetailVisible, (v) => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  padding: 14px 18px 4px;
+  padding: 16px 16px 4px;
 }
 .rdd-metric {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 10px 6px;
+  padding: 12px 8px;
   border-radius: var(--kb-radius-md);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -282,21 +282,21 @@ watch(dayDetailVisible, (v) => {
   font-variant-numeric: tabular-nums;
 }
 .rdd-metric-label {
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   color: var(--kb-muted-foreground);
 }
 
 /* ---------- 筛选 ---------- */
 .rdd-filters {
   display: flex;
-  gap: 6px;
-  padding: 12px 18px 0;
+  gap: 8px;
+  padding: 12px 16px 0;
 }
 .rdd-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 11px;
+  gap: 4px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: transparent;
@@ -337,13 +337,13 @@ watch(dayDetailVisible, (v) => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
 }
 .rdd-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-md);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -373,7 +373,7 @@ watch(dayDetailVisible, (v) => {
 }
 .rdd-front {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   font-weight: 600;
   line-height: 1.45;
   color: var(--kb-foreground);
@@ -387,7 +387,7 @@ watch(dayDetailVisible, (v) => {
 .rdd-meta {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin: 3px 0 0;
   font-size: 11px;
   color: var(--kb-muted-foreground);
@@ -399,7 +399,7 @@ watch(dayDetailVisible, (v) => {
   flex-shrink: 0;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
   color: var(--kb-destructive);
   background: color-mix(in srgb, var(--kb-destructive) 12%, transparent);
@@ -411,7 +411,7 @@ watch(dayDetailVisible, (v) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   padding: 52px 20px;
   color: var(--kb-muted-foreground);
   font-size: 13px;
@@ -444,13 +444,13 @@ watch(dayDetailVisible, (v) => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--kb-border);
 }
 .rdd-foot-tip {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin: 0;
   font-size: 11px;
   color: var(--kb-muted-foreground);

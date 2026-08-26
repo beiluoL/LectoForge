@@ -6,7 +6,7 @@
         <div class="cmdk-card" role="dialog" aria-modal="true" aria-label="全局搜索">
           <!-- 顶部：搜索图标 + 输入框（自动聚焦）+ ESC 提示 -->
           <div class="cmdk-input-row">
-            <Icon name="search" :size="18" class="cmdk-input-ic" />
+            <Icon name="search" :size="'lg'" class="cmdk-input-ic" />
             <input
               ref="inputRef"
               v-model="query"
@@ -36,8 +36,26 @@
 
             <!-- 空态：未输入时给提示，有输入但无结果给「暂无结果」 -->
             <template v-else-if="results.length === 0">
+              <template v-if="!query.trim() && recentNotes.length">
+                <p class="cmdk-group-label">最近笔记</p>
+                <button
+                  v-for="n in recentNotes"
+                  :key="n.id"
+                  type="button"
+                  class="cmdk-row"
+                  @click="goNote(n)"
+                >
+                  <span class="cmdk-row-ic">
+                    <Icon name="notebook-pen" :size="'md'" />
+                  </span>
+                  <span class="cmdk-row-body">
+                    <span class="cmdk-row-title">{{ n.title }}</span>
+                  </span>
+                  <span class="cmdk-row-tag">笔记</span>
+                </button>
+              </template>
               <div class="cmdk-empty">
-                {{ query.trim() ? '暂无结果' : '输入关键词，搜索 收集箱 / 笔记 / 故事' }}
+                {{ query.trim() ? '暂无结果' : '输入关键词，搜索 收集箱 / 笔记 / 故事；或点上面的最近笔记快速直达' }}
               </div>
             </template>
 
@@ -53,7 +71,7 @@
                 @click="go(item)"
               >
                 <span class="cmdk-row-ic">
-                  <Icon :name="TYPE_META[item.type].icon" :size="16" />
+                  <Icon :name="TYPE_META[item.type].icon" :size="'md'" />
                 </span>
                 <span class="cmdk-row-body">
                   <span class="cmdk-row-title">{{ item.title }}</span>
@@ -77,18 +95,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useDebounceFn } from '@vueuse/core';
 import Icon from '@/components/ui/Icon.vue';
 import { useSearchStore } from '@/store/search-store';
+import { useNoteStore } from '@/store/note-store';
 import { ENTITY_TYPE_META } from '@/constants/entity';
 import type { SearchResult, SearchType } from '@/api/search';
 
 const router = useRouter();
 const store = useSearchStore();
+const noteStore = useNoteStore();
 const { isOpen, query, results, loading } = storeToRefs(store);
+
+/** 最近笔记：按 updateTime 取前 5（未输入时展示） */
+const recentNotes = computed(() =>
+  [...noteStore.notes]
+    .sort((a, b) => String(b.updateTime ?? '').localeCompare(String(a.updateTime ?? '')))
+    .slice(0, 5),
+);
 
 /**
  * 类型 → 图标 + 中文标签（图标走项目统一的 lucide 包装器 Icon.vue）。
@@ -158,6 +185,11 @@ function go(item: SearchResult) {
   router.push(item.path);
   store.closePalette();
 }
+
+function goNote(n: { id: number; title: string }) {
+  router.push(`/workbench/notes/${n.id}`)
+  store.closePalette()
+}
 </script>
 
 <style scoped>
@@ -211,8 +243,8 @@ function go(item: SearchResult) {
 .cmdk-input-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 16px 16px;
   border-bottom: 1px solid var(--kb-border);
 }
 .cmdk-input-ic {
@@ -233,7 +265,7 @@ function go(item: SearchResult) {
 .cmdk-kbd {
   font-family: var(--font-mono);
   font-size: 11px;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 5px;
   border: 1px solid var(--kb-border);
   background: var(--kb-muted);
@@ -244,7 +276,7 @@ function go(item: SearchResult) {
 .cmdk-list {
   flex: 1;
   overflow-y: auto;
-  padding: 6px;
+  padding: 8px;
 }
 .cmdk-row {
   display: flex;
@@ -252,7 +284,7 @@ function go(item: SearchResult) {
   gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-md);
   border: none;
   background: transparent;
@@ -311,6 +343,13 @@ function go(item: SearchResult) {
   color: var(--kb-muted-foreground);
   font-size: 13px;
 }
+.cmdk-group-label {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-size: var(--kb-fs-xs);
+  font-weight: 600;
+  color: var(--kb-muted-foreground);
+}
 
 /* 骨架屏 */
 .cmdk-skeleton-row {
@@ -327,7 +366,7 @@ function go(item: SearchResult) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .cmdk-sk-line {
   height: 10px;
@@ -346,8 +385,8 @@ function go(item: SearchResult) {
 }
 .cmdk-foot kbd {
   font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 1px 5px;
+  font-size: var(--kb-fs-xs);
+  padding: 1px 4px;
   margin-right: 2px;
   border-radius: 4px;
   border: 1px solid var(--kb-border);

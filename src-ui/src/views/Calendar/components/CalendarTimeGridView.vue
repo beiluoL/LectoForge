@@ -20,7 +20,7 @@
           :style="dayHeaderStyle(cell)"
         >
           <div class="text-center">
-            <div class="text-[10px]" :style="{ color: 'var(--kb-muted-foreground)' }">
+            <div class="text-[11px]" :style="{ color: 'var(--kb-muted-foreground)' }">
               {{ cell.weekdayLabel }}
             </div>
             <div
@@ -36,7 +36,7 @@
             <div
               v-for="ev in allDayOf(cell.key)"
               :key="eventKey(ev)"
-              class="truncate rounded px-1 py-[1px] text-[10px] cursor-pointer"
+              class="truncate rounded px-1 py-[1px] text-[11px] cursor-pointer"
               :class="[isTaskSource(ev) ? 'dt-task-line' : 'dt-event-chip', ev.taskCompleted === 1 ? 'line-through opacity-55' : '']"
               :style="isTaskSource(ev) ? taskLineStyle(ev) : { background: ev.color }"
               :title="ev.title"
@@ -63,7 +63,7 @@
           <div
             v-for="h in 24"
             :key="h"
-            class="relative text-right pr-2 text-[10px]"
+            class="relative text-right pr-2 text-[11px]"
             :style="{ height: HOUR_H + 'px', color: 'var(--kb-muted-foreground)' }"
           >
             <span v-if="h > 1" class="absolute -top-2 right-2 tabular-nums">{{ String(h - 1).padStart(2, '0') }}:00</span>
@@ -97,7 +97,7 @@
               @click.stop="onEventClick(cell.key, pos.ev)"
             >
               <div class="font-medium truncate" style="color:#1A1D23">{{ pos.ev.title }}</div>
-              <div class="opacity-90 truncate text-[10px]" style="color:#1A1D23">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
+              <div class="opacity-90 truncate text-[11px]" style="color:#1A1D23">{{ formatHM(pos.ev.startTime) }}–{{ formatHM(pos.ev.endTime || pos.ev.startTime) }}</div>
             </div>
           </div>
 

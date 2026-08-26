@@ -7,7 +7,7 @@
   >
     <!-- 主题背景提示 -->
     <div class="absolute top-3 left-3 flex items-center gap-1.5 text-[12px]" style="color: var(--kb-muted-foreground);">
-      <Icon name="layout-grid" :size="14" /> {{ themeLabel }} 场景
+      <Icon name="layout-grid" :size="'sm'" /> {{ themeLabel }} 场景
     </div>
 
     <div
@@ -27,7 +27,7 @@
           transform: selectedId === l.id ? 'scale(1.15)' : 'scale(1)',
         }"
       >
-        <Icon :name="l.icon || 'map-pin'" :size="18" />
+        <Icon :name="l.icon || 'map-pin'" :size="'lg'" />
       </div>
       <div
         class="absolute left-1/2 -translate-x-1/2 mt-1 px-2 py-0.5 rounded text-[11px] whitespace-nowrap"

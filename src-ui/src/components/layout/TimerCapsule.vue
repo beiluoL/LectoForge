@@ -133,7 +133,8 @@ function openPomodoro() {
   font-variant-numeric: tabular-nums;
   color: var(--kb-foreground);
   letter-spacing: 0.02em;
-  padding: 0 1px;
+  padding: 10px 5px;
+  margin: -10px -5px;
   background: none;
   border: 0;
   cursor: pointer;
@@ -150,8 +151,8 @@ function openPomodoro() {
   box-sizing: content-box;
   width: 18px;
   height: 18px;
-  padding: 7px;
-  margin: -7px;
+  padding: 8px;
+  margin: -8px;
   border: 0;
   border-radius: 9999px;
   background: transparent;

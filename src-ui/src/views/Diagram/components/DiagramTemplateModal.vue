@@ -211,7 +211,7 @@ function close() {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 18px 20px 12px;
+  padding: 16px 20px 12px;
   border-bottom: 1px solid var(--kb-border);
 }
 .lf-tpl-title {
@@ -244,15 +244,15 @@ function close() {
 .lf-tpl-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
-  gap: 14px;
-  padding: 18px 20px 22px;
+  gap: 16px;
+  padding: 16px 20px 24px;
   overflow-y: auto;
 }
 .lf-tpl-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid var(--kb-border);
   border-radius: 12px;
   background: var(--kb-background);
@@ -295,7 +295,7 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
 }
 .lf-tpl-name {
   font-size: 13px;
@@ -303,8 +303,8 @@ function close() {
   color: var(--kb-foreground);
 }
 .lf-tpl-cat {
-  font-size: 10px;
-  padding: 1px 6px;
+  font-size: var(--kb-fs-xs);
+  padding: 1px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--kb-primary) 14%, transparent);
   color: var(--kb-primary);

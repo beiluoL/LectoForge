@@ -9,7 +9,7 @@
     >
       <div class="conn-card">
         <div class="conn-spinner" aria-hidden="true">
-          <Icon name="loader-2" :size="28" />
+          <Icon name="loader-2" :size="'28px'" />
         </div>
 
         <h3 class="conn-title">知识引擎断连，正在尝试重连…</h3>
@@ -26,11 +26,11 @@
         <!-- 前几次静默等待即可；久不恢复才给用户干预入口，避免一断线就吓人 -->
         <div v-if="connectionState.attempt >= 4" class="conn-actions">
           <button type="button" class="kb-btn kb-btn-sm" @click="retryNow">
-            <Icon name="refresh-cw" :size="14" />
+            <Icon name="refresh-cw" :size="'sm'" />
             立即重试
           </button>
           <button type="button" class="kb-btn kb-btn-sm kb-btn-primary" @click="onRestart">
-            <Icon name="zap" :size="14" />
+            <Icon name="zap" :size="'sm'" />
             重启知识引擎
           </button>
         </div>
@@ -123,7 +123,7 @@ onUnmounted(() => {
   justify-content: center;
   width: 52px;
   height: 52px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   color: var(--kb-primary);
   border-radius: 50%;
   background: color-mix(in srgb, var(--kb-primary) 10%, transparent);
@@ -146,7 +146,7 @@ onUnmounted(() => {
 }
 
 .conn-desc {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   font-size: 13px;
   line-height: 1.6;
   color: var(--kb-muted-foreground);
@@ -156,7 +156,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--kb-muted-foreground);
@@ -169,8 +169,8 @@ onUnmounted(() => {
 .conn-actions {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .conn-fade-enter-active,

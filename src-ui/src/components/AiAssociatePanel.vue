@@ -2,15 +2,15 @@
   <section class="ai-assoc-panel">
     <div class="ai-assoc-head">
       <h3 class="ai-assoc-title">
-        <Icon name="compass" :size="16" style="color: var(--kb-primary);" /> 相关内容
+        <Icon name="compass" :size="'md'" style="color: var(--kb-primary);" /> 相关内容
       </h3>
       <div class="ai-assoc-actions">
         <button class="kb-btn ai-btn ai-assoc-btn" :disabled="syncing" @click="rebuild">
-          <Icon :name="syncing ? 'loader' : 'refresh-cw'" :size="14" :class="{ 'ai-spin': syncing }" />
+          <Icon :name="syncing ? 'loader' : 'refresh-cw'" :size="'sm'" :class="{ 'ai-spin': syncing }" />
           {{ syncing ? '索引中…' : '重建索引' }}
         </button>
         <button class="kb-btn ai-btn ai-assoc-btn" :disabled="loading" @click="runAssociate">
-          <Icon :name="loading ? 'loader' : 'link'" :size="14" :class="{ 'ai-spin': loading }" />
+          <Icon :name="loading ? 'loader' : 'link'" :size="'sm'" :class="{ 'ai-spin': loading }" />
           {{ loading ? '检索中…' : '查找关联' }}
         </button>
       </div>
@@ -18,7 +18,7 @@
     <p class="ai-assoc-desc">基于本地向量，找出与本文最相似的笔记 / 收集箱 / 故事，串成学习路径，数据不出本机。</p>
 
     <div v-if="hintVisible" class="ai-hint">
-      <Icon name="info" :size="14" />
+      <Icon name="info" :size="'sm'" />
       <span>未配置向量化服务，无法做内容关联。</span>
       <router-link to="/settings">前往 AI 设置</router-link>
     </div>
@@ -29,7 +29,7 @@
 
     <div v-if="result" class="ai-panel">
       <div class="ai-panel-head">
-        <span class="ai-panel-title"><Icon name="link" :size="14" /> 关联结果</span>
+        <span class="ai-panel-title"><Icon name="link" :size="'sm'" /> 关联结果</span>
         <span class="ai-meta">{{ result.model }} · {{ result.latencyMs }}ms</span>
       </div>
       <ul class="assoc-list">
@@ -117,7 +117,7 @@ async function rebuild() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .ai-assoc-title {
@@ -136,7 +136,7 @@ async function rebuild() {
 }
 .ai-assoc-btn {
   font-size: 12px;
-  padding: 6px 12px;
+  padding: 8px 12px;
 }
 .ai-assoc-desc {
   margin: 0;

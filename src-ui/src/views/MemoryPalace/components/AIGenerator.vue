@@ -6,7 +6,7 @@
           <span class="wb-eyebrow wb-eyebrow-sm">AI Loci</span>
           <h2 class="wb-drawer-title">AI 生成记忆位点</h2>
         </div>
-        <button class="wb-icon-btn" @click="$emit('update:show', false)"><Icon name="x" :size="18" /></button>
+        <button class="wb-icon-btn" @click="$emit('update:show', false)"><Icon name="x" :size="'lg'" /></button>
       </header>
       <div class="wb-drawer-body">
         <p class="kb-body-sm mb-3" style="color: var(--kb-muted-foreground);">
@@ -30,13 +30,13 @@
           </div>
 
           <div v-if="hint" class="ai-hint">
-            <Icon name="info" :size="14" />
+            <Icon name="info" :size="'sm'" />
             <span>未配置 AI 服务，无法生成位点。</span>
             <router-link to="/settings">前往 AI 设置</router-link>
           </div>
 
           <button class="kb-btn ai-btn w-full" :disabled="generating" @click="$emit('generate')">
-            <Icon :name="generating ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': generating }" />
+            <Icon :name="generating ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': generating }" />
             {{ generating ? '生成中…' : '生成位点' }}
           </button>
 
@@ -57,7 +57,7 @@
               </p>
             </div>
             <button class="kb-btn kb-btn-primary w-full" :disabled="adding" @click="$emit('add-all')">
-              <Icon :name="adding ? 'loader' : 'check'" :size="14" :class="{ 'ai-spin': adding }" />
+              <Icon :name="adding ? 'loader' : 'check'" :size="'sm'" :class="{ 'ai-spin': adding }" />
               {{ adding ? '添加中…' : '全部添加到宫殿' }}
             </button>
           </div>

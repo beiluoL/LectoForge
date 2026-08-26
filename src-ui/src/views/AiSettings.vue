@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
         <h1 class="kb-h1 mb-1 flex items-center gap-2" style="color: var(--kb-foreground);">
-          <Icon name="ai-sparkle" :size="24" style="color: var(--kb-highlight);" /> AI 设置
+          <Icon name="ai-sparkle" :size="'2xl'" style="color: var(--kb-highlight);" /> AI 设置
         </h1>
         <p class="kb-body" style="color: var(--kb-muted-foreground);">
           配置一次，全局生效。所有 AI 能力均为可选增强，不配置也不影响任何原有功能。
@@ -12,7 +12,7 @@
       </div>
       <div class="flex items-center gap-2">
         <button class="kb-btn" @click="router.back()">
-          <Icon name="chevron-left" :size="16" /> 返回
+          <Icon name="chevron-left" :size="'md'" /> 返回
         </button>
       </div>
     </div>
@@ -22,7 +22,7 @@
       <section class="ai-card">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <h2 class="ai-card-title">
-            <Icon name="server" :size="18" style="color: var(--kb-primary);" /> 模型服务
+            <Icon name="server" :size="'lg'" style="color: var(--kb-primary);" /> 模型服务
           </h2>
           <span class="ai-status" :class="statusClass">
             <i class="ai-status-dot"></i>{{ statusText }}
@@ -74,7 +74,7 @@
                 title="清空已保存的 Key"
                 @click="clearKey"
               >
-                <Icon name="trash-2" :size="14" /> 清空
+                <Icon name="trash-2" :size="'sm'" /> 清空
               </button>
             </div>
             <p class="ai-field-hint">
@@ -109,14 +109,14 @@
 
         <div class="flex items-center gap-2 flex-wrap">
           <button class="kb-btn kb-btn-primary" :disabled="saving" @click="save">
-            <Icon name="save" :size="14" :class="saving ? 'ai-spin' : ''" /> 保存配置
+            <Icon name="save" :size="'sm'" :class="saving ? 'ai-spin' : ''" /> 保存配置
           </button>
           <button class="kb-btn ai-btn" :disabled="testing" @click="test">
-            <Icon :name="testing ? 'loader' : 'zap'" :size="14" :class="testing ? 'ai-spin' : ''" />
+            <Icon :name="testing ? 'loader' : 'zap'" :size="'sm'" :class="testing ? 'ai-spin' : ''" />
             {{ testing ? '测试中…' : '测试连通性' }}
           </button>
           <span v-if="testResult" class="ai-meta">
-            <Icon name="check-circle" :size="12" style="color: var(--kb-accent);" />
+            <Icon name="check-circle" :size="'xs'" style="color: var(--kb-accent);" />
             {{ testResult.model }} · {{ testResult.latencyMs }}ms · 回显「{{ testResult.reply }}」
           </span>
         </div>
@@ -126,7 +126,7 @@
       <section class="ai-card">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <h2 class="ai-card-title">
-            <Icon name="boxes" :size="18" style="color: var(--kb-primary);" /> 向量化服务（内容关联）
+            <Icon name="boxes" :size="'lg'" style="color: var(--kb-primary);" /> 向量化服务（内容关联）
           </h2>
           <span class="ai-status" :class="saved.embeddingsConfigured ? 'is-ok' : 'is-err'">
             <i class="ai-status-dot"></i>{{ saved.embeddingsConfigured ? '已配置' : '未配置（可选）' }}
@@ -171,7 +171,7 @@
                 title="清空已保存的向量化 Key"
                 @click="clearEmbeddingKey"
               >
-                <Icon name="trash-2" :size="14" /> 清空
+                <Icon name="trash-2" :size="'sm'" /> 清空
               </button>
             </div>
             <p class="ai-field-hint">
@@ -184,20 +184,20 @@
       <!-- ===== 能力清单 ===== -->
       <section class="ai-card">
         <h2 class="ai-card-title">
-          <Icon name="brain-circuit" :size="18" style="color: var(--kb-primary);" /> 已接入的 AI 能力
+          <Icon name="brain-circuit" :size="'lg'" style="color: var(--kb-primary);" /> 已接入的 AI 能力
         </h2>
         <p class="ai-card-desc">
           每项能力都是「按需触发 + 结果可编辑」：AI 只把结果填进输入框，是否采纳、是否保存由你决定。
         </p>
         <div class="ai-cap-list">
           <article v-for="c in capabilities" :key="c.name" class="ai-cap">
-            <span class="ai-cap-icon"><Icon :name="c.icon" :size="16" /></span>
+            <span class="ai-cap-icon"><Icon :name="c.icon" :size="'md'" /></span>
             <div class="ai-cap-body">
               <p class="ai-cap-name">{{ c.name }}</p>
               <p class="ai-cap-desc">{{ c.desc }}</p>
             </div>
             <router-link :to="c.to" class="kb-btn kb-btn-sm" style="flex-shrink: 0;">
-              前往 <Icon name="chevron-right" :size="12" />
+              前往 <Icon name="chevron-right" :size="'xs'" />
             </router-link>
           </article>
         </div>

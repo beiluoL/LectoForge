@@ -14,7 +14,7 @@
               Step 03 · 复习 · Memory Palace
             </span>
             <h1 class="wb-title">
-              <Icon name="map-pin" :size="28" class="wb-title-icon" />
+              <Icon name="map-pin" :size="'28px'" class="wb-title-icon" />
               知识复习 · 记忆宫殿
             </h1>
             <p class="wb-subtitle">
@@ -24,10 +24,10 @@
           </div>
           <div class="wb-hero-actions">
             <router-link to="/workbench/review" class="kb-btn wb-ghost-btn">
-              <Icon name="repeat" :size="14" /> 间隔重复
+              <Icon name="repeat" :size="'sm'" /> 间隔重复
             </router-link>
             <button class="kb-btn kb-btn-primary wb-cta" @click="$emit('open-create')">
-              <Icon name="plus" :size="16" /> 新建宫殿
+              <Icon name="plus" :size="'md'" /> 新建宫殿
             </button>
           </div>
         </div>
@@ -53,17 +53,17 @@
       <div v-if="loading" class="wb-palace-grid">
         <div v-for="n in 3" :key="n" class="wb-palace-card wb-skeleton">
           <div class="wb-skel-line" style="width: 40px; height: 40px; border-radius: 10px;"></div>
-          <div class="wb-skel-line" style="width: 70%; height: 18px; margin-top: 10px;"></div>
+          <div class="wb-skel-line" style="width: 70%; height: 18px; margin-top: 12px;"></div>
           <div class="wb-skel-line" style="width: 90%; height: 12px;"></div>
         </div>
       </div>
 
       <div v-else-if="palaces.length === 0" class="wb-empty">
-        <div class="wb-empty-icon"><Icon name="map-pin" :size="40" /></div>
+        <div class="wb-empty-icon"><Icon name="map-pin" :size="'40px'" /></div>
         <h3 class="wb-empty-title">还没有记忆宫殿</h3>
         <p class="wb-empty-desc">创建一个你熟悉的空间场景，开始挂靠知识点。</p>
         <button class="kb-btn kb-btn-primary" @click="$emit('open-create')">
-          <Icon name="plus" :size="14" /> 创建第一个
+          <Icon name="plus" :size="'sm'" /> 创建第一个
         </button>
       </div>
 
@@ -77,7 +77,7 @@
         >
           <div class="wb-palace-cover">
             <div class="wb-palace-cover-icon">
-              <Icon name="map-pin" :size="28" />
+              <Icon name="map-pin" :size="'28px'" />
             </div>
             <div class="wb-palace-cover-grid" aria-hidden="true">
               <span></span><span></span><span></span>
@@ -95,10 +95,10 @@
           <div class="wb-palace-foot">
             <span class="wb-palace-cta">
               进入编辑
-              <Icon name="arrow-right" :size="14" />
+              <Icon name="arrow-right" :size="'sm'" />
             </span>
             <button class="wb-icon-btn" title="删除" @click.stop="$emit('delete-palace', p)">
-              <Icon name="trash-2" :size="14" />
+              <Icon name="trash-2" :size="'sm'" />
             </button>
           </div>
         </article>
@@ -113,7 +113,7 @@
             <span class="wb-eyebrow wb-eyebrow-sm">New Palace</span>
             <h2 class="wb-drawer-title">新建记忆宫殿</h2>
           </div>
-          <button class="wb-icon-btn" @click="$emit('close-create')"><Icon name="x" :size="18" /></button>
+          <button class="wb-icon-btn" @click="$emit('close-create')"><Icon name="x" :size="'lg'" /></button>
         </header>
         <div class="wb-drawer-body">
           <div class="wb-field">
@@ -152,7 +152,7 @@
         <footer class="wb-drawer-foot">
           <button class="kb-btn" @click="$emit('close-create')">取消</button>
           <button class="kb-btn kb-btn-primary" @click="$emit('submit-create')">
-            <Icon name="check" :size="14" /> 保存
+            <Icon name="check" :size="'sm'" /> 保存
           </button>
         </footer>
       </div>
@@ -278,13 +278,13 @@ function onFormField(key: 'name' | 'description' | 'theme', ev: Event) {
   position: absolute;
   top: 10px; right: 10px;
   z-index: 1;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: rgba(0,0,0,0.35);
   backdrop-filter: blur(4px);
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -295,7 +295,7 @@ function onFormField(key: 'name' | 'description' | 'theme', ev: Event) {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .wb-palace-title {
   font-family: var(--font-serif);
@@ -320,7 +320,7 @@ function onFormField(key: 'name' | 'description' | 'theme', ev: Event) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--kb-border);
   background: var(--kb-background);
 }
@@ -339,9 +339,9 @@ function onFormField(key: 'name' | 'description' | 'theme', ev: Event) {
 .wb-color-picker {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
-  padding: 6px 0;
+  padding: 8px 0;
 }
 .wb-color-dot {
   width: 24px; height: 24px;

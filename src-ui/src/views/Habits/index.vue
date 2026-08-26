@@ -8,7 +8,7 @@
           每日坚持，积微成著
         </span>
         <h1 class="hb-title">
-          <Icon name="clipboard-check" :size="26" />
+          <Icon name="clipboard-check" :size="'26px'" />
           📋 今日习惯打卡
         </h1>
         <p class="hb-subtitle">
@@ -17,7 +17,7 @@
         </p>
       </div>
       <button class="kb-btn kb-btn-primary hb-new" :disabled="submitting" @click="openCreate">
-        <Icon name="plus" :size="15" />
+        <Icon name="plus" :size="'15px'" />
         新建习惯
       </button>
     </section>
@@ -49,11 +49,11 @@
 
       <!-- 空态 -->
       <div v-else-if="!totalCount" class="hb-empty">
-        <span class="hb-empty-icon"><Icon name="sparkles" :size="28" /></span>
+        <span class="hb-empty-icon"><Icon name="sparkles" :size="'28px'" /></span>
         <p class="hb-empty-title">还没有习惯</p>
         <p class="hb-empty-desc">点右上角「新建习惯」，从「每日阅读」「早起」这种小事开始吧。</p>
         <button class="kb-btn kb-btn-primary" @click="openCreate">
-          <Icon name="plus" :size="15" />
+          <Icon name="plus" :size="'15px'" />
           新建第一个习惯
         </button>
       </div>
@@ -81,7 +81,7 @@
           <!-- 中：图标 + 名称 + 描述 -->
           <div class="hb-card-mid">
             <span class="hb-card-icon" :style="{ background: h.color + '22', color: h.color }">
-              <Icon :name="h.iconName || 'check-circle'" :size="18" />
+              <Icon :name="h.iconName || 'check-circle'" :size="'lg'" />
             </span>
             <div class="hb-card-text">
               <p class="hb-card-name">{{ h.name }}</p>
@@ -96,7 +96,7 @@
             :style="h.todayStatus === 1 ? { background: h.color, borderColor: h.color } : {}"
             @click.stop="onToggle(h)"
           >
-            <Icon :name="h.todayStatus === 1 ? 'check' : 'circle'" :size="15" />
+            <Icon :name="h.todayStatus === 1 ? 'check' : 'circle'" :size="'15px'" />
             {{ h.todayStatus === 1 ? '已打卡' : '点击打卡' }}
           </button>
         </li>
@@ -188,12 +188,12 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 4px 14px;
+  padding: 16px 4px 16px;
 }
 .hb-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--kb-muted-foreground);
@@ -208,8 +208,8 @@ onMounted(() => {
 .hb-title {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin: 8px 0 6px;
+  gap: 8px;
+  margin: 8px 0 8px;
   font-size: 24px;
   font-weight: 800;
   color: var(--kb-foreground);
@@ -218,7 +218,7 @@ onMounted(() => {
 .hb-subtitle {
   margin: 0;
   max-width: 620px;
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   line-height: 1.7;
   color: var(--kb-muted-foreground);
 }
@@ -230,14 +230,14 @@ onMounted(() => {
 .hb-summary {
   display: flex;
   gap: 12px;
-  margin: 6px 0 18px;
+  margin: 8px 0 16px;
   flex-wrap: wrap;
 }
 .hb-summary-card {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 18px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -294,7 +294,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-lg);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -348,7 +348,7 @@ onMounted(() => {
 }
 .hb-card-desc {
   margin: 2px 0 0;
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   color: var(--kb-muted-foreground);
   white-space: nowrap;
   overflow: hidden;
@@ -358,7 +358,7 @@ onMounted(() => {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 16px;
   border-radius: 999px;
   font-size: 13px;
@@ -394,7 +394,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 48px 20px;
   text-align: center;
 }

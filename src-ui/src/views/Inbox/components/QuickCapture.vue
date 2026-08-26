@@ -17,7 +17,7 @@
       <!-- 智能去重提醒：近 7 天内已有高度相似的条目 -->
       <Transition name="qc-excerpt">
         <div v-if="duplicate" class="qc-dup">
-          <Icon name="copy-check" :size="15" class="qc-dup-icon" />
+          <Icon name="copy-check" :size="'15px'" class="qc-dup-icon" />
           <div class="qc-dup-main">
             <strong>可能重复收集</strong>
             <span>
@@ -28,7 +28,7 @@
           </div>
           <button class="qc-dup-btn" type="button" @click="gotoDuplicate">查看原条目</button>
           <button class="qc-dup-close" type="button" title="忽略" @click="store.clearDuplicate()">
-            <Icon name="x" :size="13" />
+            <Icon name="x" :size="'13px'" />
           </button>
         </div>
       </Transition>
@@ -36,12 +36,12 @@
       <!-- 附件条：已上传的录音 / 图片 / 文件 -->
       <div v-if="attachments.length" class="qc-attach">
         <div v-for="(a, i) in attachments" :key="a.url" class="qc-attach-item">
-          <Icon :name="a.kind === 'audio' ? 'mic' : a.isImage ? 'image' : 'paperclip'" :size="13" />
+          <Icon :name="a.kind === 'audio' ? 'mic' : a.isImage ? 'image' : 'paperclip'" :size="'13px'" />
           <span class="qc-attach-name" :title="a.originalName">{{ a.originalName }}</span>
           <span class="qc-attach-size">{{ prettySize(a.size) }}</span>
           <audio v-if="a.kind === 'audio'" class="qc-attach-audio" controls preload="none" :src="a.url"></audio>
           <button class="qc-attach-del" title="移除该附件" @click="removeAttachment(i)">
-            <Icon name="x" :size="12" />
+            <Icon name="x" :size="'xs'" />
           </button>
         </div>
       </div>
@@ -55,7 +55,7 @@
       <div v-else-if="clip" class="qc-clip" :class="{ 'is-fallback': !clip.ok }">
         <img v-if="clip.image" :src="clip.image" class="qc-clip-img" alt="" @error="onImgError" />
         <div v-else class="qc-clip-img qc-clip-img-ph">
-          <Icon name="link" :size="18" />
+          <Icon name="link" :size="'lg'" />
         </div>
         <div class="qc-clip-main">
           <input v-model="clipTitle" class="qc-clip-title" placeholder="网页标题" />
@@ -63,7 +63,7 @@
           <span class="qc-clip-url">{{ clip.url }}</span>
         </div>
         <button class="qc-clip-close" title="取消剪藏" @click="clearClip">
-          <Icon name="x" :size="14" />
+          <Icon name="x" :size="'sm'" />
         </button>
       </div>
     </div>
@@ -72,9 +72,9 @@
     <Transition name="qc-excerpt">
       <div v-if="excerptMode" class="qc-excerpt">
         <div class="qc-excerpt-head">
-          <span><Icon name="highlighter" :size="13" /> 摘录模式 · 粘贴网页中高亮复制的精华</span>
+          <span><Icon name="highlighter" :size="'13px'" /> 摘录模式 · 粘贴网页中高亮复制的精华</span>
           <button class="qc-excerpt-close" title="关闭" @click="excerptMode = false">
-            <Icon name="x" :size="13" />
+            <Icon name="x" :size="'13px'" />
           </button>
         </div>
         <textarea
@@ -95,7 +95,7 @@
     <div class="qc-tools">
       <!-- AI 智能建议标签：无标签且正文足够长时自动请求，用户点一下即采纳 -->
       <div v-if="suggestedTags.length" class="qc-suggest">
-        <span class="qc-suggest-label"><Icon name="sparkles" :size="12" /> AI 建议</span>
+        <span class="qc-suggest-label"><Icon name="sparkles" :size="'xs'" /> AI 建议</span>
         <button
           v-for="t in suggestedTags"
           :key="t"
@@ -104,7 +104,7 @@
           @click="adoptSuggestion(t)"
         >
           {{ t }}
-          <Icon name="plus" :size="10" />
+          <Icon name="plus" :size="'xxs'" />
         </button>
         <button class="qc-suggest-dismiss" title="忽略建议" @click="suggestedTags = []">忽略</button>
       </div>
@@ -118,7 +118,7 @@
           type="button"
           @click="toggleTag(t)"
         >
-          <Icon v-if="selectedTags.includes(t)" name="check" :size="11" />
+          <Icon v-if="selectedTags.includes(t)" name="check" :size="'11px'" />
           {{ t }}
         </button>
 
@@ -134,7 +134,7 @@
           @blur="commitCustomTag"
         />
         <button v-else class="qc-tag qc-tag-add" type="button" @click="startCustomTag">
-          <Icon name="plus" :size="11" /> 标签
+          <Icon name="plus" :size="'11px'" /> 标签
         </button>
       </div>
 
@@ -153,7 +153,7 @@
           :title="recording ? '停止录音并收集' : '语音灵感：录下来，稍后再整理'"
           @click="toggleRecord"
         >
-          <Icon :name="recording ? 'square' : 'mic'" :size="12" />
+          <Icon :name="recording ? 'square' : 'mic'" :size="'xs'" />
           {{ recording ? elapsedText : '语音' }}
         </button>
         <button
@@ -163,7 +163,7 @@
           title="放弃这段录音"
           @click="discardRecord"
         >
-          <Icon name="trash-2" :size="12" />
+          <Icon name="trash-2" :size="'xs'" />
         </button>
 
         <!-- 附件：图片 / PDF / 任意文件，也支持直接往输入框粘贴截图 -->
@@ -174,7 +174,7 @@
           title="添加附件（也可直接 ⌘V 粘贴截图）"
           @click="fileRef?.click()"
         >
-          <Icon :name="uploading ? 'loader' : 'paperclip'" :size="12" :class="{ 'qc-spin': uploading }" />
+          <Icon :name="uploading ? 'loader' : 'paperclip'" :size="'xs'" :class="{ 'qc-spin': uploading }" />
           附件
         </button>
         <input
@@ -194,7 +194,7 @@
           title="截图"
           @click="startScreenshot"
         >
-          <Icon name="screenshot" :size="12" /> 截图
+          <Icon name="screenshot" :size="'xs'" /> 截图
         </button>
 
         <!-- OCR 扫描：拍照 / 选图 → 离线识别文字 → 插入正文 -->
@@ -204,7 +204,7 @@
           title="OCR 扫描文字（离线识别）"
           @click="showOcr = true"
         >
-          <Icon name="scan" :size="12" /> 扫描
+          <Icon name="scan" :size="'xs'" /> 扫描
         </button>
 
         <!-- 语音转写：录音 → 离线 whisper 转写 → 插入正文 -->
@@ -218,14 +218,14 @@
         >
           <Icon
             :name="stt.transcribing.value ? 'loader' : stt.recording.value ? 'square' : 'mic'"
-            :size="12"
+            :size="'xs'"
             :class="{ 'qc-spin': stt.transcribing.value }"
           />
           {{ stt.transcribing.value ? '转写中' : stt.recording.value ? stt.elapsedText.value : '语音转写' }}
         </button>
 
         <button class="kb-btn kb-btn-sm" type="button" title="摘录模式" @click="openExcerpt">
-          <Icon name="highlighter" :size="12" /> 摘录
+          <Icon name="highlighter" :size="'xs'" /> 摘录
         </button>
         <span class="qc-hint">{{ hint }}</span>
         <button
@@ -233,7 +233,7 @@
           :disabled="!canSubmit || submitting"
           @click="submit"
         >
-          <Icon :name="submitting ? 'loader' : 'send-horizontal'" :size="14" :class="{ 'qc-spin': submitting }" />
+          <Icon :name="submitting ? 'loader' : 'send-horizontal'" :size="'sm'" :class="{ 'qc-spin': submitting }" />
           {{ submitting ? '收集中' : '收集' }}
         </button>
       </div>
@@ -746,7 +746,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* ===== 输入框 ===== */
@@ -764,7 +764,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-textarea {
   display: block;
   width: 100%;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border: none;
   outline: none;
   resize: vertical;
@@ -786,7 +786,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
   gap: 12px;
   align-items: flex-start;
   margin: 0 12px 12px;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -900,7 +900,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-tags {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -909,7 +909,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
   align-items: center;
   gap: 4px;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -936,7 +936,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-tag-input {
   height: 26px;
   width: 128px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-primary);
   background: var(--kb-card);
@@ -948,7 +948,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-left: auto;
 }
 .qc-hint {
@@ -983,7 +983,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-excerpt-head span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .qc-excerpt-close {
   width: 22px;
@@ -1004,7 +1004,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-excerpt-area {
   display: block;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border: none;
   outline: none;
   resize: vertical;
@@ -1019,7 +1019,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px 10px;
+  padding: 8px 12px 12px;
 }
 .qc-excerpt-tip {
   font-size: var(--kb-fs-xs);
@@ -1039,10 +1039,10 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-suggest {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   width: 100%;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--kb-highlight) 8%, transparent);
   border: 1px dashed color-mix(in srgb, var(--kb-highlight) 40%, transparent);
@@ -1078,9 +1078,9 @@ defineExpose({ focus: () => taRef.value?.focus() });
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin: 0 12px 12px;
-  padding: 9px 34px 9px 11px;
+  padding: 8px 34px 8px 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--kb-highlight) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--kb-highlight) 45%, transparent);
@@ -1147,14 +1147,14 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-attach {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin: 0 12px 12px;
 }
 .qc-attach-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 8px 8px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -1219,7 +1219,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
 .qc-draft-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
   cursor: pointer;

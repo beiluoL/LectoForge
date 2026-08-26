@@ -6,7 +6,7 @@
           <span class="wb-eyebrow wb-eyebrow-sm">Edit Loci</span>
           <h2 class="wb-drawer-title">{{ editingId ? '编辑位点' : '添加位点' }}</h2>
         </div>
-        <button class="wb-icon-btn" @click="$emit('update:show', false)"><Icon name="x" :size="18" /></button>
+        <button class="wb-icon-btn" @click="$emit('update:show', false)"><Icon name="x" :size="'lg'" /></button>
       </header>
       <div class="wb-drawer-body">
         <div class="space-y-3">
@@ -30,7 +30,7 @@
                 style="padding: 2px 8px; font-size: 11px;"
                 :title="aiBusy ? '生成中…' : '让 AI 重新润色联想图描述'"
               >
-                <Icon :name="aiBusy ? 'loader' : 'ai-sparkle'" :size="12" :class="{ 'ai-spin': aiBusy }" />
+                <Icon :name="aiBusy ? 'loader' : 'ai-sparkle'" :size="'xs'" :class="{ 'ai-spin': aiBusy }" />
                 {{ aiBusy ? '生成中' : 'AI 重新生成' }}
               </button>
             </label>

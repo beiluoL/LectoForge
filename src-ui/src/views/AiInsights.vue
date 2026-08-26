@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
         <h1 class="kb-h1 mb-1 flex items-center gap-2" style="color: var(--kb-foreground);">
-          <Icon name="ai-sparkle" :size="24" style="color: var(--kb-highlight);" /> AI 学习洞察
+          <Icon name="ai-sparkle" :size="'2xl'" style="color: var(--kb-highlight);" /> AI 学习洞察
         </h1>
         <p class="kb-body" style="color: var(--kb-muted-foreground);">
           把你的学习数据讲成人话：周报看趋势，诊断看薄弱。全部基于本地只读统计，不改动任何记录。
@@ -11,7 +11,7 @@
       </div>
       <div class="flex items-center gap-2">
         <button class="kb-btn" @click="router.back()">
-          <Icon name="chevron-left" :size="16" /> 返回
+          <Icon name="chevron-left" :size="'md'" /> 返回
         </button>
       </div>
     </div>
@@ -21,23 +21,23 @@
       <section class="ai-card">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <h2 class="ai-card-title">
-            <Icon name="bar-chart-3" :size="18" style="color: var(--kb-primary);" /> 学习周报 / 洞察
+            <Icon name="bar-chart-3" :size="'lg'" style="color: var(--kb-primary);" /> 学习周报 / 洞察
           </h2>
           <button class="kb-btn ai-btn" :disabled="reportLoading" @click="runReport">
-            <Icon :name="reportLoading ? 'loader' : 'ai-sparkle'" :size="14" :class="reportLoading ? 'ai-spin' : ''" />
+            <Icon :name="reportLoading ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="reportLoading ? 'ai-spin' : ''" />
             {{ reportLoading ? '生成中…' : '生成周报' }}
           </button>
         </div>
         <p class="ai-card-desc">聚合概览与近 30 天遗忘曲线，由 AI 总结趋势并给可执行建议。</p>
 
         <div v-if="aiHintVisible" class="ai-hint">
-          <Icon name="info" :size="14" />
+          <Icon name="info" :size="'sm'" />
           <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="report" class="ai-panel">
           <div class="ai-panel-head">
-            <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" /> 本周洞察</span>
+            <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" /> 本周洞察</span>
             <span class="ai-meta">{{ report.model }} · {{ report.latencyMs }}ms</span>
           </div>
           <p v-if="report.summary" class="insight-summary">{{ report.summary }}</p>
@@ -60,23 +60,23 @@
       <section class="ai-card">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <h2 class="ai-card-title">
-            <Icon name="target" :size="18" style="color: var(--kb-primary);" /> 薄弱点诊断
+            <Icon name="target" :size="'lg'" style="color: var(--kb-primary);" /> 薄弱点诊断
           </h2>
           <button class="kb-btn ai-btn" :disabled="weakLoading" @click="runDiagnose">
-            <Icon :name="weakLoading ? 'loader' : 'ai-sparkle'" :size="14" :class="weakLoading ? 'ai-spin' : ''" />
+            <Icon :name="weakLoading ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="weakLoading ? 'ai-spin' : ''" />
             {{ weakLoading ? '诊断中…' : '开始诊断' }}
           </button>
         </div>
         <p class="ai-card-desc">读取近 60 天答错/遗忘的复习记录，归纳你常在哪类知识上翻车。</p>
 
         <div v-if="aiHintVisible" class="ai-hint">
-          <Icon name="info" :size="14" />
+          <Icon name="info" :size="'sm'" />
           <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="weak" class="ai-panel">
           <div class="ai-panel-head">
-            <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" /> 诊断结果</span>
+            <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" /> 诊断结果</span>
             <span class="ai-meta">{{ weak.model }} · {{ weak.latencyMs }}ms</span>
           </div>
           <p v-if="weak.summary" class="insight-summary">{{ weak.summary }}</p>
@@ -99,23 +99,23 @@
       <section class="ai-card">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <h2 class="ai-card-title">
-            <Icon name="list-ordered" :size="18" style="color: var(--kb-primary);" /> 智能复习推荐
+            <Icon name="list-ordered" :size="'lg'" style="color: var(--kb-primary);" /> 智能复习推荐
           </h2>
           <button class="kb-btn ai-btn" :disabled="recLoading" @click="runRecommend">
-            <Icon :name="recLoading ? 'loader' : 'ai-sparkle'" :size="14" :class="recLoading ? 'ai-spin' : ''" />
+            <Icon :name="recLoading ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="recLoading ? 'ai-spin' : ''" />
             {{ recLoading ? '分析中…' : '生成推荐' }}
           </button>
         </div>
         <p class="ai-card-desc">综合排程到期、易度因子与近 60 天遗忘记录，给出优先复习项与方式。</p>
 
         <div v-if="aiHintVisible" class="ai-hint">
-          <Icon name="info" :size="14" />
+          <Icon name="info" :size="'sm'" />
           <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
         <div v-if="rec" class="ai-panel">
           <div class="ai-panel-head">
-            <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" /> 复习建议</span>
+            <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" /> 复习建议</span>
             <span class="ai-meta">{{ rec.model }} · {{ rec.latencyMs }}ms</span>
           </div>
           <p v-if="rec.summary" class="insight-summary">{{ rec.summary }}</p>
@@ -142,17 +142,17 @@
       <section class="ai-card">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <h2 class="ai-card-title">
-            <Icon name="compass" :size="18" style="color: var(--kb-primary);" /> 内容关联 / 学习路径
+            <Icon name="compass" :size="'lg'" style="color: var(--kb-primary);" /> 内容关联 / 学习路径
           </h2>
           <button class="kb-btn ai-btn" :disabled="syncLoading" @click="runSync">
-            <Icon :name="syncLoading ? 'loader' : 'refresh-cw'" :size="14" :class="syncLoading ? 'ai-spin' : ''" />
+            <Icon :name="syncLoading ? 'loader' : 'refresh-cw'" :size="'sm'" :class="syncLoading ? 'ai-spin' : ''" />
             {{ syncLoading ? '索引中…' : '重建向量索引' }}
           </button>
         </div>
         <p class="ai-card-desc">用本地向量把相似笔记、收集箱与故事串成学习路径，数据不出本机。</p>
 
         <div v-if="aiHintVisible" class="ai-hint">
-          <Icon name="info" :size="14" />
+          <Icon name="info" :size="'sm'" />
           <span>尚未配置 AI 服务，<router-link to="/settings">前往 AI 设置</router-link> 后即可使用。</span>
         </div>
 
@@ -163,14 +163,14 @@
         <div class="assoc-box">
           <textarea v-model="assocText" class="assoc-input" rows="2" placeholder="输入一个概念或粘贴一段笔记，查找相关内容（例如：什么是闭包？）"></textarea>
           <button class="kb-btn ai-btn" :disabled="assocLoading" @click="runAssociate">
-            <Icon :name="assocLoading ? 'loader' : 'link'" :size="14" :class="assocLoading ? 'ai-spin' : ''" />
+            <Icon :name="assocLoading ? 'loader' : 'link'" :size="'sm'" :class="assocLoading ? 'ai-spin' : ''" />
             {{ assocLoading ? '检索中…' : '查找关联' }}
           </button>
         </div>
 
         <div v-if="assocResult" class="ai-panel">
           <div class="ai-panel-head">
-            <span class="ai-panel-title"><Icon name="link" :size="14" /> 关联结果</span>
+            <span class="ai-panel-title"><Icon name="link" :size="'sm'" /> 关联结果</span>
             <span class="ai-meta">{{ assocResult.model }} · {{ assocResult.latencyMs }}ms</span>
           </div>
           <ul class="assoc-list">
@@ -298,18 +298,18 @@ async function runAssociate() {
   line-height: 1.7;
   color: var(--kb-foreground);
   margin: 4px 0 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--kb-highlight) 8%, transparent);
 }
 .insight-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .insight-tag {
-  padding: 3px 10px;
+  padding: 3px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--kb-highlight) 12%, transparent);
   color: var(--kb-highlight);
@@ -344,7 +344,7 @@ async function runAssociate() {
 }
 .rec-method {
   display: inline-block;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--kb-highlight) 12%, transparent);
   color: var(--kb-highlight);

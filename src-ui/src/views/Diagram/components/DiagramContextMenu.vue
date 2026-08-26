@@ -208,7 +208,7 @@ function autoLayout() {
   z-index: 100;
   pointer-events: auto;
   min-width: 184px;
-  padding: 6px 0;
+  padding: 8px 0;
   background: var(--kb-popover);
   border: 1px solid var(--kb-border);
   border-radius: 10px;
@@ -221,7 +221,7 @@ function autoLayout() {
 }
 .lf-context-title {
   margin: 0;
-  padding: 6px 12px;
+  padding: 8px 12px;
   font-size: 11px;
   font-weight: 600;
   color: var(--kb-muted-foreground);
@@ -232,14 +232,14 @@ function autoLayout() {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
-  padding: 0 10px 6px;
+  padding: 0 12px 8px;
 }
 .lf-context-grid-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 6px 2px;
+  padding: 8px 2px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -269,7 +269,7 @@ function autoLayout() {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 7px 12px;
+  padding: 8px 12px;
   border: none;
   background: transparent;
   color: var(--kb-foreground);

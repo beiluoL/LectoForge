@@ -266,17 +266,17 @@ function stopResize() {
 .lf-library-tip {
   font-size: 11px;
   color: var(--kb-muted-foreground);
-  margin: 2px 0 10px;
+  margin: 2px 0 12px;
 }
 .lf-group {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .lf-group-head {
   display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
-  padding: 4px 6px;
+  padding: 4px 8px;
   margin: 0 0 8px;
   border: none;
   border-radius: 6px;

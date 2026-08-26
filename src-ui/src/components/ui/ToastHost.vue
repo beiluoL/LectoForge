@@ -12,7 +12,7 @@
         role="status"
         :aria-live="t.type === 'error' ? 'assertive' : 'polite'"
       >
-        <Icon :name="toastIcon(t.type)" :size="18" :class="toastText(t.type)" />
+        <Icon :name="toastIcon(t.type)" :size="'lg'" :class="toastText(t.type)" />
         <span class="flex-1 text-sm">{{ t.message }}</span>
         <button
           type="button"
@@ -20,7 +20,7 @@
           aria-label="关闭提示"
           @click="dismiss(t.id)"
         >
-          <Icon name="x" :size="16" />
+          <Icon name="x" :size="'md'" />
         </button>
       </div>
     </transition-group>

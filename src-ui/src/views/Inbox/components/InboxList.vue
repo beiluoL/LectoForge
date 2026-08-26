@@ -14,7 +14,7 @@
           :title="f.hint"
           @click="onFilter(f.key)"
         >
-          <Icon :name="f.icon" :size="12" />
+          <Icon :name="f.icon" :size="'xs'" />
           {{ f.label }}
         </button>
       </div>
@@ -26,7 +26,7 @@
         :title="isBatchMode ? '退出多选模式' : '进入多选模式，可批量归档 / 删除 / 沉淀'"
         @click="store.toggleBatchMode()"
       >
-        <Icon :name="isBatchMode ? 'x' : 'list-checks'" :size="12" />
+        <Icon :name="isBatchMode ? 'x' : 'list-checks'" :size="'xs'" />
         {{ isBatchMode ? '退出多选' : '多选' }}
       </button>
     </div>
@@ -56,7 +56,7 @@
             title="为每条收集项生成一篇康奈尔笔记，原条目自动归档"
             @click="runBatch('cornell')"
           >
-            <Icon name="notebook-pen" :size="12" />
+            <Icon name="notebook-pen" :size="'xs'" />
             批量沉淀
           </button>
           <button
@@ -65,7 +65,7 @@
             :disabled="!selectedCount || batchBusy"
             @click="runBatch('archive')"
           >
-            <Icon name="archive" :size="12" />
+            <Icon name="archive" :size="'xs'" />
             批量归档
           </button>
           <button
@@ -74,7 +74,7 @@
             :disabled="!selectedCount || batchBusy"
             @click="runBatch('delete')"
           >
-            <Icon name="trash-2" :size="12" />
+            <Icon name="trash-2" :size="'xs'" />
             批量删除
           </button>
         </div>
@@ -86,8 +86,8 @@
       <div v-for="i in 3" :key="i" class="il-card il-skel">
         <div class="wb-skeleton">
           <div class="wb-skel-line" style="height: 14px; width: 42%"></div>
-          <div class="wb-skel-line" style="height: 12px; width: 88%; margin-top: 10px"></div>
-          <div class="wb-skel-line" style="height: 12px; width: 64%; margin-top: 6px"></div>
+          <div class="wb-skel-line" style="height: 12px; width: 88%; margin-top: 12px"></div>
+          <div class="wb-skel-line" style="height: 12px; width: 64%; margin-top: 8px"></div>
         </div>
       </div>
     </div>
@@ -95,12 +95,12 @@
     <!-- 空状态：文案随过滤维度变化，避免"明明有条目却说收集箱是空的"的困惑 -->
     <div v-else-if="!items.length" class="wb-empty">
       <div class="wb-empty-icon">
-        <Icon name="inbox" :size="30" />
+        <Icon name="inbox" :size="'30px'" />
       </div>
       <h3 class="wb-empty-title">{{ emptyTitle }}</h3>
       <p class="wb-empty-desc">{{ emptyDesc }}</p>
       <button v-if="filter !== 'all'" class="kb-btn kb-btn-sm" style="margin-top: 12px" @click="onFilter('all')">
-        <Icon name="rotate-ccw" :size="12" />
+        <Icon name="rotate-ccw" :size="'xs'" />
         查看全部
       </button>
     </div>
@@ -126,7 +126,7 @@
 
         <!-- 类型图标 -->
         <div class="il-icon" :title="inboxTypeLabel(item.type)">
-          <Icon :name="inboxTypeIcon(item.type)" :size="16" />
+          <Icon :name="inboxTypeIcon(item.type)" :size="'md'" />
         </div>
 
         <div class="il-main">
@@ -141,7 +141,7 @@
                 :title="item.sourceUrl"
               >
                 {{ item.title }}
-                <Icon name="external-link" :size="12" class="il-title-ext" />
+                <Icon name="external-link" :size="'xs'" class="il-title-ext" />
               </a>
               <template v-else>{{ item.title }}</template>
             </h3>
@@ -185,34 +185,34 @@
                   :disabled="busyId === item.id"
                   @click.stop="toggleMenu(item.id)"
                 >
-                  <Icon name="rocket" :size="12" />
+                  <Icon name="rocket" :size="'xs'" />
                   沉淀
-                  <Icon name="chevron-down" :size="11" class="il-caret" />
+                  <Icon name="chevron-down" :size="'11px'" class="il-caret" />
                 </button>
                 <div v-if="openMenuId === item.id" class="il-menu" @click.stop>
                   <button class="il-menu-item" @click="doProcess(item, 'note')">
-                    <Icon name="file-text" :size="14" />
+                    <Icon name="file-text" :size="'sm'" />
                     <span>
                       <strong>沉淀为文档</strong>
                       <em>写入文档库，成为一篇 Markdown</em>
                     </span>
                   </button>
                   <button class="il-menu-item" @click="doProcess(item, 'cornell')">
-                    <Icon name="notebook-pen" :size="14" />
+                    <Icon name="notebook-pen" :size="'sm'" />
                     <span>
                       <strong>沉淀为康奈尔笔记</strong>
                       <em>建卡片，进入复习闭环</em>
                     </span>
                   </button>
                   <button class="il-menu-item" @click="openPalacePicker(item)">
-                    <Icon name="map-pin" :size="14" />
+                    <Icon name="map-pin" :size="'sm'" />
                     <span>
                       <strong>沉淀到记忆宫殿</strong>
                       <em>挂靠到某个宫殿的位点</em>
                     </span>
                   </button>
                   <button class="il-menu-item" @click="doProcess(item, 'story')">
-                    <Icon name="wand-2" :size="14" />
+                    <Icon name="wand-2" :size="'sm'" />
                     <span>
                       <strong>沉淀为费曼故事</strong>
                       <em>生成草稿，用故事讲明白</em>
@@ -225,7 +225,7 @@
                   <div class="il-palace-head">
                     <span>选择记忆宫殿</span>
                     <button class="il-palace-back" title="返回" aria-label="关闭" @click="palacePickerId = null">
-                      <Icon name="x" :size="14" />
+                      <Icon name="x" :size="'sm'" />
                     </button>
                   </div>
                   <div v-if="palaceLoading" class="il-palace-loading">
@@ -239,7 +239,7 @@
                       :class="{ 'is-active': pickedPalaceId === p.id }"
                       @click="pickPalace(p.id)"
                     >
-                      <Icon name="map" :size="14" />
+                      <Icon name="map" :size="'sm'" />
                       <span>
                         <strong>{{ p.name }}</strong>
                         <em>{{ p.loci?.length || 0 }} 个位点</em>
@@ -265,7 +265,7 @@
                       :disabled="busyId === item.id"
                       @click="confirmPalace(item)"
                     >
-                      <Icon name="rocket" :size="12" /> 沉淀到该宫殿
+                      <Icon name="rocket" :size="'xs'" /> 沉淀到该宫殿
                     </button>
                   </div>
                 </div>
@@ -277,7 +277,7 @@
                 title="归档：不沉淀，直接收走"
                 @click="doArchive(item)"
               >
-                <Icon name="archive" :size="12" /> 归档
+                <Icon name="archive" :size="'xs'" /> 归档
               </button>
 
               <button
@@ -286,7 +286,7 @@
                 title="删除到回收站"
                 @click="doDelete(item)"
               >
-                <Icon name="trash-2" :size="12" />
+                <Icon name="trash-2" :size="'xs'" />
               </button>
             </div>
           </footer>
@@ -564,7 +564,7 @@ async function doDelete(item: InboxItem) {
 .il-skels {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* ===== 工具条：智能过滤 + 多选开关 ===== */
@@ -574,7 +574,7 @@ async function doDelete(item: InboxItem) {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .il-filters {
   display: inline-flex;
@@ -587,8 +587,8 @@ async function doDelete(item: InboxItem) {
 .il-filter {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
+  gap: 4px;
+  padding: 4px 12px;
   border: none;
   border-radius: 999px;
   background: transparent;
@@ -621,10 +621,10 @@ async function doDelete(item: InboxItem) {
   z-index: 15;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
-  padding: 10px 14px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, var(--mc, var(--kb-primary)) 7%, var(--kb-card));
   border: 1px solid color-mix(in srgb, var(--mc, var(--kb-primary)) 32%, var(--kb-border));
@@ -634,7 +634,7 @@ async function doDelete(item: InboxItem) {
 .il-check-all {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   color: var(--kb-foreground);
@@ -661,7 +661,7 @@ async function doDelete(item: InboxItem) {
 .il-batch-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
   flex-wrap: wrap;
 }
@@ -679,7 +679,7 @@ async function doDelete(item: InboxItem) {
 .il-pick {
   display: flex;
   align-items: flex-start;
-  padding-top: 9px;
+  padding-top: 8px;
   cursor: pointer;
 }
 .il-card.is-batch {
@@ -729,7 +729,7 @@ async function doDelete(item: InboxItem) {
 .il-card {
   display: flex;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -769,7 +769,7 @@ async function doDelete(item: InboxItem) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .il-head {
@@ -837,7 +837,7 @@ async function doDelete(item: InboxItem) {
 }
 .il-tags {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -854,7 +854,7 @@ async function doDelete(item: InboxItem) {
 .il-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
   /* 默认低调，hover 卡片时才完全显现，减少卡片流的视觉噪音 */
   opacity: 0.75;
@@ -898,9 +898,9 @@ async function doDelete(item: InboxItem) {
 .il-menu-item {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 8px 12px;
   border: none;
   border-radius: var(--kb-radius-sm);
   background: transparent;
@@ -938,7 +938,7 @@ async function doDelete(item: InboxItem) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px 8px;
+  padding: 8px 8px 8px;
   font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   color: var(--kb-foreground);
@@ -956,19 +956,19 @@ async function doDelete(item: InboxItem) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 10px;
+  padding: 16px 12px;
   font-size: var(--kb-fs-body-sm);
   color: var(--kb-muted-foreground);
 }
 .il-palace-empty {
   margin: 0;
-  padding: 12px 10px;
+  padding: 12px 12px;
   font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
   line-height: 1.5;
 }
 .il-palace-loci {
-  margin-top: 6px;
+  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--kb-border);
 }
@@ -981,7 +981,7 @@ async function doDelete(item: InboxItem) {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 7px 10px;
+  padding: 8px 12px;
   margin-top: 3px;
   border: 1px solid var(--kb-border);
   border-radius: var(--kb-radius-sm);
@@ -1005,7 +1005,7 @@ async function doDelete(item: InboxItem) {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 7px 10px;
+  padding: 8px 12px;
   margin-top: 3px;
   border: 1px dashed var(--kb-border);
   border-radius: var(--kb-radius-sm);
@@ -1022,7 +1022,7 @@ async function doDelete(item: InboxItem) {
 }
 .il-palace-go {
   width: 100%;
-  margin-top: 10px;
+  margin-top: 12px;
   justify-content: center;
 }
 .qc-spinner {

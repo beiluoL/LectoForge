@@ -62,7 +62,7 @@ const { toc, minLevel, isEmpty } = useTOC(() => docState.currentContent)
 
 <style scoped>
 .dl-toc-count {
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
   background: var(--kb-muted);
   color: var(--kb-muted-foreground);
@@ -71,7 +71,7 @@ const { toc, minLevel, isEmpty } = useTOC(() => docState.currentContent)
 }
 
 .dl-kbd {
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-muted);
   color: var(--kb-foreground);

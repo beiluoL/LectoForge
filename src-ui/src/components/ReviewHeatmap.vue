@@ -4,7 +4,7 @@
   <section class="rh-card">
     <header class="rh-head">
       <span class="rh-title">
-        <Icon name="calendar" :size="15" />
+        <Icon name="calendar" :size="'15px'" />
         复习热力图
       </span>
       <span class="rh-sub">
@@ -14,10 +14,10 @@
     </header>
 
     <div v-if="heatmapLoading && !heatmap" class="rh-state">
-      <Icon name="loader" :size="18" class="rh-spin" /> 加载中…
+      <Icon name="loader" :size="'lg'" class="rh-spin" /> 加载中…
     </div>
     <div v-else-if="!heatmap || heatmap.data.length === 0" class="rh-state">
-      <Icon name="calendar-x" :size="18" /> 暂无复习记录，完成一次复习后这里会亮起
+      <Icon name="calendar-x" :size="'lg'" /> 暂无复习记录，完成一次复习后这里会亮起
     </div>
 
     <div v-else class="rh-body">
@@ -129,7 +129,7 @@ onMounted(() => {
 
 <style scoped>
 .rh-card {
-  padding: 16px 18px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -140,12 +140,12 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .rh-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 14px;
   font-weight: 700;
   color: var(--kb-foreground);
@@ -188,7 +188,7 @@ onMounted(() => {
   gap: var(--rh-gap);
 }
 .rh-weekday {
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   line-height: var(--rh-cell);
   color: var(--kb-muted-foreground);
   text-align: right;
@@ -233,7 +233,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
   font-size: 11px;
   color: var(--kb-muted-foreground);

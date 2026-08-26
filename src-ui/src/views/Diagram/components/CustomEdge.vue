@@ -174,7 +174,7 @@ onUnmounted(() => window.removeEventListener('diagram:edit-edge', onEditEdgeEven
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 6px;
   background: var(--kb-popover);
   border: 1px solid transparent;

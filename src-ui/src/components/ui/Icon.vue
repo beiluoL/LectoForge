@@ -1565,7 +1565,7 @@ const sanitizedSvg = computed(() => {
 /**
  * lucide-vue-next 适配：把 name（PascalCase / kebab-case / snake_case）解析到 lucide 组件。
  * 找不到则返回 null，自动落到下方手写 SVG / img / iconfont / SVG code fallback。
- * 这样新代码可以写 `<Icon name="MapPin" class="w-4 h-4" />`，旧代码 `<Icon name="map-pin" :size="18" />` 也能命中 lucide 的 MapPin。
+ * 这样新代码可以写 `<Icon name="MapPin" class="w-4 h-4" />`，旧代码 `<Icon name="map-pin" :size="'lg'" />` 也能命中 lucide 的 MapPin。
  */
 const lucideComponent = computed(() => {
   const n = props.name

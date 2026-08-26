@@ -73,9 +73,9 @@ function onRemove() {
     <span class="note-row-hint">{{ card.hint }}</span>
 
     <div class="note-card-actions" @click.stop>
-      <button class="wb-icon-btn" title="转为复习卡" @click="onReview"><Icon name="repeat" :size="14" /></button>
-      <button class="wb-icon-btn" title="转为故事" @click="onStory"><Icon name="wand-2" :size="14" /></button>
-      <button class="wb-icon-btn note-danger-btn" title="删除" @click="onRemove"><Icon name="trash-2" :size="14" /></button>
+      <button class="wb-icon-btn" title="转为复习卡" @click="onReview"><Icon name="repeat" :size="'sm'" /></button>
+      <button class="wb-icon-btn" title="转为故事" @click="onStory"><Icon name="wand-2" :size="'sm'" /></button>
+      <button class="wb-icon-btn note-danger-btn" title="删除" @click="onRemove"><Icon name="trash-2" :size="'sm'" /></button>
     </div>
   </div>
 </template>
@@ -88,7 +88,7 @@ function onRemove() {
   align-items: center;
   gap: 12px;
   height: var(--note-row-h, 61px);
-  padding: 0 14px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--kb-border);
   cursor: pointer;
   transition: background 0.15s ease;
@@ -119,7 +119,7 @@ function onRemove() {
 .note-row-titleline {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 .note-row-title {
@@ -142,7 +142,7 @@ function onRemove() {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 130px;
 }
 .note-row-mastery .note-mastery-track {

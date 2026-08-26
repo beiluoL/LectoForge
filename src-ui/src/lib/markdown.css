@@ -117,7 +117,7 @@
 
 /* 行内代码（代码块由 .code-block-* 接管） */
 .dl-md :not(pre) > code {
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-muted);
   color: var(--kb-primary);
@@ -194,7 +194,7 @@
   display: flex;
   align-items: center;
   gap: var(--kb-space-2);
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--kb-border);
   background: var(--kb-muted);
 }
@@ -213,7 +213,7 @@
   align-items: center;
   gap: 4px;
   height: 24px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid var(--kb-border);
   border-radius: var(--kb-radius-sm);
   background: var(--kb-card);
@@ -231,7 +231,7 @@
   box-shadow: var(--kb-focus-ring);
 }
 .dl-embed-body {
-  padding: 12px 14px;
+  padding: 12px 16px;
 }
 .dl-embed-body > *:first-child {
   margin-top: 0;
@@ -251,6 +251,6 @@
 }
 
 .dl-md input[type='checkbox'] {
-  margin-right: 6px;
+  margin-right: 8px;
   accent-color: var(--kb-primary);
 }

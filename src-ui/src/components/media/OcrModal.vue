@@ -85,18 +85,18 @@ function retake() {
   <div v-if="modelValue" class="ocr-overlay" @click.self="close">
     <div class="ocr-modal">
       <div class="ocr-head">
-        <span><Icon name="scan" :size="15" /> OCR 文字扫描</span>
-        <button class="ocr-close" @click="close" aria-label="关闭"><Icon name="x" :size="16" /></button>
+        <span><Icon name="scan" :size="'15px'" /> OCR 文字扫描</span>
+        <button class="ocr-close" @click="close" aria-label="关闭"><Icon name="x" :size="'md'" /></button>
       </div>
 
       <!-- 选择来源 -->
       <div v-if="step === 'pick'" class="ocr-pick">
         <button class="ocr-src" :disabled="busy" @click="startScreenshot">
-          <Icon name="screenshot" :size="20" />
+          <Icon name="screenshot" :size="'xl'" />
           <span>截图识别</span>
         </button>
         <button class="ocr-src" :disabled="busy" @click="fileInput?.click()">
-          <Icon name="image" :size="20" />
+          <Icon name="image" :size="'xl'" />
           <span>从图片选择</span>
         </button>
         <input ref="fileInput" type="file" accept="image/*" class="hidden-file-input" @change="onFilePicked" />
@@ -107,14 +107,14 @@ function retake() {
 
       <!-- 识别结果（可编辑） -->
       <div v-else class="ocr-result">
-        <div v-if="busy" class="ocr-loading"><Icon name="loader" :size="16" class="ai-spin" /> 正在识别…</div>
+        <div v-if="busy" class="ocr-loading"><Icon name="loader" :size="'md'" class="ai-spin" /> 正在识别…</div>
         <template v-else>
           <textarea v-model="text" class="kb-input ocr-text" placeholder="识别结果可在此修正…"></textarea>
           <p v-if="error" class="ocr-error">{{ error }}</p>
           <div class="ocr-actions">
             <button class="kb-btn wb-ghost-btn" @click="retake">重新识别</button>
             <button class="kb-btn kb-btn-primary" :disabled="!text.trim()" @click="confirm">
-              <Icon name="check" :size="14" /> 确认插入
+              <Icon name="check" :size="'sm'" /> 确认插入
             </button>
           </div>
         </template>
@@ -161,7 +161,7 @@ function retake() {
 }
 .ocr-pick {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   padding: 24px 16px;
 }
 .ocr-src {
@@ -170,7 +170,7 @@ function retake() {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 22px 0;
+  padding: 24px 0;
   border: 1px solid var(--kb-border);
   border-radius: 12px;
   background: var(--kb-background);
@@ -216,7 +216,7 @@ function retake() {
 .ocr-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 .hidden-file-input {

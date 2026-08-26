@@ -171,7 +171,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .dl-hint {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   font-size: var(--kb-fs-xs);
   line-height: 1.6;
   color: var(--kb-muted-foreground);

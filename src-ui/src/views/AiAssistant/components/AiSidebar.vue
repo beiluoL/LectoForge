@@ -191,7 +191,7 @@ async function onShare(id: number) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 8px;
+  padding: 16px 16px 8px;
 }
 .lf-side-title {
   font-size: 15px;
@@ -220,7 +220,7 @@ async function onShare(id: number) {
   align-items: center;
   gap: 8px;
   margin: 4px 12px 8px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
@@ -237,9 +237,9 @@ async function onShare(id: number) {
 .lf-search {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 12px 8px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-radius: 9px;
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -280,8 +280,8 @@ async function onShare(id: number) {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 9px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 9px;
   cursor: pointer;
   color: var(--kb-foreground);
@@ -309,7 +309,7 @@ async function onShare(id: number) {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 13px;
-  padding: 3px 6px;
+  padding: 3px 8px;
   border-radius: 6px;
   border: 1px solid var(--kb-primary);
   outline: none;
@@ -359,7 +359,7 @@ async function onShare(id: number) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 9px;
+  padding: 8px 8px;
   border-radius: 7px;
   font-size: 13px;
   text-align: left;

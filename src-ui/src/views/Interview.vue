@@ -5,7 +5,7 @@
   <div class="iv-root">
     <header class="iv-head">
       <div class="iv-head-title">
-        <Icon name="mic" :size="20" class="iv-head-icon" />
+        <Icon name="mic" :size="'xl'" class="iv-head-icon" />
         <div>
           <h1 class="iv-h1">模拟面试</h1>
           <p class="iv-sub">
@@ -36,7 +36,7 @@
     <!-- 对话区（面试官左 / 用户右；点评与总结居中卡片） -->
     <div ref="scrollEl" class="iv-chat">
       <div v-if="!messages.length" class="iv-empty">
-        <Icon name="messages-square" :size="40" />
+        <Icon name="messages-square" :size="'40px'" />
         <p>点击下方「开始通话」，面试官会用语音向你提问。</p>
         <p class="iv-empty-hint">回答请点击麦克风，系统本地转写后即时点评。</p>
       </div>
@@ -48,7 +48,7 @@
         :class="rowClass(m)"
       >
         <span v-if="m.role === 'interviewer'" class="iv-avatar iv-avatar-left">
-          <Icon name="bot" :size="16" />
+          <Icon name="bot" :size="'md'" />
         </span>
 
         <!-- 面试官提问气泡 -->
@@ -66,7 +66,7 @@
         <!-- 点评卡片（评分 + 点评语） -->
         <div v-else-if="m.role === 'evaluation'" class="iv-eval">
           <div class="iv-eval-head">
-            <Icon name="clipboard-check" :size="16" />
+            <Icon name="clipboard-check" :size="'md'" />
             <span>本轮点评</span>
             <span class="iv-score" :class="scoreClass(m.score)">评分 {{ m.score }}</span>
           </div>
@@ -75,12 +75,12 @@
 
         <!-- 系统 / 总结 -->
         <div v-else class="iv-system">
-          <Icon :name="m.role === 'end' ? 'flag' : 'info'" :size="15" />
+          <Icon :name="m.role === 'end' ? 'flag' : 'info'" :size="'15px'" />
           <span>{{ m.text }}</span>
         </div>
 
         <span v-if="m.role === 'user'" class="iv-avatar iv-avatar-right">
-          <Icon name="user" :size="16" />
+          <Icon name="user" :size="'md'" />
         </span>
       </div>
     </div>
@@ -93,7 +93,7 @@
         class="iv-call iv-call-start"
         @click="startCall"
       >
-        <Icon name="phone-call" :size="22" />
+        <Icon name="phone-call" :size="'22px'" />
         开始通话
       </button>
 
@@ -106,17 +106,17 @@
             :disabled="speaking || answering"
             @click="toggleRecord"
           >
-            <Icon :name="recorder.recording.value ? 'square' : 'mic'" :size="22" />
+            <Icon :name="recorder.recording.value ? 'square' : 'mic'" :size="'22px'" />
             {{ recorder.recording.value ? '停止并发送' : '回答（麦克风）' }}
           </button>
 
           <button class="iv-call iv-call-end" @click="endCall">
-            <Icon name="phone-off" :size="18" />
+            <Icon name="phone-off" :size="'lg'" />
             结束通话
           </button>
         </div>
         <p v-if="recorder.error.value" class="iv-err">
-          <Icon name="alert-triangle" :size="14" /> {{ recorder.error.value }}
+          <Icon name="alert-triangle" :size="'sm'" /> {{ recorder.error.value }}
         </p>
       </template>
     </footer>

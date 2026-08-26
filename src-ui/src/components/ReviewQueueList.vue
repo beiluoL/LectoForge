@@ -11,7 +11,7 @@
             <header class="rql-head">
               <div class="rql-head-main">
                 <h3 class="rql-title">
-                  <Icon name="layers" :size="16" />
+                  <Icon name="layers" :size="'md'" />
                   待复习清单
                 </h3>
                 <p class="rql-sub">
@@ -26,9 +26,22 @@
                 </p>
               </div>
               <button class="rql-icon-btn" title="关闭" @click="close">
-                <Icon name="x" :size="18" />
+                <Icon name="x" :size="'lg'" />
               </button>
             </header>
+            <div class="rql-batchbar">
+              <button
+                class="rql-batch-toggle"
+                :class="{ 'is-on': batchMode }"
+                @click="toggleBatchMode"
+              >
+                <Icon :name="batchMode ? 'check-square' : 'list-checks'" :size="'sm'" />
+                {{ batchMode ? '退出批量' : '批量' }}
+              </button>
+              <span v-if="batchMode && selected.size" class="rql-batch-count">
+                已选 {{ selected.size }} 张
+              </span>
+            </div>
 
             <!-- 筛选条 -->
             <div v-if="list.length > 0" class="rql-filters">
@@ -47,12 +60,12 @@
             <!-- 列表主体 -->
             <div class="rql-body">
               <div v-if="pendingLoading" class="rql-state">
-                <Icon name="loader-2" :size="20" class="rql-spin" />
+                <Icon name="loader-2" :size="'xl'" class="rql-spin" />
                 <span>加载中…</span>
               </div>
 
               <div v-else-if="visibleList.length === 0" class="rql-state">
-                <Icon name="check-circle-2" :size="26" class="rql-state-ic" />
+                <Icon name="check-circle-2" :size="'26px'" class="rql-state-ic" />
                 <p class="rql-state-title">
                   {{ list.length === 0 ? '全部复习完啦' : '该分类下没有卡片' }}
                 </p>
@@ -68,33 +81,44 @@
                   class="rql-item"
                   :class="{ 'is-busy': busyKey === keyOf(card) }"
                 >
+                  <span
+                    v-if="batchMode"
+                    class="rql-check"
+                    :class="{ 'is-on': selected.has(keyOf(card)) }"
+                    role="checkbox"
+                    :aria-checked="selected.has(keyOf(card))"
+                    @click.stop="toggleSelect(card)"
+                  >
+                    <Icon v-if="selected.has(keyOf(card))" name="check" :size="'xs'" />
+                  </span>
                   <!-- 主体：点击 → 跳转刷题页并把这张顶到队首 -->
-                  <button class="rql-item-main" @click="goReview(card)">
+                  <button class="rql-item-main" @click="onItemClick(card)">
                     <div class="rql-item-top">
                       <span class="rql-badge" :class="badgeOf(card).cls">{{ badgeOf(card).text }}</span>
                       <span class="rql-src">{{ card.sourceType === 'note' ? '康奈尔笔记' : '记忆宫殿' }}</span>
                     </div>
                     <p class="rql-front">{{ card.front || '（无标题）' }}</p>
                     <p class="rql-meta">
-                      <Icon name="clock" :size="11" />
+                      <Icon name="clock" :size="'11px'" />
                       {{ dueLabel(card.dueDate) }}
                       <span class="rql-meta-sep">·</span>
                       熟练度 {{ card.masteredLevel }}/5
                       <template v-if="card.imageHint">
                         <span class="rql-meta-sep">·</span>
-                        <Icon name="sparkles" :size="11" /> 已有口诀
+                        <Icon name="sparkles" :size="'11px'" /> 已有口诀
                       </template>
                     </p>
                   </button>
 
                   <!-- 挂起 24h -->
                   <button
+                    v-if="!batchMode"
                     class="rql-snooze"
                     :disabled="busyKey === keyOf(card)"
                     title="挂起 24 小时"
                     @click.stop="onSnooze(card)"
                   >
-                    <Icon :name="busyKey === keyOf(card) ? 'loader-2' : 'pause'" :size="14"
+                    <Icon :name="busyKey === keyOf(card) ? 'loader-2' : 'pause'" :size="'sm'"
                           :class="busyKey === keyOf(card) ? 'rql-spin' : ''" />
                     <span>挂起</span>
                   </button>
@@ -104,8 +128,23 @@
 
             <!-- 底部操作 -->
             <footer class="rql-foot">
+              <template v-if="batchMode">
+                <button class="kb-btn rql-foot-btn" :disabled="selected.size === 0" @click="onBatch('mastered')">
+                  <Icon name="check-check" :size="'sm'" />
+                  标记已掌握
+                </button>
+                <button class="kb-btn rql-foot-btn" :disabled="selected.size === 0" @click="onBatch('snooze')">
+                  <Icon name="pause" :size="'sm'" />
+                  挂起 1 天
+                </button>
+                <button class="kb-btn kb-btn-primary rql-foot-btn" :disabled="selected.size === 0" @click="onBatch('mastered', 30)">
+                  <Icon name="calendar-check" :size="'sm'" />
+                  30 天后复习
+                </button>
+              </template>
+              <template v-else>
               <button class="kb-btn rql-foot-btn" :disabled="pendingLoading" @click="refresh">
-                <Icon name="refresh-cw" :size="14" />
+                <Icon name="refresh-cw" :size="'sm'" />
                 刷新
               </button>
               <button
@@ -113,9 +152,10 @@
                 :disabled="list.length === 0"
                 @click="startAll"
               >
-                <Icon name="play" :size="14" />
+                <Icon name="play" :size="'sm'" />
                 开始复习
               </button>
+              </template>
             </footer>
           </aside>
         </Transition>
@@ -160,12 +200,43 @@ const visible = computed(() => queueListVisible.value);
 
 const list = computed<ReviewCard[]>(() => pendingList.value);
 const busyKey = ref('');
+/** 批量选择模式与已选项（key = `${sourceType}:${id}`） */
+const batchMode = ref(false);
+const selected = ref<Set<string>>(new Set());
 
 type FilterKey = 'all' | 'new' | 'review' | 'risk';
 const activeFilter = ref<FilterKey>('all');
 
 function keyOf(c: ReviewCard): string {
   return `${c.sourceType}:${c.id}`;
+}
+
+function toggleBatchMode(): void {
+  batchMode.value = !batchMode.value
+  selected.value.clear()
+}
+
+function toggleSelect(card: ReviewCard): void {
+  const k = keyOf(card)
+  const next = new Set(selected.value)
+  if (next.has(k)) next.delete(k)
+  else next.add(k)
+  selected.value = next
+}
+
+function onItemClick(card: ReviewCard): void {
+  if (batchMode.value) toggleSelect(card)
+  else goReview(card)
+}
+
+async function onBatch(action: 'mastered' | 'snooze', days?: number): Promise<void> {
+  if (!selected.value.size) return
+  const items = visibleList.value
+    .filter((c) => selected.value.has(keyOf(c)))
+    .map((c) => ({ cardId: c.id, sourceType: c.sourceType }))
+  await store.batchAction(items, action, days)
+  selected.value.clear()
+  batchMode.value = false
 }
 
 /** 卡型判定：与 FlashCard.vue 的徽章逻辑保持一致（易忘 > 新卡 > 复习卡） */
@@ -273,7 +344,7 @@ watch(visible, (v) => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 18px 18px 12px;
+  padding: 16px 16px 12px;
   border-bottom: 1px solid var(--kb-border);
 }
 .rql-head-main {
@@ -283,26 +354,26 @@ watch(visible, (v) => {
 .rql-title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   margin: 0;
   font-size: 15px;
   font-weight: 700;
   color: var(--kb-foreground);
 }
 .rql-sub {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   font-size: 12px;
   color: var(--kb-muted-foreground);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .rql-sub b {
   color: var(--kb-foreground);
 }
 .rql-dot {
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -341,17 +412,17 @@ watch(visible, (v) => {
 /* ---------- 筛选 ---------- */
 .rql-filters {
   display: flex;
-  gap: 6px;
-  padding: 10px 18px;
+  gap: 8px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--kb-border);
   overflow-x: auto;
 }
 .rql-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-shrink: 0;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: transparent;
@@ -379,7 +450,7 @@ watch(visible, (v) => {
 .rql-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 12px 16px;
 }
 .rql-list {
   list-style: none;
@@ -411,8 +482,8 @@ watch(visible, (v) => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 11px 12px;
+  gap: 4px;
+  padding: 12px 12px;
   border: none;
   background: transparent;
   text-align: left;
@@ -422,12 +493,12 @@ watch(visible, (v) => {
 .rql-item-top {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 .rql-badge {
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -449,7 +520,7 @@ watch(visible, (v) => {
 }
 .rql-front {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   font-weight: 600;
   line-height: 1.45;
   color: var(--kb-foreground);
@@ -503,7 +574,7 @@ watch(visible, (v) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   padding: 56px 20px;
   color: var(--kb-muted-foreground);
   font-size: 13px;
@@ -542,7 +613,7 @@ watch(visible, (v) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ---------- 过渡 ---------- */
@@ -561,5 +632,54 @@ watch(visible, (v) => {
 .rql-slide-enter-from,
 .rql-slide-leave-to {
   transform: translateX(100%);
+}
+
+/* ---------- 批量选择 ---------- */
+.rql-batchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+.rql-batch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--kb-border);
+  border-radius: var(--kb-radius-sm);
+  background: var(--kb-card);
+  color: var(--kb-muted-foreground);
+  font-size: var(--kb-fs-caption);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.rql-batch-toggle.is-on {
+  border-color: var(--kb-primary);
+  color: var(--kb-primary);
+}
+.rql-batch-count {
+  font-size: var(--kb-fs-caption);
+  color: var(--kb-primary);
+  font-weight: 600;
+}
+.rql-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 4px;
+  border-radius: 6px;
+  border: 1.5px solid var(--kb-border);
+  color: var(--kb-primary-foreground);
+  cursor: pointer;
+  flex: none;
+  align-self: center;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.rql-check.is-on {
+  background: var(--kb-primary);
+  border-color: var(--kb-primary);
 }
 </style>

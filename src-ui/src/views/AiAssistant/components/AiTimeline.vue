@@ -68,7 +68,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
 .lf-tl-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: 9999px;
   font-size: 13px;
@@ -100,7 +100,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
   overflow: hidden;
 }
 .lf-tl-head {
-  padding: 10px 14px;
+  padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
   color: var(--kb-foreground);
@@ -110,7 +110,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -125,7 +125,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 8px 8px;
   border-radius: 8px;
   text-align: left;
   background: transparent;

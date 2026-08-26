@@ -213,7 +213,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 6px 10px;
+  padding: 8px 12px;
   font-size: 13px;
   line-height: 1.3;
   word-break: break-word;

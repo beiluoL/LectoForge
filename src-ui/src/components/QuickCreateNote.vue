@@ -6,12 +6,12 @@
         <div class="qcn-card" role="dialog" aria-modal="true" aria-label="极速新建笔记">
           <header class="qcn-head">
             <span class="qcn-title">
-              <Icon name="pen-line" :size="16" />
+              <Icon name="pen-line" :size="'md'" />
               极速新建笔记
             </span>
             <span class="qcn-hint">先落笔，线索与总结稍后补</span>
             <button class="qcn-close" title="关闭 (Esc)" @click="close">
-              <Icon name="x" :size="15" />
+              <Icon name="x" :size="'15px'" />
             </button>
           </header>
 
@@ -46,7 +46,7 @@
             </div>
 
             <p v-if="error" class="qcn-err">
-              <Icon name="alert-circle" :size="13" /> {{ error }}
+              <Icon name="alert-circle" :size="'13px'" /> {{ error }}
             </p>
           </div>
 
@@ -55,7 +55,7 @@
               <kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd> 创建并进入 · <kbd>Esc</kbd> 关闭
             </span>
             <button class="kb-btn kb-btn-primary qcn-submit" :disabled="!canSubmit" @click="submit">
-              <Icon :name="store.submitting ? 'loader' : 'arrow-right'" :size="14" :class="{ 'qcn-spin': store.submitting }" />
+              <Icon :name="store.submitting ? 'loader' : 'arrow-right'" :size="'sm'" :class="{ 'qcn-spin': store.submitting }" />
               {{ store.submitting ? '创建中…' : '创建并进入' }}
             </button>
           </footer>
@@ -179,14 +179,14 @@ function toHtml(text: string): string {
 .qcn-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--kb-border);
 }
 .qcn-title {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-family: var(--font-serif);
   font-size: var(--kb-fs-body-md);
   font-weight: 700;
@@ -219,12 +219,12 @@ function toHtml(text: string): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px;
+  padding: 16px;
 }
 .qcn-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .qcn-req {
   color: var(--kb-destructive);
@@ -243,7 +243,7 @@ function toHtml(text: string): string {
 .qcn-err {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin: 0;
   font-size: var(--kb-fs-xs);
   font-weight: 500;
@@ -255,7 +255,7 @@ function toHtml(text: string): string {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 14px;
+  padding: 8px 16px;
   border-top: 1px solid var(--kb-border);
   background: var(--kb-background);
 }
@@ -265,19 +265,19 @@ function toHtml(text: string): string {
 }
 .qcn-kbd-tip kbd {
   display: inline-block;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 4px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-foreground);
 }
 .qcn-submit {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
+  gap: 8px;
+  padding: 8px 16px;
   font-size: var(--kb-fs-body-sm);
 }
 .qcn-submit:disabled {

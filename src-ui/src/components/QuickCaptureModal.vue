@@ -6,17 +6,17 @@
         <div class="qcm-card" role="dialog" aria-modal="true" aria-label="快速收集">
           <header class="qcm-head">
             <span class="qcm-title">
-              <Icon name="inbox" :size="16" />
+              <Icon name="inbox" :size="'md'" />
               快速收集
             </span>
             <!-- 由浏览器剪藏深链唤起时给个来源标记，用户才知道内容是自动填进来的 -->
             <span v-if="fromClip" class="qcm-badge">
-              <Icon name="link" :size="11" />
+              <Icon name="link" :size="'11px'" />
               来自浏览器剪藏
             </span>
             <span v-else class="qcm-hint">先积累，再沉淀</span>
             <button class="qcm-close" title="关闭 (Esc)" @click="close">
-              <Icon name="x" :size="15" />
+              <Icon name="x" :size="'15px'" />
             </button>
           </header>
 
@@ -36,7 +36,7 @@
             </span>
             <router-link v-if="route.path !== '/inbox'" to="/inbox" class="qcm-link" @click="close">
               打开收集箱
-              <Icon name="arrow-right" :size="12" />
+              <Icon name="arrow-right" :size="'xs'" />
             </router-link>
           </footer>
         </div>
@@ -138,14 +138,14 @@ function onCreated() {
 .qcm-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--kb-border);
 }
 .qcm-title {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-family: var(--font-serif);
   font-size: var(--kb-fs-body-md);
   font-weight: 700;
@@ -186,7 +186,7 @@ function onCreated() {
 }
 
 .qcm-body {
-  padding: 14px;
+  padding: 16px;
 }
 
 .qcm-foot {
@@ -194,7 +194,7 @@ function onCreated() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 14px;
+  padding: 8px 16px;
   border-top: 1px solid var(--kb-border);
   background: var(--kb-background);
 }
@@ -204,12 +204,12 @@ function onCreated() {
 }
 .qcm-kbd-tip kbd {
   display: inline-block;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 4px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-foreground);
 }
 .qcm-link {

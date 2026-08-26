@@ -26,7 +26,7 @@
             </p>
           </div>
           <button class="wb-icon-btn" title="删除" @click.stop="$emit('remove', l)">
-            <Icon name="trash-2" :size="14" />
+            <Icon name="trash-2" :size="'sm'" />
           </button>
         </div>
       </div>

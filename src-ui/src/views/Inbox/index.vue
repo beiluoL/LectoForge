@@ -14,7 +14,7 @@
               Step 01 · 输入 · Capture
             </span>
             <h1 class="wb-title">
-              <Icon name="inbox" :size="28" class="wb-title-icon" />
+              <Icon name="inbox" :size="'28px'" class="wb-title-icon" />
               收集箱
             </h1>
             <p class="wb-subtitle">
@@ -48,7 +48,7 @@
     <!-- ============ 极速输入 ============ -->
     <section>
       <h2 class="wb-section-title">
-        <Icon name="zap" :size="16" />
+        <Icon name="zap" :size="'md'" />
         极速输入
         <span class="wb-section-hint">粘贴网址自动剪藏 · ⌘/Ctrl + Enter 收集</span>
       </h2>
@@ -57,7 +57,7 @@
 
     <!-- 收件箱积压视图提示条：来自首页「今日聚焦」跳转，按创建时间升序排最旧的 -->
     <p v-if="overdueView" class="ib-overdue-note">
-      <Icon name="clock" :size="14" />
+      <Icon name="clock" :size="'sm'" />
       收件箱积压视图：按创建时间升序，最久未整理的排在最前。
       <button class="ib-overdue-clear" type="button" @click="exitOverdueView">返回最新优先</button>
     </p>
@@ -66,18 +66,18 @@
     <section>
       <div class="ib-list-head">
         <h2 class="wb-section-title" style="margin: 0">
-          <Icon name="layers" :size="16" />
+          <Icon name="layers" :size="'md'" />
           待处理
           <span v-if="total" class="ib-count">{{ total }}</span>
         </h2>
         <button class="kb-btn kb-btn-sm" :disabled="loading" title="重新拉取" @click="reload">
-          <Icon name="refresh-cw" :size="12" :class="{ 'ib-spin': loading }" />
+          <Icon name="refresh-cw" :size="'xs'" :class="{ 'ib-spin': loading }" />
           刷新
         </button>
       </div>
 
       <p v-if="error" class="ib-error">
-        <Icon name="triangle-alert" :size="14" />
+        <Icon name="triangle-alert" :size="'sm'" />
         {{ error }}
         <button class="ib-retry" @click="reload">重试</button>
       </p>
@@ -151,7 +151,7 @@ onMounted(reload);
   align-items: center;
   justify-content: center;
   min-width: 76px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, var(--kb-card) 72%, transparent);
   border: 1px solid var(--kb-border);
@@ -186,7 +186,7 @@ onMounted(reload);
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 6px;
+  padding: 0 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 12%, transparent);
   color: var(--mc);
@@ -206,8 +206,8 @@ onMounted(reload);
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 10px;
-  padding: 10px 12px;
+  margin: 0 0 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--kb-destructive) 7%, transparent);
   border: 1px solid color-mix(in srgb, var(--kb-destructive) 28%, transparent);
@@ -232,7 +232,7 @@ onMounted(reload);
   align-items: center;
   gap: 8px;
   margin: 0 0 12px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-sm);
   background: rgba(224, 122, 0, 0.1);
   border: 1px solid rgba(224, 122, 0, 0.35);

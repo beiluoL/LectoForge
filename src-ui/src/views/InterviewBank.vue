@@ -4,7 +4,7 @@
   <div class="lf-page animate-fade-in">
     <div class="lf-backbar">
       <router-link to="/interview" class="kb-btn lf-back-btn">
-        <Icon name="arrow-left" :size="15" />
+        <Icon name="arrow-left" :size="'15px'" />
         返回面试
       </router-link>
       <span class="lf-bank-title">面试题库</span>
@@ -13,7 +13,7 @@
     <!-- 导入：Markdown -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="file-text" :size="18" class="lf-card-icon" />
+        <Icon name="file-text" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">粘贴面经（Markdown）</h2>
           <p class="lf-card-desc">把整理好的面试问答 Markdown 粘进来，系统会解析为题库条目。</p>
@@ -28,7 +28,7 @@
       ></textarea>
       <div class="lf-actions">
         <button class="kb-btn kb-btn-primary" :disabled="busy || !markdown.trim()" @click="onImportMd">
-          <Icon :name="busy ? 'loader' : 'file-plus'" :size="15" :class="busy ? 'lf-spin' : ''" /> 导入 Markdown
+          <Icon :name="busy ? 'loader' : 'file-plus'" :size="'15px'" :class="busy ? 'lf-spin' : ''" /> 导入 Markdown
         </button>
         <span v-if="mdResult" class="lf-test-result" :class="mdResult.ok ? 'is-ok' : 'is-fail'">
           {{ mdResult.text }}
@@ -39,7 +39,7 @@
     <!-- 导入：PDF / 复习卡 / 笔记 -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="folder-up" :size="18" class="lf-card-icon" />
+        <Icon name="folder-up" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">批量导入</h2>
           <p class="lf-card-desc">从 PDF 文档或已有的复习卡 / 笔记一键汇入题库。</p>
@@ -47,14 +47,14 @@
       </div>
       <div class="lf-actions">
         <button class="kb-btn" :disabled="busy" @click="onPickPdf">
-          <Icon :name="busy ? 'loader' : 'file-up'" :size="15" :class="busy ? 'lf-spin' : ''" /> 上传 PDF
+          <Icon :name="busy ? 'loader' : 'file-up'" :size="'15px'" :class="busy ? 'lf-spin' : ''" /> 上传 PDF
         </button>
         <input ref="pdfInput" type="file" accept="application/pdf" class="lf-hidden" @change="onPdfChange" />
         <button class="kb-btn" :disabled="busy" @click="onImportReviewCards">
-          <Icon name="layers" :size="15" /> 从复习卡导入
+          <Icon name="layers" :size="'15px'" /> 从复习卡导入
         </button>
         <button class="kb-btn" :disabled="busy" @click="onImportNotes">
-          <Icon name="notebook-pen" :size="15" /> 从笔记导入
+          <Icon name="notebook-pen" :size="'15px'" /> 从笔记导入
         </button>
       </div>
       <p v-if="bulkResult" class="lf-test-result" :class="bulkResult.ok ? 'is-ok' : 'is-fail'" style="margin-top:.6rem;">
@@ -65,13 +65,13 @@
     <!-- 列表 -->
     <section class="lf-card">
       <div class="lf-card-head">
-        <Icon name="list" :size="18" class="lf-card-icon" />
+        <Icon name="list" :size="'lg'" class="lf-card-icon" />
         <div>
           <h2 class="lf-card-title">题库（{{ items.length }}）</h2>
           <p class="lf-card-desc">全部面试题与参考答案，供模拟面试随机抽取。</p>
         </div>
         <button class="kb-btn kb-btn-sm" :disabled="busy" style="margin-left:auto;" @click="refresh">
-          <Icon :name="busy ? 'loader' : 'refresh-cw'" :size="14" :class="busy ? 'lf-spin' : ''" /> 刷新
+          <Icon :name="busy ? 'loader' : 'refresh-cw'" :size="'sm'" :class="busy ? 'lf-spin' : ''" /> 刷新
         </button>
       </div>
 
@@ -244,7 +244,7 @@ onMounted(refresh)
   font-weight: 600;
   color: var(--kb-foreground);
 }
-.lf-md { width: 100%; resize: vertical; font-family: var(--font-mono); font-size: 12.5px; }
+.lf-md { width: 100%; resize: vertical; font-family: var(--font-mono); font-size: var(--kb-fs-body-sm); }
 .lf-hidden { display: none; }
 .lf-empty { color: var(--kb-muted-foreground); font-size: var(--kb-fs-body-sm); padding: .5rem 0; }
 .lf-bank-list { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; max-height: 22rem; overflow-y: auto; }

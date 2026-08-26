@@ -229,7 +229,7 @@ onBeforeUnmount(() => {
   position: fixed;
   z-index: 200;
   transform: translate(-50%, -50%);
-  padding: 4px 10px;
+  padding: 4px 12px;
   font-size: 12px;
   font-weight: 600;
   color: #fff;

@@ -163,7 +163,7 @@ function onDrawingWidth(e: Event) {
   overflow-y: auto;
   background: var(--kb-muted);
   border-left: 1px solid var(--kb-border);
-  padding: 14px;
+  padding: 16px;
   box-sizing: border-box;
 }
 :root[data-theme='dark'] .lf-props {
@@ -178,9 +178,9 @@ function onDrawingWidth(e: Event) {
 .lf-row {
   display: grid;
   grid-template-columns: 18px 1fr 18px 1fr;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .lf-row label {
   font-size: 12px;
@@ -190,7 +190,7 @@ function onDrawingWidth(e: Event) {
   display: block;
   font-size: 12px;
   color: var(--kb-muted-foreground);
-  margin: 10px 0 4px;
+  margin: 12px 0 4px;
 }
 .lf-textarea {
   resize: vertical;
@@ -207,10 +207,10 @@ function onDrawingWidth(e: Event) {
 .lf-check {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   color: var(--kb-foreground);
-  margin-top: 10px;
+  margin-top: 12px;
   cursor: pointer;
 }
 .lf-props-empty {

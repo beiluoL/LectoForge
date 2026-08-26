@@ -107,7 +107,7 @@ async function onGenerate() {
   border: 1px solid var(--kb-border);
   border-radius: 12px;
   box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
-  padding: 18px;
+  padding: 16px;
   box-sizing: border-box;
 }
 :root[data-theme='dark'] .lf-ai-card {
@@ -117,7 +117,7 @@ async function onGenerate() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .lf-ai-title {
   font-size: 15px;
@@ -137,7 +137,7 @@ async function onGenerate() {
 .lf-ai-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 .lf-ai-label {
@@ -147,7 +147,7 @@ async function onGenerate() {
 .lf-ai-error {
   color: #dc2626;
   font-size: 12px;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
 }
 .lf-ai-actions {
   display: flex;
