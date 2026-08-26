@@ -109,8 +109,8 @@ const title = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--kb-radius-sm);
   color: var(--kb-muted-foreground);
   transition: background 0.15s ease, color 0.15s ease;

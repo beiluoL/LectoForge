@@ -587,8 +587,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: calc(var(--kb-radius-sm) - 1px);
   background: transparent;

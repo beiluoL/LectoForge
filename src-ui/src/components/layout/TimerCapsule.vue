@@ -147,8 +147,11 @@ function openPomodoro() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: content-box;
   width: 18px;
   height: 18px;
+  padding: 7px;
+  margin: -7px;
   border: 0;
   border-radius: 9999px;
   background: transparent;

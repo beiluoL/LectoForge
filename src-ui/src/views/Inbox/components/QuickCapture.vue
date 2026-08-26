@@ -908,7 +908,7 @@ defineExpose({ focus: () => taRef.value?.focus() });
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 26px;
+  height: 28px;
   padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
@@ -1199,6 +1199,9 @@ defineExpose({ focus: () => taRef.value?.focus() });
 /* ===== 录音按钮 ===== */
 .qc-file {
   display: none;
+}
+.qc-mic {
+  min-height: 34px;
 }
 .qc-mic.is-rec {
   border-color: var(--kb-destructive);

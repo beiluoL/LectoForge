@@ -24,7 +24,13 @@
 
       <!-- 更多菜单 -->
       <div class="qd-menu-wrap">
-        <button class="qd-icon-btn" title="更多" @click.stop="menuOpen = !menuOpen">
+        <button
+          class="qd-icon-btn"
+          title="更多"
+          aria-haspopup="menu"
+          :aria-expanded="menuOpen"
+          @click.stop="menuOpen = !menuOpen"
+        >
           <Icon name="more-horizontal" :size="15" />
         </button>
         <div v-if="menuOpen" class="qd-menu" @click.stop>
@@ -305,8 +311,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
 
 .qd-icon-btn {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border-radius: var(--kb-radius-sm);
@@ -329,8 +335,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   color: var(--kb-destructive);
 }
 .qd-tiny {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
 }
 
 /* 更多菜单 */
@@ -416,6 +422,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   cursor: pointer;
   position: relative;
   transition: border-color 0.12s ease, background 0.12s ease;
+}
+.qd-check::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 .qd-check:hover {
   border-color: var(--q-color);

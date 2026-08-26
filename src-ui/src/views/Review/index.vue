@@ -491,8 +491,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--kb-radius-sm);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -936,6 +936,10 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--kb-primary) 8%, var(--kb-card));
 }
 .rv-pomo-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 8px;
   margin-left: auto;
   font-size: 12px;
   color: var(--kb-muted-foreground);

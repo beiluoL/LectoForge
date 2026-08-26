@@ -99,7 +99,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
+  height: 28px;
   padding: 0 10px;
   border: none;
   border-radius: calc(var(--kb-radius-sm) - 2px);
@@ -122,7 +122,7 @@
 .kb-btn.is-on {
   border-color: var(--kb-primary);
   color: var(--kb-primary);
-  background: var(--kb-highlight-soft, var(--kb-muted));
+  background: var(--kb-highlight-soft);
 }
 
 /* 通用小图标按钮（页面内复用） */
@@ -130,8 +130,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border: none;
   border-radius: var(--kb-radius-sm);
@@ -390,7 +390,7 @@
 .mm-row.is-drop-before::before { top: -1px; }
 .mm-row.is-drop-after::after { bottom: -1px; }
 .mm-row.is-drop-child {
-  background: var(--kb-highlight-soft, var(--kb-muted));
+  background: var(--kb-highlight-soft);
   box-shadow: inset 0 0 0 1px var(--kb-primary);
 }
 
@@ -631,7 +631,7 @@
 
 .mm-node.is-selected .mm-node-shape {
   border-color: var(--kb-highlight);
-  box-shadow: 0 0 0 3px var(--kb-highlight-soft, rgba(255, 107, 53, 0.15));
+  box-shadow: 0 0 0 3px var(--kb-highlight-soft);
 }
 .mm-node:hover .mm-node-shape { box-shadow: var(--shadow-card); }
 
@@ -803,9 +803,9 @@
   gap: 6px;
   margin: var(--kb-space-4) 0 0;
   padding: 8px 10px;
-  border: 1px solid var(--kb-highlight-border, var(--kb-border));
+  border: 1px solid var(--kb-highlight-border);
   border-radius: var(--kb-radius-sm);
-  background: var(--kb-highlight-soft, var(--kb-muted));
+  background: var(--kb-highlight-soft);
   color: var(--kb-muted-foreground);
   font-size: var(--kb-fs-xs);
   line-height: 1.6;
