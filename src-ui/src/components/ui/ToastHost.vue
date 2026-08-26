@@ -6,20 +6,21 @@
     <transition-group name="toast">
       <div
         v-for="t in toastState.toasts" :key="t.id"
-        class="pointer-events-auto flex items-start gap-3 rounded-lg border-l-4 bg-white px-4 py-3 shadow-lg"
+        class="pointer-events-auto flex items-start gap-3 rounded-lg border-l-4 px-4 py-3 shadow-lg"
         :class="toastClass(t.type)"
+        :style="{ background: 'var(--kb-card)', color: 'var(--kb-foreground)' }"
         role="status"
         :aria-live="t.type === 'error' ? 'assertive' : 'polite'"
       >
         <Icon :name="toastIcon(t.type)" :size="18" :class="toastText(t.type)" />
-        <span class="flex-1 text-sm text-gray-800">{{ t.message }}</span>
+        <span class="flex-1 text-sm">{{ t.message }}</span>
         <button
           type="button"
-          class="text-gray-400 transition-colors hover:text-gray-600"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--kb-muted-foreground)] transition-colors hover:text-[var(--kb-foreground)]"
           aria-label="关闭提示"
           @click="dismiss(t.id)"
         >
-          ×
+          <Icon name="x" :size="16" />
         </button>
       </div>
     </transition-group>
@@ -31,8 +32,8 @@
     role="alertdialog"
     aria-modal="true"
   >
-    <div class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" :data-confirm-id="c.id">
-      <p class="mb-5 text-sm text-gray-800">{{ c.message }}</p>
+    <div class="w-full max-w-sm rounded-xl p-6 shadow-xl" :style="{ background: 'var(--kb-card)', color: 'var(--kb-foreground)' }" :data-confirm-id="c.id">
+      <p class="mb-5 text-sm">{{ c.message }}</p>
       <!-- Prompt 输入框（仅当配置了 prompt 时显示） -->
       <input
         v-if="c.prompt"
@@ -41,20 +42,20 @@
         :value="c.prompt.defaultValue"
         :placeholder="c.prompt.placeholder"
         type="text"
-        class="mb-5 w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+        class="mb-5 w-full rounded-md border border-[var(--kb-border)] px-3 py-2 text-sm outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
         @keydown.enter="onPromptEnter($event, c)"
       />
       <div class="flex justify-end gap-3">
         <button
           type="button"
-          class="rounded-md px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+          class="rounded-md px-4 py-2 text-sm text-[var(--kb-muted-foreground)] transition-colors hover:bg-[var(--kb-muted)]"
           @click="c.resolve(false)"
         >
           取消
         </button>
         <button
           type="button"
-          class="rounded-md bg-primary-500 px-4 py-2 text-sm text-white transition-opacity hover:opacity-90"
+          class="rounded-md bg-[var(--kb-primary)] px-4 py-2 text-sm text-[var(--kb-primary-foreground)] transition-opacity hover:opacity-90"
           @click="onConfirmClick(c)"
         >
           确定

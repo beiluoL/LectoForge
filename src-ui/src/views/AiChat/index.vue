@@ -505,9 +505,9 @@ watch(() => store.loading, scrollToBottom);
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 13px;
-  color: var(--kb-destructive, #d92d20);
-  background: color-mix(in srgb, var(--kb-destructive, #d92d20) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--kb-destructive, #d92d20) 30%, transparent);
+  color: var(--kb-destructive);
+  background: color-mix(in srgb, var(--kb-destructive) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kb-destructive) 30%, transparent);
 }
 .ai-error :deep(svg) {
   flex-shrink: 0;

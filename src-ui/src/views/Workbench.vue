@@ -344,7 +344,10 @@ onMounted(async () => {
   position: relative;
   overflow: hidden;
   border-radius: var(--kb-radius-lg);
-  background: linear-gradient(135deg, #F5F7FF 0%, #FFFFFF 55%, #FFF3EC 100%);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--kb-primary) 7%, var(--kb-card)) 0%,
+    var(--kb-card) 55%,
+    color-mix(in srgb, var(--kb-highlight) 6%, var(--kb-card)) 100%);
   border: 1px solid var(--kb-border);
   box-shadow: var(--shadow-card);
 }
@@ -358,20 +361,20 @@ onMounted(async () => {
 .wb-blob-1 {
   width: 320px; height: 320px;
   top: -120px; right: -80px;
-  background: radial-gradient(circle, rgba(59,111,224,0.35), transparent 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--kb-primary) 35%, transparent), transparent 70%);
 }
 .wb-blob-2 {
   width: 280px; height: 280px;
   bottom: -140px; left: -60px;
-  background: radial-gradient(circle, rgba(255,107,53,0.28), transparent 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--kb-highlight) 28%, transparent), transparent 70%);
 }
 .wb-grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(26,29,35,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(26,29,35,0.035) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--kb-foreground) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--kb-foreground) 4%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
-  mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 80%);
+  mask-image: linear-gradient(180deg, color-mix(in srgb, var(--kb-foreground) 50%, transparent), transparent 80%);
 }
 .wb-hero-inner {
   position: relative;
@@ -486,8 +489,8 @@ onMounted(async () => {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--mc);
-  color: #fff;
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+  color: var(--kb-foreground);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;

@@ -104,7 +104,7 @@ import InboxList from './components/InboxList.vue';
 import { useInboxStore } from '@/store/inbox-store';
 import './../workbench-shared.css';
 
-const themeColor = '#3B6FE0';
+const themeColor = 'var(--kb-primary)';
 
 const store = useInboxStore();
 const { items, loading, error } = storeToRefs(store);
@@ -153,7 +153,7 @@ onMounted(reload);
   min-width: 76px;
   padding: 10px 16px;
   border-radius: var(--kb-radius-md);
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--kb-card) 72%, transparent);
   border: 1px solid var(--kb-border);
   backdrop-filter: blur(6px);
   flex-shrink: 0;

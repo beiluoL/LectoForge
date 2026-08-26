@@ -85,11 +85,11 @@
         v-else-if="store.visibleTasks.length === 0"
         class="mt-[20%] flex flex-col items-center py-16 text-center"
       >
-        <Icon name="list-checks" size="56" class="text-gray-300 dark:text-neutral-700" />
-        <p class="mt-3 text-sm font-medium text-gray-600 dark:text-neutral-300">
+        <Icon name="list-checks" size="56" class="text-[var(--kb-muted-foreground)] opacity-45" />
+        <p class="mt-3 text-sm font-medium text-[var(--kb-foreground)]">
           {{ emptyTitle }}
         </p>
-        <p class="mt-1 text-sm text-gray-400 dark:text-neutral-500">
+        <p class="mt-1 text-sm text-[var(--kb-muted-foreground)]">
           {{ emptyHint }}
         </p>
       </div>

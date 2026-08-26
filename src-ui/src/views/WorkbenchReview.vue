@@ -523,7 +523,7 @@ onMounted(() => {
 }
 .rc-range-btn.is-active {
   background: var(--mc);
-  color: var(--kb-primary-foreground, #fff);
+  color: var(--kb-primary-foreground);
   font-weight: 600;
 }
 .rc-legend {

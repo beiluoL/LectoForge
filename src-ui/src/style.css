@@ -36,7 +36,9 @@
   --kb-destructive: #EF4444;
   --kb-destructive-foreground: #FFFFFF;
   --kb-warning: #F59E0B;
-  --kb-warning-foreground: #FFFFFF;
+  --kb-warning-foreground: #1A1D23;
+  --kb-info: #0EA5E9;
+  --kb-info-foreground: #FFFFFF;
 
   /* ===== Immersive（沉浸式全屏专注：间隔复习「全屏专注」等） =====
    * 刻意压暗背景剥离一切干扰，让白色卡片成为唯一视觉焦点；
@@ -214,6 +216,8 @@
   --kb-destructive-foreground: #0F1115;
   --kb-warning: #FBBF24;
   --kb-warning-foreground: #0F1115;
+  --kb-info: #38BDF8;
+  --kb-info-foreground: #0F1115;
 
   --kb-immersive-bg: #07080A;
   --kb-immersive-foreground: #E6E8EC;
@@ -753,7 +757,7 @@ svg {
 
   /* 连线进行中的临时连接线（hover 拖拽创建连线时显示），与主色一致 */
   .vue-flow__connection-path {
-    stroke: var(--kb-primary, #3b6fe0);
+    stroke: var(--kb-primary);
     stroke-width: 2;
   }
 
@@ -1572,7 +1576,7 @@ body.kb-review-immersive .kb-app-shell {
   --dp-disabled-color: var(--kb-muted-foreground);
   --dp-disabled-color-text: var(--kb-muted-foreground);
   --dp-icon-color: var(--kb-muted-foreground);
-  --dp-danger-color: var(--kb-destructive, #ef4444);
+  --dp-danger-color: var(--kb-destructive);
   --dp-success-color: #10b981;
   --dp-highlight-color: color-mix(in srgb, var(--kb-primary) 18%, transparent);
   --dp-range-between-dates-background-color: color-mix(in srgb, var(--kb-primary) 14%, transparent);
@@ -1599,7 +1603,7 @@ body.kb-review-immersive .kb-app-shell {
   --dp-disabled-color: var(--kb-muted-foreground);
   --dp-disabled-color-text: var(--kb-muted-foreground);
   --dp-icon-color: var(--kb-muted-foreground);
-  --dp-danger-color: var(--kb-destructive, #ef4444);
+  --dp-danger-color: var(--kb-destructive);
   --dp-success-color: #10b981;
   --dp-highlight-color: color-mix(in srgb, var(--kb-primary) 22%, transparent);
   --dp-range-between-dates-background-color: color-mix(in srgb, var(--kb-primary) 18%, transparent);
@@ -1616,7 +1620,7 @@ body.kb-review-immersive .kb-app-shell {
   background: var(--kb-card);
   color: var(--kb-foreground);
   border: 1px solid var(--kb-border);
-  border-radius: var(--kb-radius-md, 8px);
+  border-radius: var(--kb-radius-md);
   font: inherit;
   padding: 8px 12px 8px 34px;
   outline: none;

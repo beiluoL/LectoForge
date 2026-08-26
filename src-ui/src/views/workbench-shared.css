@@ -14,7 +14,7 @@
   position: relative;
   overflow: hidden;
   border-radius: var(--kb-radius-lg);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--mc) 8%, #F5F7FF) 0%, var(--kb-card) 55%, color-mix(in srgb, var(--kb-highlight) 6%, var(--kb-card)) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--mc) 8%, var(--kb-card)) 0%, var(--kb-card) 55%, color-mix(in srgb, var(--kb-highlight) 6%, var(--kb-card)) 100%);
   border: 1px solid var(--kb-border);
   box-shadow: var(--shadow-card);
 }
@@ -31,10 +31,10 @@
 .wb-grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(26,29,35,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(26,29,35,0.035) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--kb-foreground) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--kb-foreground) 4%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
-  mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 80%);
+  mask-image: linear-gradient(180deg, color-mix(in srgb, var(--kb-foreground) 50%, transparent), transparent 80%);
 }
 .wb-hero-inner {
   position: relative;
@@ -102,7 +102,7 @@
   gap: 4px;
   padding: 10px 12px;
   border-radius: var(--kb-radius-md);
-  background: rgba(255,255,255,0.72);
+  background: color-mix(in srgb, var(--kb-card) 72%, transparent);
   border: 1px solid var(--kb-border);
   backdrop-filter: blur(6px);
   flex-wrap: wrap;
@@ -355,7 +355,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px; height: 30px;
+  width: 32px; height: 32px;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   color: var(--kb-muted-foreground);

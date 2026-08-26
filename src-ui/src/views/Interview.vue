@@ -401,14 +401,14 @@ onBeforeUnmount(() => {
 }
 .iv-head-title { display: flex; align-items: center; gap: .625rem; }
 .iv-head-icon { color: var(--kb-primary); flex-shrink: 0; }
-.iv-h1 { font-size: var(--kb-fs-h3, 1.25rem); font-weight: 700; color: var(--kb-foreground); margin: 0; }
-.iv-sub { font-size: var(--kb-fs-caption, .75rem); color: var(--kb-muted-foreground); margin: .15rem 0 0; }
+.iv-h1 { font-size: var(--kb-fs-h3); font-weight: 700; color: var(--kb-foreground); margin: 0; }
+.iv-sub { font-size: var(--kb-fs-caption); color: var(--kb-muted-foreground); margin: .15rem 0 0; }
 .iv-state {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: .375rem;
-  font-size: var(--kb-fs-caption, .75rem);
+  font-size: var(--kb-fs-caption);
   padding: .2rem .6rem;
   border-radius: 999px;
   background: var(--kb-muted);
@@ -427,7 +427,7 @@ onBeforeUnmount(() => {
 .iv-role {
   padding: .35rem .85rem;
   border-radius: 999px;
-  font-size: var(--kb-fs-caption, .78rem);
+  font-size: var(--kb-fs-caption);
   font-weight: 500;
   color: var(--kb-muted-foreground);
   background: var(--kb-muted);
@@ -462,7 +462,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: .5rem;
 }
-.iv-empty-hint { font-size: var(--kb-fs-caption, .75rem); opacity: .8; }
+.iv-empty-hint { font-size: var(--kb-fs-caption); opacity: .8; }
 
 .iv-row { display: flex; align-items: flex-end; gap: .5rem; }
 .iv-row.is-right { flex-direction: row; justify-content: flex-end; }
@@ -481,8 +481,8 @@ onBeforeUnmount(() => {
 .iv-bubble {
   max-width: min(78%, 40rem);
   padding: .6rem .85rem;
-  border-radius: var(--kb-radius-lg, 14px);
-  font-size: var(--kb-fs-body, .9rem);
+  border-radius: var(--kb-radius-lg);
+  font-size: var(--kb-fs-body-md);
   line-height: 1.55;
 }
 .iv-bubble-left {
@@ -505,16 +505,16 @@ onBeforeUnmount(() => {
   margin-bottom: .4rem;
   padding: .12rem .55rem;
   border-radius: 999px;
-  font-size: var(--kb-fs-caption, .72rem);
+  font-size: var(--kb-fs-caption);
   font-weight: 600;
-  color: var(--kb-warning, #d97706);
-  background: color-mix(in srgb, var(--kb-warning, #d97706) 14%, transparent);
+  color: var(--kb-warning);
+  background: color-mix(in srgb, var(--kb-warning) 14%, transparent);
   align-self: flex-start;
 }
 .iv-caption {
   display: inline-block;
   margin-top: .35rem;
-  font-size: var(--kb-fs-caption, .72rem);
+  font-size: var(--kb-fs-caption);
   color: var(--kb-muted-foreground);
 }
 
@@ -523,14 +523,14 @@ onBeforeUnmount(() => {
   width: min(90%, 42rem);
   background: color-mix(in srgb, var(--kb-accent) 8%, var(--kb-card));
   border: 1px solid var(--kb-border);
-  border-radius: var(--kb-radius-lg, 14px);
+  border-radius: var(--kb-radius-lg);
   padding: .7rem .9rem;
 }
 .iv-eval-head {
   display: flex;
   align-items: center;
   gap: .4rem;
-  font-size: var(--kb-fs-body-sm, .8125rem);
+  font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   color: var(--kb-foreground);
 }
@@ -545,14 +545,14 @@ onBeforeUnmount(() => {
 .iv-score.is-good { color: var(--kb-primary); background: color-mix(in srgb, var(--kb-primary) 14%, transparent); }
 .iv-score.is-mid { color: var(--kb-warning); background: color-mix(in srgb, var(--kb-warning) 16%, transparent); }
 .iv-score.is-low { color: var(--kb-destructive); background: color-mix(in srgb, var(--kb-destructive) 14%, transparent); }
-.iv-eval-comment { margin: .4rem 0 0; font-size: var(--kb-fs-body-sm, .8125rem); color: var(--kb-muted-foreground); line-height: 1.55; white-space: pre-wrap; }
+.iv-eval-comment { margin: .4rem 0 0; font-size: var(--kb-fs-body-sm); color: var(--kb-muted-foreground); line-height: 1.55; white-space: pre-wrap; }
 
 /* 系统 / 总结 */
 .iv-system {
   display: inline-flex;
   align-items: center;
   gap: .4rem;
-  font-size: var(--kb-fs-caption, .75rem);
+  font-size: var(--kb-fs-caption);
   color: var(--kb-muted-foreground);
   background: var(--kb-muted);
   padding: .35rem .75rem;
@@ -617,7 +617,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: .35rem;
-  font-size: var(--kb-fs-caption, .75rem);
+  font-size: var(--kb-fs-caption);
   color: var(--kb-destructive);
 }
 </style>

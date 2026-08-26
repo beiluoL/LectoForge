@@ -81,8 +81,8 @@
             <Transition name="dropdown">
               <div v-if="openKey === it.key" class="absolute left-0 top-full z-50 pt-2">
                 <div
-                  class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
-                         dark:border-neutral-700/20 dark:bg-neutral-900/80"
+                  class="w-52 rounded-xl border p-2 shadow-2xl backdrop-blur-xl"
+                    :style="{ background: 'color-mix(in srgb, var(--kb-popover) 86%, transparent)', borderColor: 'var(--kb-border)' }"
                   role="menu"
                 >
                   <router-link
@@ -90,9 +90,8 @@
                     :key="c.path"
                     :to="c.path"
                     role="menuitem"
-                    class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
-                           hover:bg-black/5 dark:hover:bg-white/10"
-                    :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                    class="topnav-menu-item flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                    :class="{ 'is-active': childActive(c) }"
                     @click="closeMenus"
                   >
                     <Icon :name="c.icon" size="sm" />
@@ -139,8 +138,8 @@
         <Transition name="dropdown">
           <div v-if="moreOpen" class="absolute left-0 top-full z-50 pt-2">
             <div
-              class="w-52 rounded-xl border border-white/20 bg-white/80 p-2 shadow-2xl backdrop-blur-xl
-                     dark:border-neutral-700/20 dark:bg-neutral-900/80"
+              class="w-52 rounded-xl border p-2 shadow-2xl backdrop-blur-xl"
+                    :style="{ background: 'color-mix(in srgb, var(--kb-popover) 86%, transparent)', borderColor: 'var(--kb-border)' }"
               role="menu"
             >
               <template v-for="it in moreItems" :key="it.key">
@@ -155,9 +154,8 @@
                     :key="c.path"
                     :to="c.path"
                     role="menuitem"
-                    class="flex items-center gap-2 rounded-lg py-2 pl-5 pr-3 text-sm transition-colors
-                           hover:bg-black/5 dark:hover:bg-white/10"
-                    :class="childActive(c) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                    class="topnav-menu-item flex items-center gap-2 rounded-lg py-2 pl-5 pr-3 text-sm transition-colors"
+                    :class="{ 'is-active': childActive(c) }"
                     @click="closeMenus"
                   >
                     <Icon :name="c.icon" size="sm" />
@@ -169,9 +167,8 @@
                   v-else
                   :to="it.path"
                   role="menuitem"
-                  class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors
-                         hover:bg-black/5 dark:hover:bg-white/10"
-                  :class="isActive(it) ? 'bg-black/5 text-[var(--kb-primary)] dark:bg-white/10' : 'text-[var(--kb-foreground)]'"
+                  class="topnav-menu-item flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                  :class="{ 'is-active': isActive(it) }"
                   @click="closeMenus"
                 >
                   <Icon :name="it.icon" size="sm" />
@@ -578,9 +575,21 @@ async function checkUpdate() {
   font-size: 10px;
   line-height: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--kb-warning-foreground);
   text-align: center;
   box-shadow: 0 0 0 2px var(--kb-card);
+}
+
+/* 顶栏下拉菜单项：hover/激活态走令牌，明暗自动跟随（禁 dark: 变体） */
+.topnav-menu-item {
+  color: var(--kb-foreground);
+}
+.topnav-menu-item:hover {
+  background: var(--kb-muted);
+}
+.topnav-menu-item.is-active {
+  color: var(--kb-primary);
+  background: color-mix(in srgb, var(--kb-primary) 10%, transparent);
 }
 
 /* 下拉淡入动画（<Transition name="dropdown">） */

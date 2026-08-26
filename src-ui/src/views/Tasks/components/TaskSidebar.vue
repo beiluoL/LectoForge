@@ -1,6 +1,6 @@
 <template>
   <aside
-    class="task-sidebar flex h-full w-64 shrink-0 flex-col border-r border-gray-200/50 dark:border-neutral-800/50 pl-4 pr-3 pt-4 pb-4"
+    class="task-sidebar flex h-full w-64 shrink-0 flex-col border-r border-[var(--kb-border)] pl-4 pr-3 pt-4 pb-4"
     :style="{ background: 'var(--kb-sidebar)' }"
   >
     <!-- 智能列表 -->

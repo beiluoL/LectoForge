@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full" :style="{ background: 'var(--kb-bg)', color: 'var(--kb-foreground)' }">
+  <div class="flex flex-col h-full" :style="{ background: 'var(--kb-background)', color: 'var(--kb-foreground)' }">
     <CalendarHeader @add="openAdd()" />
 
     <!-- 主体：三态（加载 / 空 / 数据） -->

@@ -135,7 +135,7 @@ function retake() {
 }
 .ocr-modal {
   width: min(560px, 92vw);
-  background: var(--kb-surface, #fff);
+  background: var(--kb-card);
   border-radius: 14px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -145,7 +145,7 @@ function retake() {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--kb-border, #e5e7eb);
+  border-bottom: 1px solid var(--kb-border);
   font-weight: 600;
 }
 .ocr-head > span {
@@ -157,7 +157,7 @@ function retake() {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--kb-text-muted, #6b7280);
+  color: var(--kb-muted-foreground);
 }
 .ocr-pick {
   display: flex;
@@ -171,14 +171,14 @@ function retake() {
   align-items: center;
   gap: 8px;
   padding: 22px 0;
-  border: 1px solid var(--kb-border, #e5e7eb);
+  border: 1px solid var(--kb-border);
   border-radius: 12px;
-  background: var(--kb-surface-2, #f8fafc);
+  background: var(--kb-background);
   cursor: pointer;
-  color: var(--kb-text, #111827);
+  color: var(--kb-foreground);
 }
 .ocr-src:hover:not(:disabled) {
-  border-color: var(--kb-primary, #8b5cf6);
+  border-color: var(--kb-primary);
 }
 .ocr-src:disabled {
   opacity: 0.55;
@@ -189,7 +189,7 @@ function retake() {
   width: 100%;
   text-align: center;
   font-size: 12px;
-  color: var(--kb-text-muted, #6b7280);
+  color: var(--kb-muted-foreground);
   padding: 0 16px 16px;
 }
 .ocr-error {
@@ -204,7 +204,7 @@ function retake() {
   gap: 8px;
   justify-content: center;
   padding: 40px 0;
-  color: var(--kb-text-muted, #6b7280);
+  color: var(--kb-muted-foreground);
 }
 .ocr-text {
   width: 100%;

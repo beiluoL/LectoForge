@@ -2519,12 +2519,12 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--mc) 18%, transparent);
 }
 .note-map-btn {
-  background: color-mix(in srgb, var(--kb-info, #0EA5E9) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--kb-info, #0EA5E9) 30%, transparent);
-  color: var(--kb-info, #0EA5E9);
+  background: color-mix(in srgb, var(--kb-info) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kb-info) 30%, transparent);
+  color: var(--kb-info);
 }
 .note-map-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--kb-info, #0EA5E9) 18%, transparent);
+  background: color-mix(in srgb, var(--kb-info) 18%, transparent);
 }
 .note-map-btn:disabled {
   opacity: 0.55;
@@ -2919,7 +2919,7 @@ onUnmounted(() => {
   max-height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: var(--kb-radius-lg, 14px);
+  border-radius: var(--kb-radius-lg);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
   box-shadow: var(--shadow-lg);
