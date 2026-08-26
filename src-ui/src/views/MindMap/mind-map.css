@@ -28,7 +28,7 @@
 .mm-topbar-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
   font-size: var(--kb-fs-h4);
   font-weight: var(--kb-fw-h4);
@@ -39,7 +39,7 @@
   min-width: 0;
   width: 200px;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid transparent;
   border-radius: var(--kb-radius-sm);
   background: transparent;
@@ -67,7 +67,7 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--kb-muted);
   color: var(--kb-muted-foreground);
@@ -98,9 +98,9 @@
 .mm-seg-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: none;
   border-radius: calc(var(--kb-radius-sm) - 2px);
   background: transparent;
@@ -176,7 +176,7 @@
   justify-content: space-between;
   gap: 4px;
   height: 38px;
-  padding: 0 6px 0 12px;
+  padding: 0 8px 0 12px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--kb-border);
   color: var(--kb-muted-foreground);
@@ -189,7 +189,7 @@
 .mm-side-list {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 6px;
+  padding: 8px;
   margin: 0;
   list-style: none;
   overflow-y: auto;
@@ -198,8 +198,8 @@
 .mm-side-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 8px;
+  padding: 8px 8px;
   border-radius: var(--kb-radius-sm);
   color: var(--kb-foreground);
   font-size: var(--kb-fs-body-sm);
@@ -246,7 +246,7 @@
 .mm-side-del:hover { color: var(--kb-destructive); background: var(--kb-muted); }
 
 .mm-side-empty {
-  padding: 16px 10px;
+  padding: 16px 12px;
   color: var(--kb-muted-foreground);
   font-size: var(--kb-fs-caption);
   text-align: center;
@@ -344,7 +344,7 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 24px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
   color: var(--kb-foreground);
   font-size: var(--kb-fs-body-md);
@@ -397,8 +397,8 @@
 .mm-empty-add {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   border: 1px dashed var(--kb-border);
   border-radius: var(--kb-radius-md);
   background: transparent;
@@ -413,20 +413,20 @@
   flex-wrap: wrap;
   gap: var(--kb-space-3);
   flex-shrink: 0;
-  padding: 6px var(--kb-space-5);
+  padding: 8px var(--kb-space-5);
   border-top: 1px solid var(--kb-border);
   background: var(--kb-background);
   color: var(--kb-muted-foreground);
   font-size: var(--kb-fs-xs);
 }
 .mm-outline-hints kbd {
-  padding: 1px 5px;
+  padding: 1px 4px;
   margin-right: 3px;
   border: 1px solid var(--kb-border);
   border-radius: 4px;
   background: var(--kb-card);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
 }
 
 /* =====================================================================
@@ -443,7 +443,7 @@
 .mm-canvas-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 38px;
   flex-shrink: 0;
   padding: 0 var(--kb-space-3);
@@ -454,7 +454,7 @@
 .mm-canvas-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -474,7 +474,7 @@
 .mm-switch {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-shrink: 0;
   color: var(--kb-muted-foreground);
   font-size: var(--kb-fs-caption);
@@ -520,7 +520,7 @@
 .mm-flow-palette {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   width: 178px;
   flex-shrink: 0;
   padding: var(--kb-space-3);
@@ -541,7 +541,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 9px;
+  padding: 8px 8px;
   border: 1px solid var(--kb-border);
   border-radius: var(--kb-radius-sm);
   background: var(--kb-card);
@@ -559,7 +559,7 @@
 .mm-palette-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin-top: var(--kb-space-4);
 }
 .mm-palette-actions .kb-btn { width: 100%; justify-content: center; }
@@ -577,7 +577,7 @@
   border-radius: 3px;
   background: var(--kb-card);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
 }
 
 /* 形状预览小图标 */
@@ -672,14 +672,14 @@
   position: absolute;
   z-index: 20;
   min-width: 172px;
-  padding: 5px;
+  padding: 4px;
   border: 1px solid var(--kb-border);
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   box-shadow: var(--shadow-lg);
 }
 .mm-context-title {
-  margin: 2px 8px 5px;
+  margin: 2px 8px 4px;
   color: var(--kb-muted-foreground);
   font-size: var(--kb-fs-xs);
 }
@@ -688,7 +688,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px 8px;
   border: none;
   border-radius: var(--kb-radius-sm);
   background: transparent;
@@ -756,7 +756,7 @@
 .mm-ai-title {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--kb-foreground);
   font-size: var(--kb-fs-body-md);
   font-weight: 600;
@@ -774,12 +774,12 @@
 .mm-ai-presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-top: var(--kb-space-3);
 }
 
 .mm-ai-chip {
-  padding: 4px 10px;
+  padding: 4px 12px;
   border: 1px solid var(--kb-border);
   border-radius: 999px;
   background: var(--kb-background);
@@ -800,9 +800,9 @@
 .mm-ai-warn {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   margin: var(--kb-space-4) 0 0;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--kb-highlight-border);
   border-radius: var(--kb-radius-sm);
   background: var(--kb-highlight-soft);

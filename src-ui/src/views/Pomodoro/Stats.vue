@@ -4,7 +4,7 @@
     <div class="ps-inner">
       <header class="ps-head">
         <div class="ps-title">
-          <Icon name="bar-chart" :size="22" style="color: var(--kb-primary)" />
+          <Icon name="bar-chart" :size="'22px'" style="color: var(--kb-primary)" />
           <h1>番茄钟统计</h1>
         </div>
         <div class="ps-range">
@@ -22,7 +22,7 @@
 
       <!-- 加载态 -->
       <div v-if="loading" class="ps-center">
-        <Icon name="loader" :size="26" class="ps-spin" />
+        <Icon name="loader" :size="'26px'" class="ps-spin" />
         <p>正在加载统计…</p>
       </div>
 
@@ -203,7 +203,7 @@ onMounted(() => {
 .ps-title {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 .ps-title h1 {
   font-size: var(--kb-fs-h3);
@@ -213,7 +213,7 @@ onMounted(() => {
 }
 .ps-range {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   background: var(--kb-muted);
   padding: 3px;
   border-radius: var(--kb-radius-md);
@@ -224,7 +224,7 @@ onMounted(() => {
   color: var(--kb-muted-foreground);
   font-size: var(--kb-fs-body-sm);
   font-weight: 500;
-  padding: 6px 13px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -265,7 +265,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 18px 12px;
+  padding: 16px 12px;
   border-radius: var(--kb-radius-lg);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -285,7 +285,7 @@ onMounted(() => {
 }
 
 .ps-chart-card {
-  padding: 18px;
+  padding: 16px;
   border-radius: var(--kb-radius-lg);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -294,19 +294,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   font-size: var(--kb-fs-body-md);
   font-weight: 600;
   color: var(--kb-foreground);
 }
 .ps-legend {
   display: flex;
-  gap: 14px;
+  gap: 16px;
 }
 .ps-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: var(--kb-fs-caption);
   font-weight: 500;
   color: var(--kb-muted-foreground);
@@ -333,7 +333,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--kb-muted-foreground);
   text-align: center;
 }

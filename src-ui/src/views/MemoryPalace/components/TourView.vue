@@ -3,7 +3,7 @@
     <!-- ============ 顶部工具条 ============ -->
     <header class="mp-tour-top">
       <button class="kb-btn" @click="$emit('exit', currentIndex)">
-        <Icon name="arrow-left" :size="14" /> 退出漫游
+        <Icon name="arrow-left" :size="'sm'" /> 退出漫游
       </button>
       <div class="mp-tour-counter">
         <span class="mp-tour-counter-cur">{{ currentIndex + 1 }}</span>
@@ -24,7 +24,7 @@
       <div class="mp-tour-pin-wrap" :key="current?.id">
         <div class="mp-tour-pin-pulse"></div>
         <div class="mp-tour-pin">
-          <Icon :name="current?.icon || 'map-pin'" :size="56" />
+          <Icon :name="current?.icon || 'map-pin'" :size="'56px'" />
         </div>
         <div class="mp-tour-pin-num">{{ currentIndex + 1 }}</div>
       </div>
@@ -34,11 +34,11 @@
         <div v-if="current" class="mp-tour-card" :key="current.id">
           <h2 class="mp-tour-title">{{ current.name }}</h2>
           <div v-if="current.knowledgePoint" class="mp-tour-kp">
-            <Icon name="book-open" :size="14" />
+            <Icon name="book-open" :size="'sm'" />
             <span>{{ current.knowledgePoint }}</span>
           </div>
           <div v-if="current.imageHint" class="mp-tour-hint">
-            <Icon name="sparkles" :size="14" />
+            <Icon name="sparkles" :size="'sm'" />
             <span>联想图像：{{ current.imageHint }}</span>
           </div>
         </div>
@@ -48,7 +48,7 @@
     <!-- ============ 底部控制条 ============ -->
     <footer class="mp-tour-controls">
       <button class="kb-btn" :disabled="sortedLoci.length === 0" @click="prev">
-        <Icon name="skip-back" :size="14" /> 上一步
+        <Icon name="skip-back" :size="'sm'" /> 上一步
       </button>
 
       <button
@@ -57,12 +57,12 @@
         :disabled="sortedLoci.length === 0"
         @click="toggleAuto"
       >
-        <Icon :name="autoPlay ? 'pause' : 'play'" :size="14" />
+        <Icon :name="autoPlay ? 'pause' : 'play'" :size="'sm'" />
         {{ autoPlay ? '暂停自动' : '自动循环' }}
       </button>
 
       <button class="kb-btn" :disabled="sortedLoci.length === 0" @click="next">
-        下一步 <Icon name="skip-forward" :size="14" />
+        下一步 <Icon name="skip-forward" :size="'sm'" />
       </button>
     </footer>
   </div>
@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 24px;
+  padding: 16px 24px;
   border-bottom: 1px solid var(--kb-border);
   background: color-mix(in srgb, var(--kb-card) 80%, transparent);
 }
@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
 .mp-tour-card {
   max-width: 540px;
   width: 100%;
-  padding: 22px 26px;
+  padding: 24px 24px;
   border-radius: var(--kb-radius-lg);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -226,7 +226,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 .mp-tour-title {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-family: var(--font-serif);
   font-size: 22px;
   font-weight: 700;
@@ -236,9 +236,9 @@ onBeforeUnmount(() => {
 .mp-tour-hint {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   font-size: 13px;
   line-height: 1.6;
@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 18px 24px;
+  padding: 16px 24px;
   border-top: 1px solid var(--kb-border);
   background: color-mix(in srgb, var(--kb-card) 80%, transparent);
 }

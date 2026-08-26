@@ -6,11 +6,11 @@
       <!-- 顶部标题 -->
       <header class="pm-head">
         <div class="pm-title">
-          <Icon name="timer" :size="22" style="color: var(--kb-primary)" />
+          <Icon name="timer" :size="'22px'" style="color: var(--kb-primary)" />
           <h1>番茄钟</h1>
         </div>
         <router-link to="/pomodoro/stats" class="pm-link">
-          <Icon name="bar-chart" :size="15" />
+          <Icon name="bar-chart" :size="'15px'" />
           历史统计
         </router-link>
       </header>
@@ -101,17 +101,17 @@
             :disabled="status === 'completed'"
             @click="toggleStart"
           >
-            <Icon :name="isRunning ? 'pause' : (status === 'paused' ? 'play' : 'play')" :size="16" />
+            <Icon :name="isRunning ? 'pause' : (status === 'paused' ? 'play' : 'play')" :size="'md'" />
             {{ isRunning ? '暂停' : (status === 'paused' ? '继续' : '开始') }}
           </button>
           <button class="kb-btn pm-ctrl" :disabled="status === 'idle'" @click="store.resetTimer()">
-            <Icon name="rotate-ccw" :size="15" /> 重置
+            <Icon name="rotate-ccw" :size="'15px'" /> 重置
           </button>
           <button class="kb-btn pm-ctrl" :disabled="status === 'idle'" @click="skipPhase">
-            <Icon name="skip-forward" :size="15" /> 跳过本段
+            <Icon name="skip-forward" :size="'15px'" /> 跳过本段
           </button>
           <button class="kb-btn pm-ctrl" @click="store.stopSession()">
-            <Icon name="square" :size="15" /> 退出
+            <Icon name="square" :size="'15px'" /> 退出
           </button>
         </div>
 
@@ -131,7 +131,7 @@
         <!-- 白噪音 Mini 播放器 -->
         <div class="pm-card">
           <div class="pm-card-head">
-            <Icon name="headphones" :size="16" style="color: var(--kb-primary)" />
+            <Icon name="headphones" :size="'md'" style="color: var(--kb-primary)" />
             <span>白噪音</span>
             <span class="pm-card-tag" :class="{ on: whiteNoise.enabled }">
               {{ whiteNoise.enabled ? '播放中' : '已静音' }}
@@ -150,7 +150,7 @@
           </div>
           <div class="pm-volume">
             <button class="pm-vol-btn" :class="{ on: whiteNoise.enabled }" @click="store.toggleWhiteNoise()">
-              <Icon :name="whiteNoise.enabled ? 'volume-2' : 'volume-x'" :size="16" />
+              <Icon :name="whiteNoise.enabled ? 'volume-2' : 'volume-x'" :size="'md'" />
             </button>
             <input
               class="pm-range"
@@ -167,7 +167,7 @@
         <!-- 提示音设置 -->
         <div class="pm-card">
           <div class="pm-card-head">
-            <Icon name="bell" :size="16" style="color: var(--kb-primary)" />
+            <Icon name="bell" :size="'md'" style="color: var(--kb-primary)" />
             <span>提示音</span>
             <label class="pm-switch">
               <input
@@ -191,7 +191,7 @@
             </button>
           </div>
           <button class="kb-btn pm-preview" :disabled="!soundSettings.enabled" @click="store.playSound()">
-            <Icon name="play" :size="14" /> 试听
+            <Icon name="play" :size="'sm'" /> 试听
           </button>
         </div>
       </section>
@@ -299,7 +299,7 @@ function soundLabel(s: SoundType) {
   max-width: 720px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
 }
 
 /* 头部 */
@@ -311,7 +311,7 @@ function soundLabel(s: SoundType) {
 .pm-title {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 .pm-title h1 {
   font-size: var(--kb-fs-h3);
@@ -322,11 +322,11 @@ function soundLabel(s: SoundType) {
 .pm-link {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: var(--kb-fs-body-sm);
   color: var(--kb-muted-foreground);
   text-decoration: none;
-  padding: 6px 11px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-md);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -354,7 +354,7 @@ function soundLabel(s: SoundType) {
 .pm-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .pm-field label {
   font-size: var(--kb-fs-caption);
@@ -368,7 +368,7 @@ function soundLabel(s: SoundType) {
 }
 .pm-num {
   width: 100%;
-  padding-right: 26px;
+  padding-right: 24px;
   text-align: center;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -439,7 +439,7 @@ function soundLabel(s: SoundType) {
 /* 控制按钮 */
 .pm-controls {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -448,12 +448,12 @@ function soundLabel(s: SoundType) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
 }
 .pm-ctrl {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .pm-hint {
   margin: 0;
@@ -467,7 +467,7 @@ function soundLabel(s: SoundType) {
 .pm-bottom {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
 }
 .pm-card {
   padding: 16px;
@@ -490,7 +490,7 @@ function soundLabel(s: SoundType) {
   margin-left: auto;
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   color: var(--kb-muted-foreground);
   background: var(--kb-muted);
@@ -508,7 +508,7 @@ function soundLabel(s: SoundType) {
 .pm-track {
   flex: 1;
   min-width: 64px;
-  padding: 9px 8px;
+  padding: 8px 8px;
   border-radius: var(--kb-radius-md);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -536,7 +536,7 @@ function soundLabel(s: SoundType) {
 .pm-volume {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .pm-vol-btn {
   display: inline-flex;
@@ -612,7 +612,7 @@ function soundLabel(s: SoundType) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 @media (max-width: 600px) {

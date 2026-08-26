@@ -14,7 +14,7 @@
     <!-- ===== 头部 ===== -->
     <header class="qd-head">
       <span class="qd-badge">{{ meta.order }}</span>
-      <span class="qd-head-icon"><Icon :name="meta.icon" :size="15" /></span>
+      <span class="qd-head-icon"><Icon :name="meta.icon" :size="'15px'" /></span>
       <div class="qd-head-text">
         <h2 class="qd-title">{{ meta.label }}</h2>
         <p class="qd-hint">{{ meta.hint }}</p>
@@ -31,11 +31,11 @@
           :aria-expanded="menuOpen"
           @click.stop="menuOpen = !menuOpen"
         >
-          <Icon name="more-horizontal" :size="15" />
+          <Icon name="more-horizontal" :size="'15px'" />
         </button>
         <div v-if="menuOpen" class="qd-menu" @click.stop>
           <button class="qd-menu-item" @click="onMenu('add')">
-            <Icon name="plus" :size="14" />
+            <Icon name="plus" :size="'sm'" />
             添加任务
           </button>
           <button
@@ -43,14 +43,14 @@
             :disabled="!done.length"
             @click="onMenu('clear')"
           >
-            <Icon name="eraser" :size="14" />
+            <Icon name="eraser" :size="'sm'" />
             清空已完成（{{ done.length }}）
           </button>
         </div>
       </div>
 
       <button class="qd-icon-btn qd-add" title="添加任务" @click="emit('add', meta.key)">
-        <Icon name="plus" :size="16" />
+        <Icon name="plus" :size="'md'" />
       </button>
     </header>
 
@@ -58,7 +58,7 @@
     <div class="qd-body">
       <!-- 空态 -->
       <div v-if="!tasks.length" class="qd-empty">
-        <Icon name="inbox" :size="20" />
+        <Icon name="inbox" :size="'xl'" />
         <p>暂无任务</p>
         <button class="qd-empty-add" @click="emit('add', meta.key)">添加一条</button>
       </div>
@@ -94,7 +94,7 @@
                   class="qd-time"
                   :class="{ 'is-overdue': isOverdue(task.scheduledAt) }"
                 >
-                  <Icon name="clock" :size="11" />
+                  <Icon name="clock" :size="'11px'" />
                   {{ formatScheduleTime(task.scheduledAt) }}
                 </span>
                 <span v-for="t in tagsOf(task)" :key="t" class="qd-tag">{{ t }}</span>
@@ -103,13 +103,13 @@
 
             <div class="qd-item-actions">
               <button class="qd-icon-btn qd-tiny" title="编辑" @click.stop="emit('edit', task)">
-                <Icon name="pencil" :size="13" />
+                <Icon name="pencil" :size="'13px'" />
               </button>
               <button class="qd-icon-btn qd-tiny qd-danger" title="删除" @click.stop="emit('remove', task.id)">
-                <Icon name="trash-2" :size="13" />
+                <Icon name="trash-2" :size="'13px'" />
               </button>
               <span class="qd-grip" title="拖拽到其他象限">
-                <Icon name="grip-vertical" :size="13" />
+                <Icon name="grip-vertical" :size="'13px'" />
               </span>
             </div>
           </li>
@@ -118,7 +118,7 @@
         <!-- 已完成（默认折叠） -->
         <div v-if="done.length" class="qd-done">
           <button class="qd-done-toggle" @click="doneOpen = !doneOpen">
-            <Icon :name="doneOpen ? 'chevron-down' : 'chevron-right'" :size="13" />
+            <Icon :name="doneOpen ? 'chevron-down' : 'chevron-right'" :size="'13px'" />
             已完成 {{ done.length }}
           </button>
           <ul v-if="doneOpen" class="qd-list">
@@ -135,7 +135,7 @@
               </div>
               <div class="qd-item-actions">
                 <button class="qd-icon-btn qd-tiny qd-danger" title="删除" @click.stop="emit('remove', task.id)">
-                  <Icon name="trash-2" :size="13" />
+                  <Icon name="trash-2" :size="'13px'" />
                 </button>
               </div>
             </li>
@@ -254,7 +254,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px 10px;
+  padding: 12px 12px 12px;
   border-bottom: 1px solid var(--kb-border);
 }
 .qd-badge {
@@ -298,7 +298,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   flex: none;
   min-width: 20px;
   height: 18px;
-  padding: 0 6px;
+  padding: 0 8px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -361,12 +361,12 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 9px;
+  padding: 8px 8px;
   border: none;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   color: var(--kb-foreground);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -382,7 +382,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
 .qd-body {
   flex: 1;
   min-height: 0;
-  padding: 6px;
+  padding: 8px;
   overflow-y: auto;
 }
 .qd-list {
@@ -393,8 +393,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
 .qd-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 8px;
+  gap: 12px;
+  padding: 8px 8px;
   border-radius: var(--kb-radius-md);
   cursor: grab;
   transition: background 0.12s ease;
@@ -470,7 +470,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-top: 3px;
 }
 .qd-time {
@@ -486,11 +486,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   font-weight: 600;
 }
 .qd-tag {
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
   background: var(--kb-muted);
   color: var(--kb-muted-foreground);
-  font-size: 10.5px;
+  font-size: var(--kb-fs-xs);
 }
 
 .qd-item-actions {
@@ -522,14 +522,14 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
 .qd-done-toggle {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
-  padding: 5px 8px;
+  padding: 4px 8px;
   border: none;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   color: var(--kb-muted-foreground);
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   font-weight: 600;
   cursor: pointer;
 }
@@ -545,7 +545,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   color: var(--kb-muted-foreground);
 }
 .qd-empty p {
@@ -554,12 +554,12 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu));
 }
 .qd-empty-add {
   margin-top: 2px;
-  padding: 3px 10px;
+  padding: 3px 12px;
   border-radius: 999px;
   border: 1px dashed var(--kb-border);
   background: transparent;
   color: var(--q-color);
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   cursor: pointer;
 }
 .qd-empty-add:hover {

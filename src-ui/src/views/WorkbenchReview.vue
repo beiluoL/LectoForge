@@ -18,7 +18,7 @@
               Step 03 · 复习 · Review Cockpit
             </span>
             <h1 class="wb-title">
-              <Icon name="repeat" :size="28" class="wb-title-icon" />
+              <Icon name="repeat" :size="'28px'" class="wb-title-icon" />
               复习中心
             </h1>
             <p class="wb-subtitle">
@@ -33,7 +33,7 @@
                 :title="'点击进入间隔复习闪卡'"
                 @click="goFlashcard"
               >
-                <Icon name="zap" :size="13" />
+                <Icon name="zap" :size="'13px'" />
                 今日待复习（自动排期）
                 <b>{{ smartDue }}</b> 张
               </button>
@@ -42,12 +42,12 @@
                 :title="'点击进入传统卡组'"
                 @click="goLegacy()"
               >
-                <Icon name="wallet-cards" :size="13" />
+                <Icon name="wallet-cards" :size="'13px'" />
                 待复习（传统卡组）
                 <b>{{ legacyDueCount }}</b> 张
               </button>
               <span v-if="totalDue === 0" class="rc-pill rc-pill--calm">
-                <Icon name="check-circle" :size="13" />
+                <Icon name="check-circle" :size="'13px'" />
                 今日任务已清空，去沉淀新知识吧
               </span>
             </div>
@@ -56,16 +56,16 @@
           <div class="wb-hero-actions">
             <!-- 待复习清单：先挑后背，也能在这里批量挂起不想背的卡 -->
             <button class="kb-btn wb-ghost-btn" @click="reviewStore.openQueueList()">
-              <Icon name="layers" :size="14" /> 待复习清单
+              <Icon name="layers" :size="'sm'" /> 待复习清单
             </button>
             <router-link to="/workbench/recall" class="kb-btn wb-ghost-btn">
-              <Icon name="edit-2" :size="14" /> 主动回忆
+              <Icon name="edit-2" :size="'sm'" /> 主动回忆
             </router-link>
             <router-link to="/workbench/palace" class="kb-btn wb-ghost-btn">
-              <Icon name="map-pin" :size="14" /> 记忆宫殿
+              <Icon name="map-pin" :size="'sm'" /> 记忆宫殿
             </router-link>
             <button class="kb-btn kb-btn-primary wb-cta" @click="goFlashcard">
-              <Icon name="play" :size="14" /> 开始今日复习
+              <Icon name="play" :size="'sm'" /> 开始今日复习
             </button>
           </div>
         </div>
@@ -89,7 +89,7 @@
     <!-- ============ 数据区：热力图 + 遗忘曲线 ============ -->
     <section>
       <h2 class="wb-section-title">
-        <Icon name="gauge" :size="18" style="color: var(--mc);" />
+        <Icon name="gauge" :size="'lg'" style="color: var(--mc);" />
         记忆健康度
         <span class="wb-section-hint">
           全局复习行为统计 · 覆盖笔记与记忆宫殿两类卡源
@@ -104,7 +104,7 @@
         <div class="rc-panel">
           <button class="rc-panel-head" @click="toggleCurve">
             <span class="rc-panel-title">
-              <Icon name="trending-down" :size="15" />
+              <Icon name="trending-down" :size="'15px'" />
               近 {{ curveDays }} 天遗忘趋势
             </span>
             <span class="rc-panel-meta">
@@ -113,7 +113,7 @@
                 {{ (forgettingCurve.overallLapseRate * 100).toFixed(1) }}%
               </template>
               <template v-else>展开查看记忆巩固走势</template>
-              <Icon :name="curveOpen ? 'chevron-up' : 'chevron-down'" :size="16" />
+              <Icon :name="curveOpen ? 'chevron-up' : 'chevron-down'" :size="'md'" />
             </span>
           </button>
 
@@ -135,10 +135,10 @@
             </div>
 
             <div v-if="curveLoading" class="rc-curve-state">
-              <Icon name="loader" :size="20" class="rc-spin" />
+              <Icon name="loader" :size="'xl'" class="rc-spin" />
             </div>
             <div v-else-if="!forgettingCurve || forgettingCurve.points.length === 0" class="rc-curve-state">
-              <Icon name="bar-chart-2" :size="28" style="opacity: 0.4;" />
+              <Icon name="bar-chart-2" :size="'28px'" style="opacity: 0.4;" />
               <p>暂无复习记录，完成复习后这里会呈现记忆巩固趋势</p>
             </div>
             <svg v-else :viewBox="`0 0 ${SVG_W} ${SVG_H}`" class="rc-curve-svg">
@@ -193,7 +193,7 @@
               </rect>
             </svg>
             <p class="rc-curve-tip">
-              <Icon name="mouse-pointer" :size="11" /> 点击图表任意一天，查看当天复习了哪些卡、哪些没记住
+              <Icon name="mouse-pointer" :size="'11px'" /> 点击图表任意一天，查看当天复习了哪些卡、哪些没记住
             </p>
           </div>
         </div>
@@ -203,7 +203,7 @@
     <!-- ============ 入口区：两个大尺寸复习入口卡片 ============ -->
     <section>
       <h2 class="wb-section-title">
-        <Icon name="layers" :size="18" style="color: var(--mc);" />
+        <Icon name="layers" :size="'lg'" style="color: var(--mc);" />
         选择复习方式
         <span class="wb-section-hint">两条队列互不干扰，可以随时切换</span>
       </h2>
@@ -213,7 +213,7 @@
         <article class="rc-entry rc-entry--smart" @click="goFlashcard">
           <span class="rc-entry-glow" aria-hidden="true"></span>
           <header class="rc-entry-head">
-            <span class="rc-entry-icon"><Icon name="brain" :size="26" /></span>
+            <span class="rc-entry-icon"><Icon name="brain" :size="'26px'" /></span>
             <span class="rc-entry-badge">推荐</span>
           </header>
           <h3 class="rc-entry-title">🧠 间隔复习 · SM-2 自动排期</h3>
@@ -221,9 +221,9 @@
             由你的康奈尔笔记和记忆宫殿自动生成的卡片，根据遗忘曲线智能推送。
           </p>
           <ul class="rc-entry-feats">
-            <li><Icon name="check" :size="13" /> 3D 翻转卡 + 键盘盲操打分</li>
-            <li><Icon name="check" :size="13" /> 新卡 / 复习卡 / 易忘卡自动分型</li>
-            <li><Icon name="check" :size="13" /> 全屏专注沉浸背书</li>
+            <li><Icon name="check" :size="'13px'" /> 3D 翻转卡 + 键盘盲操打分</li>
+            <li><Icon name="check" :size="'13px'" /> 新卡 / 复习卡 / 易忘卡自动分型</li>
+            <li><Icon name="check" :size="'13px'" /> 全屏专注沉浸背书</li>
           </ul>
           <footer class="rc-entry-foot">
             <span class="rc-entry-count">
@@ -239,16 +239,16 @@
         <article class="rc-entry rc-entry--legacy" @click="goLegacy()">
           <span class="rc-entry-glow" aria-hidden="true"></span>
           <header class="rc-entry-head">
-            <span class="rc-entry-icon"><Icon name="wallet-cards" :size="26" /></span>
+            <span class="rc-entry-icon"><Icon name="wallet-cards" :size="'26px'" /></span>
           </header>
           <h3 class="rc-entry-title">🗂️ 传统复习 · 自定义卡组</h3>
           <p class="rc-entry-desc">
             手动创建或从笔记中摘录的卡片，独立于自动排期。
           </p>
           <ul class="rc-entry-feats">
-            <li><Icon name="check" :size="13" /> 自建正反面，节奏自己掌控</li>
-            <li><Icon name="check" :size="13" /> 支持暂停 / 恢复单张卡片</li>
-            <li><Icon name="check" :size="13" /> 忘了 / 困难 / 一般 / 容易四档</li>
+            <li><Icon name="check" :size="'13px'" /> 自建正反面，节奏自己掌控</li>
+            <li><Icon name="check" :size="'13px'" /> 支持暂停 / 恢复单张卡片</li>
+            <li><Icon name="check" :size="'13px'" /> 忘了 / 困难 / 一般 / 容易四档</li>
           </ul>
           <footer class="rc-entry-foot">
             <span class="rc-entry-count">
@@ -402,18 +402,18 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 .rc-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
+  gap: 8px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
   color: var(--kb-muted-foreground);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
@@ -454,7 +454,7 @@ onMounted(() => {
 .rc-stats {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .rc-panel {
   border-radius: var(--kb-radius-md);
@@ -468,7 +468,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 13px 18px;
+  padding: 12px 16px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -479,7 +479,7 @@ onMounted(() => {
 .rc-panel-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 14px;
   font-weight: 700;
 }
@@ -491,7 +491,7 @@ onMounted(() => {
   color: var(--kb-muted-foreground);
 }
 .rc-panel-body {
-  padding: 4px 18px 18px;
+  padding: 4px 16px 16px;
   border-top: 1px solid var(--kb-border);
 }
 .rc-curve-toolbar {
@@ -499,7 +499,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 14px 0;
+  margin: 16px 0;
   flex-wrap: wrap;
 }
 .rc-range {
@@ -511,7 +511,7 @@ onMounted(() => {
   border: 1px solid var(--kb-border);
 }
 .rc-range-btn {
-  padding: 5px 12px;
+  padding: 4px 12px;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   border: none;
@@ -529,14 +529,14 @@ onMounted(() => {
 .rc-legend {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   font-size: 11px;
   color: var(--kb-muted-foreground);
 }
 .rc-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 .rc-legend-bar {
   width: 12px;
@@ -564,8 +564,8 @@ onMounted(() => {
 .rc-curve-tip {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin: 6px 0 0;
+  gap: 4px;
+  margin: 8px 0 0;
   font-size: 11px;
   color: var(--kb-muted-foreground);
 }
@@ -598,8 +598,8 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 24px 26px 22px;
+  gap: 12px;
+  padding: 24px 24px 24px;
   border-radius: var(--kb-radius-lg);
   background:
     linear-gradient(150deg, color-mix(in srgb, var(--ec) 7%, var(--kb-card)), var(--kb-card) 62%);
@@ -634,7 +634,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 .rc-entry-icon {
   display: inline-flex;
@@ -647,7 +647,7 @@ onMounted(() => {
   color: var(--ec);
 }
 .rc-entry-badge {
-  padding: 3px 10px;
+  padding: 3px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ec) 16%, transparent);
   color: var(--ec);
@@ -664,7 +664,7 @@ onMounted(() => {
 }
 .rc-entry-desc {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   line-height: 1.7;
   color: var(--kb-muted-foreground);
 }
@@ -674,13 +674,13 @@ onMounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 .rc-entry-feats li {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
+  gap: 8px;
+  font-size: var(--kb-fs-body-sm);
   color: var(--kb-muted-foreground);
 }
 .rc-entry-feats li :deep(svg) { color: var(--ec); flex-shrink: 0; }
@@ -689,13 +689,13 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px dashed var(--kb-border);
   flex-wrap: wrap;
 }
 .rc-entry-count {
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   color: var(--kb-muted-foreground);
 }
 .rc-entry-count b {

@@ -16,11 +16,11 @@
       <div class="fc-face fc-front">
         <span class="fc-tag">{{ card.sourceType === 'note' ? '康奈尔笔记' : '记忆宫殿' }}</span>
         <div class="fc-front-body">
-          <Icon name="lightbulb" :size="22" class="fc-front-ic" />
+          <Icon name="lightbulb" :size="'22px'" class="fc-front-ic" />
           <p class="fc-front-text">{{ card.front }}</p>
         </div>
         <p class="fc-hint">
-          <Icon name="hand" :size="13" /> 点击卡片或按 <kbd>空格</kbd> 看答案
+          <Icon name="hand" :size="'13px'" /> 点击卡片或按 <kbd>空格</kbd> 看答案
         </p>
       </div>
 
@@ -41,14 +41,14 @@
             <p v-if="result.explanation" class="fc-mnemo-exp">{{ result.explanation }}</p>
             <div class="fc-mnemo-acts">
               <button class="fc-mnemo-act fc-mnemo-act--primary" :disabled="adopting" @click="adopt">
-                <Icon :name="adopting ? 'loader-2' : 'check'" :size="12" :class="adopting ? 'fc-spin' : ''" />
+                <Icon :name="adopting ? 'loader-2' : 'check'" :size="'xs'" :class="adopting ? 'fc-spin' : ''" />
                 采纳
               </button>
               <button v-if="variants.length > 1" class="fc-mnemo-act" @click="nextVariant">
-                <Icon name="shuffle" :size="12" /> 换一个
+                <Icon name="shuffle" :size="'xs'" /> 换一个
               </button>
               <button class="fc-mnemo-act" :disabled="loading" @click="generate">
-                <Icon :name="loading ? 'loader-2' : 'refresh-cw'" :size="12" :class="loading ? 'fc-spin' : ''" />
+                <Icon :name="loading ? 'loader-2' : 'refresh-cw'" :size="'xs'" :class="loading ? 'fc-spin' : ''" />
                 重新生成
               </button>
               <button class="fc-mnemo-act fc-mnemo-act--ghost" @click="discard">放弃</button>
@@ -64,7 +64,7 @@
             </p>
             <div v-if="aiReady" class="fc-mnemo-acts">
               <button class="fc-mnemo-act" :disabled="loading" @click="generate">
-                <Icon :name="loading ? 'loader-2' : 'refresh-cw'" :size="12" :class="loading ? 'fc-spin' : ''" />
+                <Icon :name="loading ? 'loader-2' : 'refresh-cw'" :size="'xs'" :class="loading ? 'fc-spin' : ''" />
                 {{ loading ? '生成中…' : '换一条' }}
               </button>
             </div>
@@ -77,7 +77,7 @@
             :disabled="loading"
             @click="generate"
           >
-            <Icon :name="loading ? 'loader-2' : 'sparkles'" :size="14" :class="loading ? 'fc-spin' : ''" />
+            <Icon :name="loading ? 'loader-2' : 'sparkles'" :size="'sm'" :class="loading ? 'fc-spin' : ''" />
             {{ loading ? 'AI 正在编口诀…' : '生成助记口诀' }}
           </button>
         </div>
@@ -231,7 +231,7 @@ watch(
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
   box-shadow: var(--shadow-lg);
-  padding: 28px 30px;
+  padding: 28px 32px;
   display: flex;
   flex-direction: column;
 }
@@ -251,7 +251,7 @@ watch(
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   color: var(--kb-primary);
   background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
@@ -268,7 +268,7 @@ watch(
   z-index: 2;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -288,7 +288,7 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   max-width: 90%;
 }
 .fc-front-ic {
@@ -310,14 +310,14 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   color: var(--kb-muted-foreground);
 }
 .fc-hint kbd {
   font-family: var(--font-mono);
   font-size: 11px;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 5px;
   border: 1px solid var(--kb-border);
   background: var(--kb-muted);
@@ -349,7 +349,7 @@ watch(
 .fc-back-md :deep(code) {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 5px;
   background: var(--kb-muted);
   color: var(--kb-foreground);
@@ -357,7 +357,7 @@ watch(
 .fc-back-md :deep(pre) {
   background: var(--kb-immersive-bg);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   overflow-x: auto;
   margin: 0.6em 0;
 }
@@ -380,7 +380,7 @@ watch(
 .fc-back-md :deep(th),
 .fc-back-md :deep(td) {
   border: 1px solid var(--kb-border);
-  padding: 6px 10px;
+  padding: 8px 12px;
   font-size: 13px;
 }
 .fc-back-md :deep(img) {
@@ -391,19 +391,19 @@ watch(
 /* ---------- AI 助记口诀区（反面底部） ---------- */
 .fc-mnemo {
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 16px;
   cursor: default;
 }
 .fc-mnemo-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   border-radius: 999px;
   border: 1px dashed color-mix(in srgb, var(--kb-highlight) 45%, var(--kb-border));
   background: transparent;
   color: var(--kb-highlight);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -417,7 +417,7 @@ watch(
   cursor: not-allowed;
 }
 .fc-mnemo-panel {
-  padding: 11px 13px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-md);
   border: 1px solid color-mix(in srgb, var(--kb-highlight) 32%, var(--kb-border));
   background: color-mix(in srgb, var(--kb-highlight) 7%, transparent);
@@ -444,15 +444,15 @@ watch(
   word-break: break-word;
 }
 .fc-mnemo-saved {
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
   color: color-mix(in srgb, var(--kb-accent) 85%, black);
   background: color-mix(in srgb, var(--kb-accent) 16%, transparent);
 }
 .fc-mnemo-exp {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.6;
   color: var(--kb-muted-foreground);
@@ -460,19 +460,19 @@ watch(
 .fc-mnemo-acts {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 12px;
 }
 .fc-mnemo-act {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
   color: var(--kb-muted-foreground);
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   font-weight: 600;
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;

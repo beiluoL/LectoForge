@@ -5,11 +5,11 @@
         <div class="qm-modal" role="dialog" aria-modal="true">
           <header class="qm-head">
             <span class="qm-title">
-              <Icon :name="isEdit ? 'pencil' : 'plus-circle'" :size="16" />
+              <Icon :name="isEdit ? 'pencil' : 'plus-circle'" :size="'md'" />
               {{ isEdit ? '编辑任务' : '新建任务' }}
             </span>
             <button class="qm-close" @click="close">
-              <Icon name="x" :size="15" />
+              <Icon name="x" :size="'15px'" />
             </button>
           </header>
 
@@ -48,7 +48,7 @@
                     <span class="qm-quad-label">{{ q.label }}</span>
                     <span class="qm-quad-hint">{{ q.hint }}</span>
                   </span>
-                  <Icon v-if="form.quadrant === q.key" name="check" :size="14" class="qm-quad-check" />
+                  <Icon v-if="form.quadrant === q.key" name="check" :size="'sm'" class="qm-quad-check" />
                 </button>
               </div>
             </div>
@@ -83,7 +83,7 @@
           <footer class="qm-foot">
             <button class="kb-btn" @click="close">取消</button>
             <button class="kb-btn kb-btn-primary" :disabled="saving || !form.title.trim()" @click="submit">
-              <Icon v-if="saving" name="loader" :size="15" class="qm-spin" />
+              <Icon v-if="saving" name="loader" :size="'15px'" class="qm-spin" />
               {{ saving ? '保存中…' : isEdit ? '保存修改' : '添加任务' }}
             </button>
           </footer>
@@ -234,7 +234,7 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-bottom: 1px solid var(--kb-border);
 }
 .qm-title {
@@ -266,7 +266,7 @@ async function submit() {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   overflow-y: auto;
 }
 .qm-row {
@@ -281,16 +281,16 @@ async function submit() {
 .qm-field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
 }
 .qm-label {
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   color: var(--kb-muted-foreground);
 }
 .qm-input {
   width: 100%;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -317,7 +317,7 @@ async function submit() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 10px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-md);
   border: 1.5px solid var(--kb-border);
   background: var(--kb-background);
@@ -352,12 +352,12 @@ async function submit() {
   flex-direction: column;
 }
 .qm-quad-label {
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   font-weight: 600;
   color: var(--kb-foreground);
 }
 .qm-quad-hint {
-  font-size: 10.5px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
 }
 .qm-quad-check {
@@ -368,8 +368,8 @@ async function submit() {
 .qm-foot {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 16px 16px;
   border-top: 1px solid var(--kb-border);
 }
 

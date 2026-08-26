@@ -17,7 +17,7 @@
               Step 03 · 复习 · Custom Decks
             </span>
             <h1 class="wb-title">
-              <Icon name="wallet-cards" :size="28" class="wb-title-icon" />
+              <Icon name="wallet-cards" :size="'28px'" class="wb-title-icon" />
               传统复习 · 自定义卡组
             </h1>
             <p class="wb-subtitle">
@@ -27,10 +27,10 @@
           </div>
           <div class="wb-hero-actions">
             <router-link to="/workbench/review" class="kb-btn wb-ghost-btn">
-              <Icon name="arrow-left" :size="14" /> 返回复习中心
+              <Icon name="arrow-left" :size="'sm'" /> 返回复习中心
             </router-link>
             <button class="kb-btn kb-btn-primary wb-cta" @click="startReview">
-              <Icon name="play" :size="14" /> 开始抽查
+              <Icon name="play" :size="'sm'" /> 开始抽查
             </button>
           </div>
         </div>
@@ -40,13 +40,13 @@
     <!-- ============ 抽卡区 ============ -->
     <section v-if="active">
       <h2 class="wb-section-title">
-        <Icon name="layers" :size="18" style="color: var(--mc);" />
+        <Icon name="layers" :size="'lg'" style="color: var(--mc);" />
         抽查进行中
         <span class="wb-section-hint">第 {{ index + 1 }} / {{ queue.length }} 张</span>
       </h2>
       <div class="wb-quiz-card">
         <button class="wb-quiz-close" title="暂停" @click="active = false">
-          <Icon name="pause" :size="14" />
+          <Icon name="pause" :size="'sm'" />
         </button>
 
         <div
@@ -57,7 +57,7 @@
           <div v-if="!revealed" class="wb-quiz-front">
             <span class="wb-quiz-label">问题</span>
             <p class="wb-quiz-text">{{ current.front }}</p>
-            <span class="wb-quiz-hint"><Icon name="eye" :size="14" /> 点击查看答案</span>
+            <span class="wb-quiz-hint"><Icon name="eye" :size="'sm'" /> 点击查看答案</span>
           </div>
           <div v-else class="wb-quiz-back">
             <span class="wb-quiz-label wb-quiz-label-back">答案</span>
@@ -69,28 +69,28 @@
           <p class="wb-quiz-grade-title">你记得多少？反馈以调整下次间隔</p>
           <div class="wb-quiz-grade-grid">
             <button class="wb-grade-btn wb-grade-forgot" @click="grade(0)">
-              <Icon name="x-circle" :size="16" />
+              <Icon name="x-circle" :size="'md'" />
               <span class="wb-grade-label">忘了</span>
               <span class="wb-grade-hint">重置</span>
             </button>
             <button class="wb-grade-btn wb-grade-hard" @click="grade(1)">
-              <Icon name="thumbs-down" :size="16" />
+              <Icon name="thumbs-down" :size="'md'" />
               <span class="wb-grade-label">困难</span>
               <span class="wb-grade-hint">+1d</span>
             </button>
             <button class="wb-grade-btn wb-grade-normal" @click="grade(2)">
-              <Icon name="thumbs-up" :size="16" />
+              <Icon name="thumbs-up" :size="'md'" />
               <span class="wb-grade-label">一般</span>
               <span class="wb-grade-hint">×2.5</span>
             </button>
             <button class="wb-grade-btn wb-grade-easy" @click="grade(3)">
-              <Icon name="check-circle" :size="16" />
+              <Icon name="check-circle" :size="'md'" />
               <span class="wb-grade-label">容易</span>
               <span class="wb-grade-hint">×4</span>
             </button>
           </div>
           <p v-if="lastResult" class="wb-quiz-result">
-            <Icon name="calendar-check" :size="14" />
+            <Icon name="calendar-check" :size="'sm'" />
             下次复习：{{ lastResult.intervalDay }} 天后
             <span v-if="lastResult.lapsed" class="wb-quiz-lapsed">（本次遗忘，间隔已重置）</span>
           </p>
@@ -100,11 +100,11 @@
 
     <!-- ============ 空队列提示 ============ -->
     <section v-else-if="!loading && queue.length === 0" class="wb-empty">
-      <div class="wb-empty-icon"><Icon name="calendar-check" :size="40" /></div>
+      <div class="wb-empty-icon"><Icon name="calendar-check" :size="'40px'" /></div>
       <h3 class="wb-empty-title">暂无待复习卡片</h3>
       <p class="wb-empty-desc">新建复习卡，或把笔记转为卡片，让记忆开始流动。</p>
       <button class="kb-btn kb-btn-primary" @click="showCreate = true">
-        <Icon name="plus" :size="14" /> 新建复习卡
+        <Icon name="plus" :size="'sm'" /> 新建复习卡
       </button>
     </section>
 
@@ -112,17 +112,17 @@
     <section>
       <div class="wb-list-head">
         <h2 class="wb-section-title" style="margin: 0;">
-          <Icon name="layers" :size="18" style="color: var(--mc);" />
+          <Icon name="layers" :size="'lg'" style="color: var(--mc);" />
           全部复习卡
           <span class="wb-section-hint">{{ cards.length }} 张</span>
         </h2>
         <button class="kb-btn kb-btn-primary" @click="showCreate = true">
-          <Icon name="plus" :size="14" /> 新建
+          <Icon name="plus" :size="'sm'" /> 新建
         </button>
       </div>
 
       <div v-if="cards.length === 0" class="wb-empty wb-empty-sm">
-        <Icon name="layers" :size="28" style="color: var(--kb-muted-foreground);" />
+        <Icon name="layers" :size="'28px'" style="color: var(--kb-muted-foreground);" />
         <p class="wb-empty-desc" style="margin: 0;">还没有复习卡片</p>
       </div>
       <div v-else class="wb-card-rows">
@@ -138,10 +138,10 @@
           </div>
           <div class="wb-card-row-actions">
             <button class="wb-icon-btn" :title="c.suspended ? '恢复' : '暂停'" @click="suspend(c)">
-              <Icon :name="c.suspended ? 'play' : 'pause'" :size="14" />
+              <Icon :name="c.suspended ? 'play' : 'pause'" :size="'sm'" />
             </button>
             <button class="wb-icon-btn" title="删除" @click="remove(c)">
-              <Icon name="trash-2" :size="14" />
+              <Icon name="trash-2" :size="'sm'" />
             </button>
           </div>
         </div>
@@ -156,7 +156,7 @@
             <span class="wb-eyebrow wb-eyebrow-sm">New Card</span>
             <h2 class="wb-drawer-title">新建复习卡</h2>
           </div>
-          <button class="wb-icon-btn" @click="showCreate = false"><Icon name="x" :size="18" /></button>
+          <button class="wb-icon-btn" @click="showCreate = false"><Icon name="x" :size="'lg'" /></button>
         </header>
         <div class="wb-drawer-body">
           <div class="wb-field">
@@ -179,7 +179,7 @@
         <footer class="wb-drawer-foot">
           <button class="kb-btn" @click="showCreate = false">取消</button>
           <button class="kb-btn kb-btn-primary" @click="saveCard">
-            <Icon name="check" :size="14" /> 保存
+            <Icon name="check" :size="'sm'" /> 保存
           </button>
         </footer>
       </div>
@@ -381,16 +381,16 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .wb-quiz-label {
   display: inline-block;
-  padding: 2px 10px;
+  padding: 2px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 14%, transparent);
   color: var(--mc);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   font-weight: 600;
   letter-spacing: 0.05em;
 }
@@ -415,7 +415,7 @@ onMounted(() => {
   color: var(--kb-muted-foreground);
 }
 .wb-quiz-grade {
-  margin-top: 18px;
+  margin-top: 16px;
   text-align: center;
 }
 .wb-quiz-grade-title {
@@ -426,7 +426,7 @@ onMounted(() => {
 .wb-quiz-grade-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 /* 四档评分按钮统一走 --kb-* 语义色（原先四个硬编码 hex 已收敛） */
 .wb-grade-btn {
@@ -453,15 +453,15 @@ onMounted(() => {
 }
 .wb-grade-hint {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   opacity: 0.7;
 }
 .wb-quiz-result {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 14px;
-  padding: 6px 12px;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--kb-accent) 10%, transparent);
   color: var(--kb-accent);
@@ -486,7 +486,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -498,7 +498,7 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: var(--kb-foreground);
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -506,13 +506,13 @@ onMounted(() => {
 .wb-card-row-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 .wb-chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: var(--kb-radius-sm);
   font-size: var(--kb-fs-xs);
   font-weight: 500;

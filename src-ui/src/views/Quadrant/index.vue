@@ -8,7 +8,7 @@
           先做重要的事，而不是最吵的那件
         </span>
         <h1 class="qd-page-title">
-          <Icon name="layout-grid" :size="24" />
+          <Icon name="layout-grid" :size="'2xl'" />
           🗂️ 四象限
         </h1>
         <p class="qd-subtitle">
@@ -17,7 +17,7 @@
         </p>
       </div>
       <button class="kb-btn kb-btn-primary qd-new" @click="openCreate()">
-        <Icon name="plus" :size="15" />
+        <Icon name="plus" :size="'15px'" />
         快速添加
       </button>
     </section>
@@ -62,10 +62,10 @@
 
     <!-- 坐标轴图例：两条轴分别是什么，别让用户靠猜 -->
     <p class="qd-axis-note">
-      <Icon name="move-horizontal" :size="13" />
+      <Icon name="move-horizontal" :size="'13px'" />
       横轴＝紧急程度（左急右缓）
       <span class="qd-axis-sep">·</span>
-      <Icon name="move-vertical" :size="13" />
+      <Icon name="move-vertical" :size="'13px'" />
       纵轴＝重要程度（上重下轻）
     </p>
 
@@ -152,12 +152,12 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 4px 14px;
+  padding: 16px 4px 16px;
 }
 .qd-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--kb-muted-foreground);
@@ -172,8 +172,8 @@ onMounted(() => {
 .qd-page-title {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin: 8px 0 6px;
+  gap: 8px;
+  margin: 8px 0 8px;
   font-size: 24px;
   font-weight: 800;
   color: var(--kb-foreground);
@@ -182,7 +182,7 @@ onMounted(() => {
 .qd-subtitle {
   margin: 0;
   max-width: 660px;
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   line-height: 1.7;
   color: var(--kb-muted-foreground);
 }
@@ -194,14 +194,14 @@ onMounted(() => {
 .qd-summary {
   display: flex;
   gap: 12px;
-  margin: 6px 0 18px;
+  margin: 8px 0 16px;
   flex-wrap: wrap;
 }
 .qd-summary-card {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 18px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -225,7 +225,7 @@ onMounted(() => {
 .qd-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 @media (max-width: 860px) {
   .qd-grid {
@@ -259,12 +259,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   margin: 16px 0 0;
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   color: var(--kb-muted-foreground);
 }
 .qd-axis-sep {
-  margin: 0 6px;
+  margin: 0 8px;
 }
 </style>

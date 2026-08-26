@@ -161,12 +161,12 @@ function cancelAddList() {
 .side-item {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
   /* 上下与右内距固定；左内距交给 --indent 变量（由 d0..d4 深度类设置），
      避免 Tailwind pl-* 被本 scoped 简写覆盖。基准 4px + 指示条(3px) + gap(9px) ≈ 图标在 32px 处，
      与分组标题对齐。 */
-  padding: 7px 8px 7px var(--indent, 4px);
+  padding: 8px 8px 8px var(--indent, 4px);
   border-radius: var(--kb-radius-md);
   font-size: var(--kb-fs-body-sm);
   font-weight: 500;
@@ -219,7 +219,7 @@ function cancelAddList() {
   flex: none;
   min-width: 20px;
   height: 20px;
-  padding: 0 6px;
+  padding: 0 8px;
   border-radius: 9999px;
   background: var(--kb-muted);
   font-size: var(--kb-fs-xs);
@@ -234,15 +234,15 @@ function cancelAddList() {
 }
 .side-sep {
   height: 1px;
-  margin: 10px 16px;
+  margin: 12px 16px;
   background: var(--kb-border);
 }
 .side-add {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
-  padding: 7px 8px 7px var(--indent, 4px);
+  padding: 8px 8px 8px var(--indent, 4px);
   margin-top: 2px;
   border-radius: var(--kb-radius-md);
   font-size: var(--kb-fs-body-sm);

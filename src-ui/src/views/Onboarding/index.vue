@@ -6,7 +6,7 @@
       <!-- 顶部品牌 + 步骤指示 -->
       <header class="ob-head">
         <div class="ob-brand">
-          <span class="ob-brand-logo"><Icon name="brain" :size="22" /></span>
+          <span class="ob-brand-logo"><Icon name="brain" :size="'22px'" /></span>
           <span class="ob-brand-name">LectoForge 学习工作台</span>
         </div>
         <ol class="ob-steps">
@@ -17,7 +17,7 @@
             :class="{ 'is-active': step === i + 1, 'is-done': step > i + 1 }"
           >
             <span class="ob-step-dot">
-              <Icon v-if="step > i + 1" name="check" :size="13" />
+              <Icon v-if="step > i + 1" name="check" :size="'13px'" />
               <template v-else>{{ i + 1 }}</template>
             </span>
             <span class="ob-step-label">{{ s.label }}</span>
@@ -27,7 +27,7 @@
 
       <!-- ===== Step 1：数据目录 ===== -->
       <section v-if="step === 1" class="ob-body">
-        <div class="ob-icon-badge"><Icon name="folder-open" :size="26" /></div>
+        <div class="ob-icon-badge"><Icon name="folder-open" :size="'26px'" /></div>
         <h1 class="ob-title">你的知识库存放在哪里？</h1>
         <p class="ob-desc">
           笔记、复习卡片、记忆宫殿等所有数据都会保存在这个目录。建议选一个你会长期保留、并已纳入云同步或备份的位置。
@@ -42,19 +42,19 @@
             spellcheck="false"
           />
           <button class="kb-btn ob-dir-btn" :disabled="picking" @click="pickDirectory">
-            <Icon :name="picking ? 'loader' : 'folder-search'" :size="15" :class="picking ? 'ob-spin' : ''" />
+            <Icon :name="picking ? 'loader' : 'folder-search'" :size="'15px'" :class="picking ? 'ob-spin' : ''" />
             选择文件夹
           </button>
         </div>
         <p class="ob-hint">
-          <Icon name="info" :size="13" />
+          <Icon name="info" :size="'13px'" />
           留空则使用系统默认目录：<code>~/Library/Application Support/com.lectoforge.desktop</code>
         </p>
       </section>
 
       <!-- ===== Step 2：AI 配置 ===== -->
       <section v-else-if="step === 2" class="ob-body">
-        <div class="ob-icon-badge ob-icon-badge--ai"><Icon name="sparkles" :size="26" /></div>
+        <div class="ob-icon-badge ob-icon-badge--ai"><Icon name="sparkles" :size="'26px'" /></div>
         <h1 class="ob-title">配置你的 AI 网关</h1>
         <p class="ob-desc">
           用于智能提取要点、语义联想与费曼评分等增强能力。支持任何 OpenAI 兼容接口；API Key 只保存在本机（权限 600），不会上传、不进版本库。
@@ -83,30 +83,30 @@
 
         <div class="ob-test-row">
           <button class="kb-btn kb-btn-sm" :disabled="testing" @click="onTest">
-            <Icon :name="testing ? 'loader' : 'plug-zap'" :size="14" :class="testing ? 'ob-spin' : ''" />
+            <Icon :name="testing ? 'loader' : 'plug-zap'" :size="'sm'" :class="testing ? 'ob-spin' : ''" />
             测试连通性
           </button>
           <span v-if="testResult" class="ob-test-result" :class="testResult.ok ? 'is-ok' : 'is-fail'">
-            <Icon :name="testResult.ok ? 'check-circle-2' : 'x-circle'" :size="14" />
+            <Icon :name="testResult.ok ? 'check-circle-2' : 'x-circle'" :size="'sm'" />
             {{ testResult.text }}
           </span>
         </div>
         <p class="ob-hint">
-          <Icon name="info" :size="13" />
+          <Icon name="info" :size="'13px'" />
           这一步可跳过，之后随时能在「设置」里补配；不配置也不影响任何基础功能。
         </p>
       </section>
 
       <!-- ===== Step 3：快速启动 ===== -->
       <section v-else class="ob-body">
-        <div class="ob-icon-badge ob-icon-badge--done"><Icon name="party-popper" :size="26" /></div>
+        <div class="ob-icon-badge ob-icon-badge--done"><Icon name="party-popper" :size="'26px'" /></div>
         <h1 class="ob-title">恭喜，配置完成！</h1>
         <p class="ob-desc">三个常用入口先记一下，进去就能上手：</p>
 
         <div class="ob-feature-list">
           <article v-for="f in features" :key="f.title" class="ob-feature">
             <span class="ob-feature-icon" :style="{ background: f.tint, color: f.color }">
-              <Icon :name="f.icon" :size="18" />
+              <Icon :name="f.icon" :size="'lg'" />
             </span>
             <div class="ob-feature-body">
               <p class="ob-feature-title">{{ f.title }}</p>
@@ -119,7 +119,7 @@
       <!-- 底部操作区 -->
       <footer class="ob-foot">
         <button v-if="step > 1" class="kb-btn ob-back" @click="prev">
-          <Icon name="chevron-left" :size="15" /> 上一步
+          <Icon name="chevron-left" :size="'15px'" /> 上一步
         </button>
         <div v-else class="ob-foot-spacer"></div>
 
@@ -128,10 +128,10 @@
             {{ step === 2 ? '暂不配置' : '跳过' }}
           </button>
           <button v-if="step < 3" class="kb-btn kb-btn-primary" @click="next">
-            下一步 <Icon name="chevron-right" :size="15" />
+            下一步 <Icon name="chevron-right" :size="'15px'" />
           </button>
           <button v-else class="kb-btn kb-btn-primary ob-launch" :disabled="finishing" @click="finish">
-            <Icon :name="finishing ? 'loader' : 'rocket'" :size="17" :class="finishing ? 'ob-spin' : ''" />
+            <Icon :name="finishing ? 'loader' : 'rocket'" :size="'17px'" :class="finishing ? 'ob-spin' : ''" />
             进入学习工作台
           </button>
         </div>
@@ -343,8 +343,8 @@ async function finish() {
 }
 .ob-brand-name { font-weight: 700; font-size: var(--kb-fs-body-md); color: var(--kb-foreground); }
 
-.ob-steps { display: flex; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
-.ob-step { display: flex; align-items: center; gap: 6px; }
+.ob-steps { display: flex; align-items: center; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.ob-step { display: flex; align-items: center; gap: 8px; }
 .ob-step-dot {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 999px;
@@ -361,7 +361,7 @@ async function finish() {
 }
 
 /* 主体 */
-.ob-body { padding: 26px 0 6px; min-height: 264px; animation: ob-in 0.22s ease; }
+.ob-body { padding: 24px 0 8px; min-height: 264px; animation: ob-in 0.22s ease; }
 .ob-icon-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 52px; height: 52px; border-radius: 14px; margin-bottom: 16px;
@@ -380,31 +380,31 @@ async function finish() {
 }
 
 .ob-dir-row { display: flex; gap: 8px; align-items: stretch; }
-.ob-dir-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12.5px; }
+.ob-dir-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--kb-fs-body-sm); }
 .ob-dir-btn { flex-shrink: 0; white-space: nowrap; }
 
 .ob-hint {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 8px;
   margin-top: 12px; font-size: var(--kb-fs-caption); color: var(--kb-muted-foreground);
 }
 .ob-hint code {
-  font-family: var(--font-mono); font-size: 11.5px;
-  background: var(--kb-muted); padding: 1px 6px; border-radius: 5px;
+  font-family: var(--font-mono); font-size: var(--kb-fs-caption);
+  background: var(--kb-muted); padding: 1px 8px; border-radius: 5px;
 }
 
-.ob-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ob-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .ob-span-2 { grid-column: span 2; }
 
 .ob-test-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-.ob-test-result { display: inline-flex; align-items: center; gap: 5px; font-size: var(--kb-fs-caption); }
+.ob-test-result { display: inline-flex; align-items: center; gap: 4px; font-size: var(--kb-fs-caption); }
 .ob-test-result.is-ok { color: var(--kb-primary); }
 .ob-test-result.is-fail { color: var(--kb-destructive); }
 
 /* 功能卡片 */
-.ob-feature-list { display: flex; flex-direction: column; gap: 10px; }
+.ob-feature-list { display: flex; flex-direction: column; gap: 12px; }
 .ob-feature {
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md);
+  padding: 16px; border: 1px solid var(--kb-border); border-radius: var(--kb-radius-md);
   background: var(--kb-background); transition: border-color 0.16s ease, transform 0.16s ease;
 }
 .ob-feature:hover { border-color: color-mix(in srgb, var(--kb-primary) 40%, var(--kb-border)); transform: translateY(-1px); }
@@ -428,7 +428,7 @@ async function finish() {
 @keyframes ob-rotate { to { transform: rotate(360deg); } }
 
 @media (max-width: 520px) {
-  .ob-card { padding: 22px 18px 18px; }
+  .ob-card { padding: 24px 16px 16px; }
   .ob-step-label { display: none; }
   .ob-form-grid { grid-template-columns: 1fr; }
   .ob-span-2 { grid-column: span 1; }

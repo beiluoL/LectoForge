@@ -3,22 +3,22 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
         <h1 class="kb-h1 mb-1 flex items-center gap-2" style="color: var(--kb-foreground);">
-          <Icon name="wand-2" :size="24" style="color: var(--kb-primary);" /> {{ isNew ? '写费曼故事' : '编辑故事' }}
+          <Icon name="wand-2" :size="'2xl'" style="color: var(--kb-primary);" /> {{ isNew ? '写费曼故事' : '编辑故事' }}
         </h1>
         <p class="kb-body" style="color: var(--kb-muted-foreground);">以教代学：用一个故事把知识讲给外行听。</p>
       </div>
       <div class="flex items-center gap-2">
-        <button class="kb-btn" @click="router.push('/workbench/story')"><Icon name="chevron-left" :size="16" /> 返回</button>
+        <button class="kb-btn" @click="router.push('/workbench/story')"><Icon name="chevron-left" :size="'md'" /> 返回</button>
         <button class="kb-btn ai-btn" :disabled="aiLoading" @click="runAiClarity">
-          <Icon :name="aiLoading ? 'loader' : 'ai-sparkle'" :size="16" :class="aiLoading ? 'ai-spin' : ''" />
+          <Icon :name="aiLoading ? 'loader' : 'ai-sparkle'" :size="'md'" :class="aiLoading ? 'ai-spin' : ''" />
           {{ aiLoading ? '评分中…' : 'AI 评分' }}
         </button>
         <button class="kb-btn ai-btn" :disabled="aiDraftLoading" @click="runAiDraft">
-          <Icon :name="aiDraftLoading ? 'loader' : 'ai-sparkle'" :size="16" :class="aiDraftLoading ? 'ai-spin' : ''" />
+          <Icon :name="aiDraftLoading ? 'loader' : 'ai-sparkle'" :size="'md'" :class="aiDraftLoading ? 'ai-spin' : ''" />
           {{ aiDraftLoading ? '起草中…' : 'AI 起草初稿' }}
         </button>
-        <button class="kb-btn" @click="save('DRAFT')"><Icon name="save" :size="16" /> 存草稿</button>
-        <button class="kb-btn kb-btn-primary" @click="save('DONE')"><Icon name="check-circle" :size="16" /> 完成</button>
+        <button class="kb-btn" @click="save('DRAFT')"><Icon name="save" :size="'md'" /> 存草稿</button>
+        <button class="kb-btn kb-btn-primary" @click="save('DONE')"><Icon name="check-circle" :size="'md'" /> 完成</button>
       </div>
     </div>
 
@@ -62,7 +62,7 @@
       <div class="space-y-3">
         <!-- AI 未配置提示：只在用户主动触发过一次后出现，不打扰默认流程 -->
         <div v-if="aiHintVisible" class="ai-hint">
-          <Icon name="info" :size="14" />
+          <Icon name="info" :size="'sm'" />
           <span>
             尚未配置 AI 服务，
             <router-link to="/settings">前往 AI 设置</router-link>
@@ -73,11 +73,11 @@
         <section v-if="ai" class="ai-panel">
           <div class="ai-panel-head">
             <h3 class="ai-panel-title">
-              <Icon name="ai-sparkle" :size="16" class="ai-icon" /> AI 清晰度评分
+              <Icon name="ai-sparkle" :size="'md'" class="ai-icon" /> AI 清晰度评分
             </h3>
             <div class="ai-panel-actions">
               <button class="kb-btn kb-btn-sm" title="关闭结果" @click="ai = null">
-                <Icon name="x" :size="14" />
+                <Icon name="x" :size="'sm'" />
               </button>
             </div>
           </div>
@@ -111,23 +111,23 @@
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <span class="ai-meta">{{ ai.model }} · {{ ai.latencyMs }}ms</span>
             <button class="kb-btn kb-btn-sm ai-btn" @click="adoptAi">
-              <Icon name="check" :size="14" /> 采纳评分与卡点
+              <Icon name="check" :size="'sm'" /> 采纳评分与卡点
             </button>
           </div>
         </section>
 
         <div class="rounded-xl border p-4" style="background: var(--kb-card); border-color: var(--kb-border);">
           <h3 class="kb-h4 mb-3 flex items-center gap-1.5" style="color: var(--kb-foreground);">
-            <Icon name="eye" :size="16" /> 故事预览
+            <Icon name="eye" :size="'md'" /> 故事预览
           </h3>
           <h4 class="kb-h3 mb-2" style="color: var(--kb-foreground);">{{ form.title || '（未命名故事）' }}</h4>
           <p v-if="form.metaphor" class="text-[12px] mb-3 flex items-center gap-1" style="color: var(--kb-primary);">
-            <Icon name="lightbulb" :size="14" /> 隐喻：{{ form.metaphor }}
+            <Icon name="lightbulb" :size="'sm'" /> 隐喻：{{ form.metaphor }}
           </p>
           <p class="kb-body whitespace-pre-wrap mb-3" style="color: var(--kb-foreground);">{{ form.content || '（正文预览）' }}</p>
           <div v-if="form.gapNote" class="rounded-lg p-3" style="background: color-mix(in srgb, var(--kb-warning) 10%, transparent);">
             <p class="text-[12px] font-semibold mb-1" style="color: var(--kb-warning);">
-              <Icon name="alert-circle" :size="14" /> 知识卡点
+              <Icon name="alert-circle" :size="'sm'" /> 知识卡点
             </p>
             <p class="text-[12px]" style="color: var(--kb-warning);">{{ form.gapNote }}</p>
           </div>

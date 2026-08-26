@@ -15,7 +15,7 @@
               Cornell Notes
             </span>
             <h1 class="wb-title">
-              <Icon name="notebook-pen" :size="26" class="wb-title-icon" />
+              <Icon name="notebook-pen" :size="'26px'" class="wb-title-icon" />
               知识整理 · 康奈尔笔记
             </h1>
             <p class="wb-subtitle">
@@ -24,11 +24,11 @@
           </div>
           <div class="notes-cta">
             <button class="kb-btn wb-cta note-quick-btn" @click="noteStore.openQuickCreate()">
-              <Icon name="zap" :size="15" /> 极速新建
+              <Icon name="zap" :size="'15px'" /> 极速新建
               <kbd class="note-kbd">⌘/Ctrl ⇧ F</kbd>
             </button>
             <button class="kb-btn kb-btn-primary wb-cta" @click="router.push('/workbench/notes/new')">
-              <Icon name="plus" :size="16" /> 新建笔记
+              <Icon name="plus" :size="'md'" /> 新建笔记
             </button>
           </div>
         </div>
@@ -61,7 +61,7 @@
     <!-- ============ 工具栏：搜索 + 视图切换 ============ -->
     <div class="notes-toolbar">
       <div class="wb-search">
-        <Icon name="search" :size="15" class="wb-search-icon" />
+        <Icon name="search" :size="'15px'" class="wb-search-icon" />
         <input
           v-model="keyword"
           class="kb-input wb-search-input"
@@ -70,7 +70,7 @@
           @keydown.enter="reload"
         />
         <button v-if="keyword" class="notes-search-clear" title="清空" @click="clearKeyword">
-          <Icon name="x" :size="13" />
+          <Icon name="x" :size="'13px'" />
         </button>
       </div>
 
@@ -85,7 +85,7 @@
             title="网格卡片"
             @click="noteStore.setViewMode('grid')"
           >
-            <Icon name="layout-grid" :size="14" />
+            <Icon name="layout-grid" :size="'sm'" />
           </button>
           <button
             class="notes-view-btn"
@@ -94,7 +94,7 @@
             title="紧凑列表"
             @click="noteStore.setViewMode('list')"
           >
-            <Icon name="list" :size="14" />
+            <Icon name="list" :size="'sm'" />
           </button>
         </div>
       </div>
@@ -104,7 +104,7 @@
     <div class="notes-filterbar">
       <div class="notes-tags">
         <span class="notes-tags-label">
-          <Icon name="tags" :size="13" /> 标签
+          <Icon name="tags" :size="'13px'" /> 标签
         </span>
         <div class="notes-tagcloud">
           <button
@@ -129,7 +129,7 @@
           title="只看掌握度不高于 30% 的薄弱笔记"
           @click="noteStore.setSmartFilter('lowMastery')"
         >
-          <Icon name="trending-down" :size="13" /> 掌握度≤30%
+          <Icon name="trending-down" :size="'13px'" /> 掌握度≤30%
         </button>
         <button
           class="notes-smart-btn"
@@ -137,7 +137,7 @@
           title="只看还没写总结栏的半成品笔记"
           @click="noteStore.setSmartFilter('noSummary')"
         >
-          <Icon name="file-question" :size="13" /> 未写总结
+          <Icon name="file-question" :size="'13px'" /> 未写总结
         </button>
         <button
           v-if="noteStore.hasActiveFilter"
@@ -145,7 +145,7 @@
           title="清空关键词、标签与智慧筛选"
           @click="clearFilters"
         >
-          <Icon name="filter-x" :size="13" /> 清除筛选
+          <Icon name="filter-x" :size="'13px'" /> 清除筛选
         </button>
       </div>
     </div>
@@ -155,7 +155,7 @@
       <div v-for="n in 6" :key="n" class="note-card note-card-skel">
         <div class="wb-skeleton">
           <span class="wb-skel-line" style="height: 16px; width: 62%;"></span>
-          <span class="wb-skel-line" style="height: 12px; width: 92%; margin-top: 10px;"></span>
+          <span class="wb-skel-line" style="height: 12px; width: 92%; margin-top: 12px;"></span>
           <span class="wb-skel-line" style="height: 12px; width: 74%;"></span>
           <span class="wb-skel-line" style="height: 8px; width: 100%; margin-top: 16px;"></span>
         </div>
@@ -164,16 +164,16 @@
 
     <!-- ============ 空态 ============ -->
     <div v-else-if="!noteStore.notes.length" class="wb-empty">
-      <div class="wb-empty-icon"><Icon name="notebook-pen" :size="30" /></div>
+      <div class="wb-empty-icon"><Icon name="notebook-pen" :size="'30px'" /></div>
       <h3 class="wb-empty-title">{{ keyword ? '没有匹配的笔记' : '还没有康奈尔笔记' }}</h3>
       <p class="wb-empty-desc">
         {{ keyword ? '换个关键词试试，或清空搜索查看全部。' : '把读过、听过的内容整理成三栏，才真正变成你的知识。' }}
       </p>
       <button v-if="keyword" class="kb-btn" @click="clearKeyword">
-        <Icon name="x" :size="14" /> 清空搜索
+        <Icon name="x" :size="'sm'" /> 清空搜索
       </button>
       <button v-else class="kb-btn kb-btn-primary" @click="router.push('/workbench/notes/new')">
-        <Icon name="plus" :size="14" /> 立即创建
+        <Icon name="plus" :size="'sm'" /> 立即创建
       </button>
     </div>
 
@@ -218,9 +218,9 @@
             <span v-if="!c.tags.length" class="note-card-time">{{ c.hint }}</span>
           </div>
           <div class="note-card-actions" @click.stop>
-            <button class="wb-icon-btn" title="转为复习卡" @click="toReview(c.raw)"><Icon name="repeat" :size="14" /></button>
-            <button class="wb-icon-btn" title="转为故事" @click="toStory(c.raw)"><Icon name="wand-2" :size="14" /></button>
-            <button class="wb-icon-btn note-danger-btn" title="删除" @click="remove(c.raw)"><Icon name="trash-2" :size="14" /></button>
+            <button class="wb-icon-btn" title="转为复习卡" @click="toReview(c.raw)"><Icon name="repeat" :size="'sm'" /></button>
+            <button class="wb-icon-btn" title="转为故事" @click="toStory(c.raw)"><Icon name="wand-2" :size="'sm'" /></button>
+            <button class="wb-icon-btn note-danger-btn" title="删除" @click="remove(c.raw)"><Icon name="trash-2" :size="'sm'" /></button>
           </div>
         </div>
       </article>
@@ -266,7 +266,7 @@
     <!-- 底部加载状态条：grid / list 共用，随滚动追加实时反馈 -->
     <div v-if="noteStore.total > 0 && !noteStore.loading" class="notes-foot">
       <span v-if="noteStore.loadingMore" class="notes-foot-loading">
-        <Icon name="loader-circle" :size="13" class="notes-foot-spin" /> 加载中…
+        <Icon name="loader-circle" :size="'13px'" class="notes-foot-spin" /> 加载中…
       </span>
       <span v-else-if="!noteStore.hasMore" class="notes-foot-end">已经到底啦 · 共 {{ noteStore.total }} 则</span>
       <span v-else class="notes-foot-more">向下滚动加载更多</span>
@@ -486,7 +486,7 @@ onMounted(() => {
 .note-quick-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
   color: var(--kb-foreground);
@@ -496,19 +496,19 @@ onMounted(() => {
   color: var(--mc);
 }
 .note-kbd {
-  padding: 1px 6px;
+  padding: 1px 8px;
   border-radius: 4px;
   border: 1px solid var(--kb-border);
   background: var(--kb-background);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
 }
 
 .notes-stats {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   flex-wrap: wrap;
   padding: 12px 16px;
   border-radius: var(--kb-radius-md);
@@ -612,7 +612,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: color-mix(in srgb, var(--kb-card) 70%, transparent);
   border: 1px solid var(--kb-border);
@@ -620,14 +620,14 @@ onMounted(() => {
 .notes-tags {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
   flex: 1 1 auto;
 }
 .notes-tags-label {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex: none;
   padding-top: 4px;
   font-size: 12px;
@@ -638,7 +638,7 @@ onMounted(() => {
 .notes-tagcloud {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -646,7 +646,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -669,7 +669,7 @@ onMounted(() => {
 .note-tag-chip i {
   font-style: normal;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--kb-fs-xs);
   font-weight: 700;
   color: var(--kb-muted-foreground);
 }
@@ -683,15 +683,15 @@ onMounted(() => {
 .notes-smart {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex: none;
   flex-wrap: wrap;
 }
 .notes-smart-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+  gap: 4px;
+  padding: 4px 12px;
   border-radius: var(--kb-radius-sm);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -713,8 +713,8 @@ onMounted(() => {
 .notes-clear-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+  gap: 4px;
+  padding: 4px 12px;
   border-radius: var(--kb-radius-sm);
   border: 1px dashed var(--kb-border);
   background: transparent;
@@ -733,13 +733,13 @@ onMounted(() => {
 .notes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 .note-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
@@ -795,8 +795,8 @@ onMounted(() => {
 }
 .note-badge-sm {
   position: static;
-  font-size: 10px;
-  padding: 1px 7px;
+  font-size: var(--kb-fs-xs);
+  padding: 1px 8px;
 }
 
 .note-card-title {
@@ -829,7 +829,7 @@ onMounted(() => {
 .note-mastery {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   margin-top: auto;
 }
 .note-mastery-head {
@@ -865,18 +865,18 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--kb-border);
 }
 .note-card-tags {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
   min-width: 0;
 }
 .note-chip {
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 10%, transparent);
   color: var(--mc);
@@ -914,15 +914,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 14px;
+  gap: 8px;
+  padding: 16px;
   font-size: 12px;
   color: var(--kb-muted-foreground);
 }
 .notes-foot-loading {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--mc);
 }
 .notes-foot-spin {
@@ -938,7 +938,7 @@ onMounted(() => {
 /* ===== 响应式 ===== */
 @media (max-width: 900px) {
   .notes-stats {
-    gap: 14px;
+    gap: 16px;
   }
 }
 @media (max-width: 640px) {

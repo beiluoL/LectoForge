@@ -14,7 +14,7 @@
               Step 03 · 复习 · Active Recall
             </span>
             <h1 class="wb-title">
-              <Icon name="edit-2" :size="28" class="wb-title-icon" />
+              <Icon name="edit-2" :size="'28px'" class="wb-title-icon" />
               主动回忆 · 三轮闭卷默写
             </h1>
             <p class="wb-subtitle">
@@ -24,10 +24,10 @@
           </div>
           <div class="wb-hero-actions">
             <router-link to="/workbench/review" class="kb-btn wb-ghost-btn">
-              <Icon name="repeat" :size="14" /> 间隔重复
+              <Icon name="repeat" :size="'sm'" /> 间隔重复
             </router-link>
             <button class="kb-btn kb-btn-primary wb-cta" @click="showCreate = true">
-              <Icon name="plus" :size="16" /> 新建默写
+              <Icon name="plus" :size="'md'" /> 新建默写
             </button>
           </div>
         </div>
@@ -45,7 +45,7 @@
     <!-- ============ 会话列表 ============ -->
     <section v-if="!activeSession">
       <h2 class="wb-section-title">
-        <Icon name="list" :size="18" style="color: var(--mc);" />
+        <Icon name="list" :size="'lg'" style="color: var(--mc);" />
         默写会话记录
         <span class="wb-section-hint">{{ sessions.length }} 个会话</span>
       </h2>
@@ -58,11 +58,11 @@
       </div>
 
       <div v-else-if="sessions.length === 0" class="wb-empty">
-        <div class="wb-empty-icon"><Icon name="edit-2" :size="40" /></div>
+        <div class="wb-empty-icon"><Icon name="edit-2" :size="'40px'" /></div>
         <h3 class="wb-empty-title">还没有默写会话</h3>
         <p class="wb-empty-desc">粘贴一段要记忆的内容，开始三轮闭卷默写。</p>
         <button class="kb-btn kb-btn-primary" @click="showCreate = true">
-          <Icon name="plus" :size="14" /> 新建默写
+          <Icon name="plus" :size="'sm'" /> 新建默写
         </button>
       </div>
 
@@ -104,11 +104,11 @@
       <!-- 顶部：返回 + 标题 + 进度条 -->
       <div class="recall-detail-head">
         <button class="wb-icon-btn" @click="exitSession">
-          <Icon name="chevron-left" :size="18" />
+          <Icon name="chevron-left" :size="'lg'" />
         </button>
         <div class="recall-detail-title">
           <h2 class="wb-section-title" style="margin: 0;">
-            <Icon name="edit-2" :size="18" style="color: var(--mc);" />
+            <Icon name="edit-2" :size="'lg'" style="color: var(--mc);" />
             {{ activeSession.title || '未命名会话' }}
           </h2>
           <span class="recall-detail-hint">
@@ -130,7 +130,7 @@
           }"
         >
           <div class="recall-progress-circle">
-            <Icon v-if="r.num < activeSession.currentRound || activeSession.status === 'COMPLETED'" name="check" :size="16" />
+            <Icon v-if="r.num < activeSession.currentRound || activeSession.status === 'COMPLETED'" name="check" :size="'md'" />
             <span v-else>{{ r.num }}</span>
           </div>
           <div class="recall-progress-label">
@@ -149,7 +149,7 @@
           </h3>
           <p class="recall-write-desc">{{ currentRoundInfo.desc }}</p>
           <span v-if="activeSession.currentRound === 3 && activeSession.round3DueTime" class="recall-countdown">
-            <Icon name="clock" :size="14" />
+            <Icon name="clock" :size="'sm'" />
             建议复测时间：{{ formatMonthDayTime(activeSession.round3DueTime) }}
           </span>
         </div>
@@ -167,14 +167,14 @@
             class="kb-btn wb-ghost-btn"
             @click="showSourcePreview = !showSourcePreview"
           >
-            <Icon name="eye" :size="14" /> {{ showSourcePreview ? '隐藏原文' : '查看原文（作弊警告）' }}
+            <Icon name="eye" :size="'sm'" /> {{ showSourcePreview ? '隐藏原文' : '查看原文（作弊警告）' }}
           </button>
           <button
             class="kb-btn kb-btn-primary"
             :disabled="submitting || !currentText.trim()"
             @click="submitRound"
           >
-            <Icon name="send" :size="14" /> 提交本轮
+            <Icon name="send" :size="'sm'" /> 提交本轮
           </button>
           <button
             class="kb-btn ai-btn"
@@ -182,13 +182,13 @@
             :title="currentText.trim() ? '对当前默写做语义还原度评分（不影响 SM-2 三轮得分）' : '请先书写后再评分'"
             @click="runAiScore"
           >
-            <Icon :name="aiScoring ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiScoring }" />
+            <Icon :name="aiScoring ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiScoring }" />
             {{ aiScoring ? 'AI 评分中…' : 'AI 语义评分' }}
           </button>
         </div>
 
         <div v-if="aiHintVisible" class="ai-hint">
-          <Icon name="info" :size="14" />
+          <Icon name="info" :size="'sm'" />
           <span>未配置 AI 服务，无法生成语义评分。</span>
           <router-link to="/settings">前往 AI 设置</router-link>
         </div>
@@ -203,10 +203,10 @@
       <div v-if="aiScore" class="ai-panel">
         <div class="ai-panel-head">
           <span class="ai-panel-title">
-            <Icon name="ai-sparkle" :size="14" class="ai-icon" /> AI 语义评分（参考）
+            <Icon name="ai-sparkle" :size="'sm'" class="ai-icon" /> AI 语义评分（参考）
           </span>
           <button class="wb-icon-btn" @click="aiScore = null" aria-label="关闭">
-            <Icon name="x" :size="16" />
+            <Icon name="x" :size="'md'" />
           </button>
         </div>
 
@@ -236,7 +236,7 @@
       <!-- 比对结果区（已提交的轮次） -->
       <div v-if="comparison" class="recall-comparison">
         <h3 class="wb-section-title">
-          <Icon name="git-branch" :size="18" style="color: var(--mc);" />
+          <Icon name="git-branch" :size="'lg'" style="color: var(--mc);" />
           比对结果 · 第 {{ comparison.round }} 轮
         </h3>
         <div class="recall-comparison-score">
@@ -252,7 +252,7 @@
       <!-- 三轮分数趋势 + 进步百分比 -->
       <div v-if="activeSession.scoreTrend && activeSession.scoreTrend.some((s) => s != null)" class="recall-trend">
         <h3 class="wb-section-title">
-          <Icon name="trending-up" :size="18" style="color: var(--mc);" />
+          <Icon name="trending-up" :size="'lg'" style="color: var(--mc);" />
           三轮分数趋势
         </h3>
         <div class="recall-trend-chart">
@@ -287,10 +287,10 @@
             <span class="recall-imp-label">第 {{ i + 1 }} 轮</span>
             <span v-if="imp == null" class="recall-imp-val recall-imp-null">—</span>
             <span v-else-if="imp >= 0" class="recall-imp-val recall-imp-up">
-              <Icon name="trending-up" :size="14" /> +{{ imp }}%
+              <Icon name="trending-up" :size="'sm'" /> +{{ imp }}%
             </span>
             <span v-else class="recall-imp-val recall-imp-down">
-              <Icon name="trending-down" :size="14" /> {{ imp }}%
+              <Icon name="trending-down" :size="'sm'" /> {{ imp }}%
             </span>
           </div>
         </div>
@@ -299,25 +299,25 @@
         <div v-if="activeSession.status === 'COMPLETED'" class="recall-advice">
           <div class="recall-advice-head">
             <h3 class="wb-section-title" style="margin: 0;">
-              <Icon name="sparkles" :size="18" style="color: var(--mc);" />
+              <Icon name="sparkles" :size="'lg'" style="color: var(--mc);" />
               AI 三轮改进建议
             </h3>
             <button class="kb-btn ai-btn" :disabled="aiAdvising" @click="runAdvice">
-              <Icon :name="aiAdvising ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiAdvising }" />
+              <Icon :name="aiAdvising ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiAdvising }" />
               {{ aiAdvising ? '分析中…' : (aiAdvice ? '重新生成' : '生成建议') }}
             </button>
           </div>
           <p class="recall-advice-desc">基于你这三轮的进步曲线，AI 给出接下来怎么练的针对性策略。仅作建议，不改动任何记录。</p>
 
           <div v-if="aiHintVisible" class="ai-hint">
-            <Icon name="info" :size="14" />
+            <Icon name="info" :size="'sm'" />
             <span>未配置 AI 服务，无法生成改进建议。</span>
             <router-link to="/settings">前往 AI 设置</router-link>
           </div>
 
           <div v-if="aiAdvice" class="ai-panel">
             <div class="ai-panel-head">
-              <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" class="ai-icon" /> 改进建议</span>
+              <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" class="ai-icon" /> 改进建议</span>
               <span class="ai-meta">{{ aiAdvice.model }} · {{ aiAdvice.latencyMs }}ms</span>
             </div>
             <p v-if="aiAdvice.summary" class="advice-summary">{{ aiAdvice.summary }}</p>
@@ -358,7 +358,7 @@
             <span class="wb-eyebrow wb-eyebrow-sm">New Session</span>
             <h2 class="wb-drawer-title">新建默写会话</h2>
           </div>
-          <button class="wb-icon-btn" @click="showCreate = false"><Icon name="x" :size="18" /></button>
+          <button class="wb-icon-btn" @click="showCreate = false"><Icon name="x" :size="'lg'" /></button>
         </header>
         <div class="wb-drawer-body">
           <div class="wb-field">
@@ -370,14 +370,14 @@
             <textarea v-model="createForm.sourceText" class="kb-input" rows="8" placeholder="粘贴要记忆的内容…"></textarea>
           </div>
           <p class="recall-create-hint">
-            <Icon name="info" :size="14" />
+            <Icon name="info" :size="'sm'" />
             提交后将进入三轮闭卷默写：即时默写 → 补漏默写 → 1小时后复测
           </p>
         </div>
         <footer class="wb-drawer-foot">
           <button class="kb-btn" @click="showCreate = false">取消</button>
           <button class="kb-btn kb-btn-primary" @click="createSession">
-            <Icon name="play" :size="14" /> 开始默写
+            <Icon name="play" :size="'sm'" /> 开始默写
           </button>
         </footer>
       </div>
@@ -702,12 +702,12 @@ onMounted(() => {
 .wb-session-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 .wb-session-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
@@ -728,7 +728,7 @@ onMounted(() => {
 .wb-session-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
@@ -773,7 +773,7 @@ onMounted(() => {
 }
 .wb-session-scores {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 .wb-score-chip {
   display: inline-flex;
@@ -789,7 +789,7 @@ onMounted(() => {
 }
 .wb-score-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--kb-fs-xs);
   color: var(--kb-muted-foreground);
   letter-spacing: 0.04em;
 }
@@ -812,7 +812,7 @@ onMounted(() => {
 .recall-detail-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .recall-detail-title {
   display: flex;
@@ -829,7 +829,7 @@ onMounted(() => {
   display: flex;
   align-items: stretch;
   gap: 0;
-  padding: 18px;
+  padding: 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -959,7 +959,7 @@ onMounted(() => {
   gap: 8px;
 }
 .recall-source-preview {
-  padding: 14px;
+  padding: 16px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--kb-warning) 5%, transparent);
   border: 1px dashed var(--kb-warning);
@@ -969,7 +969,7 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 600;
   color: var(--kb-warning);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .recall-source-text {
   font-family: var(--font-sans);
@@ -991,7 +991,7 @@ onMounted(() => {
   display: flex;
   align-items: baseline;
   gap: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .recall-score-big {
   font-family: var(--font-mono);
@@ -1007,7 +1007,7 @@ onMounted(() => {
 .recall-comparison-diff {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .recall-diff-label {
   font-size: 12px;
@@ -1042,7 +1042,7 @@ onMounted(() => {
   border: 1px solid var(--kb-border);
 }
 .recall-trend-chart {
-  margin: 10px 0;
+  margin: 12px 0;
 }
 .recall-trend-svg {
   width: 100%;
@@ -1051,7 +1051,7 @@ onMounted(() => {
 .recall-improvement {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 .recall-imp-card {
@@ -1059,7 +1059,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -1085,11 +1085,11 @@ onMounted(() => {
 .recall-create-hint {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   color: var(--kb-muted-foreground);
   margin: 0;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--mc) 5%, transparent);
 }
@@ -1108,7 +1108,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .recall-advice-desc {
@@ -1122,7 +1122,7 @@ onMounted(() => {
   line-height: 1.7;
   color: var(--kb-foreground);
   margin: 4px 0 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--mc) 8%, transparent);
 }

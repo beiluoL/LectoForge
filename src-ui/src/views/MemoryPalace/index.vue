@@ -24,7 +24,7 @@
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 class="kb-h1 mb-1 flex items-center gap-2" style="color: var(--kb-foreground);">
-            <Icon name="map-pin" :size="24" style="color: var(--kb-primary);" />
+            <Icon name="map-pin" :size="'2xl'" style="color: var(--kb-primary);" />
             {{ palace?.name || '记忆宫殿' }}
           </h1>
           <p class="kb-body" style="color: var(--kb-muted-foreground);">
@@ -32,18 +32,18 @@
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <button class="kb-btn" @click="goHome"><Icon name="chevron-left" :size="16" /> 返回</button>
+          <button class="kb-btn" @click="goHome"><Icon name="chevron-left" :size="'md'" /> 返回</button>
           <button class="kb-btn kb-btn-primary" @click="openCreateLoci">
-            <Icon name="plus" :size="16" /> 添加位点
+            <Icon name="plus" :size="'md'" /> 添加位点
           </button>
           <button class="kb-btn" @click="openAiLoci">
-            <Icon name="ai-sparkle" :size="16" style="color: var(--kb-highlight);" /> AI 生成位点
+            <Icon name="ai-sparkle" :size="'md'" style="color: var(--kb-highlight);" /> AI 生成位点
           </button>
           <button class="kb-btn" :disabled="store.lociList.length === 0" @click="startTour">
-            <Icon name="route" :size="16" /> 开始漫游
+            <Icon name="route" :size="'md'" /> 开始漫游
           </button>
           <button class="kb-btn" :disabled="store.lociList.length === 0" @click="startReview">
-            <Icon name="brain" :size="16" /> 复习测试
+            <Icon name="brain" :size="'md'" /> 复习测试
             <span
               v-if="store.reviewDueLoci.length"
               class="ml-1 rounded-full px-1.5 text-xs"
@@ -76,7 +76,7 @@
           />
           <div v-if="selected" class="mt-3">
             <button class="kb-btn w-full" @click="openEditLoci(selected)">
-              <Icon name="pencil" :size="14" /> 编辑选中位点
+              <Icon name="pencil" :size="'sm'" /> 编辑选中位点
             </button>
           </div>
         </div>

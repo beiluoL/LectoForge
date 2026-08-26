@@ -335,7 +335,7 @@ onUnmounted(() => {
 .task-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   /* 行内一致内边距：左右 16px / 上下 12px，整行约 44–50px，可点击区域均匀 */
   padding: 12px 16px;
   border-radius: var(--kb-radius-md);
@@ -424,7 +424,7 @@ onUnmounted(() => {
   font-size: var(--kb-fs-xs);
   font-weight: 500;
   line-height: 1;
-  padding: 3px 7px;
+  padding: 3px 8px;
   border-radius: 9999px;
   background: var(--kb-muted);
   color: var(--kb-muted-foreground);
@@ -501,6 +501,6 @@ onUnmounted(() => {
 
 /* 子任务缩进 */
 .task-children {
-  padding-left: 22px;
+  padding-left: 24px;
 }
 </style>

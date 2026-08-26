@@ -14,7 +14,7 @@
               Step 04 · 输出 · Feynman Technique
             </span>
             <h1 class="wb-title">
-              <Icon name="wand-2" :size="28" class="wb-title-icon" />
+              <Icon name="wand-2" :size="'28px'" class="wb-title-icon" />
               知识输出 · 费曼故事
             </h1>
             <p class="wb-subtitle">
@@ -23,7 +23,7 @@
             </p>
           </div>
           <button class="kb-btn kb-btn-primary wb-cta" @click="router.push('/workbench/story/new')">
-            <Icon name="plus" :size="16" /> 写个故事
+            <Icon name="plus" :size="'md'" /> 写个故事
           </button>
         </div>
 
@@ -50,7 +50,7 @@
       </div>
       <div class="wb-filter-stats">
         <span class="wb-stat-pill">
-          <Icon name="book-open" :size="14" />
+          <Icon name="book-open" :size="'sm'" />
           {{ list.length }} 篇故事
         </span>
       </div>
@@ -61,18 +61,18 @@
       <div v-if="loading" class="wb-story-grid">
         <div v-for="n in 4" :key="n" class="wb-story-card wb-skeleton">
           <div class="wb-skel-line" style="width: 60%; height: 12px;"></div>
-          <div class="wb-skel-line" style="width: 85%; height: 18px; margin-top: 10px;"></div>
+          <div class="wb-skel-line" style="width: 85%; height: 18px; margin-top: 12px;"></div>
           <div class="wb-skel-line" style="width: 95%; height: 12px; margin-top: 8px;"></div>
           <div class="wb-skel-line" style="width: 70%; height: 12px;"></div>
         </div>
       </div>
 
       <div v-else-if="list.length === 0" class="wb-empty">
-        <div class="wb-empty-icon"><Icon name="wand-2" :size="40" /></div>
+        <div class="wb-empty-icon"><Icon name="wand-2" :size="'40px'" /></div>
         <h3 class="wb-empty-title">还没有费曼故事</h3>
         <p class="wb-empty-desc">试着用一个故事，讲清一个概念。</p>
         <button class="kb-btn kb-btn-primary" @click="router.push('/workbench/story/new')">
-          <Icon name="plus" :size="14" /> 写第一篇
+          <Icon name="plus" :size="'sm'" /> 写第一篇
         </button>
       </div>
 
@@ -88,7 +88,7 @@
               <span class="wb-status-dot"></span>{{ statusLabel(s.status) }}
             </span>
             <span class="wb-story-audience">
-              <Icon name="users" :size="12" />{{ audienceLabel(s.audience) }}
+              <Icon name="users" :size="'xs'" />{{ audienceLabel(s.audience) }}
             </span>
           </div>
 
@@ -98,24 +98,24 @@
           <div class="wb-story-foot">
             <div class="wb-story-meta">
               <span class="wb-chip wb-chip-mono">
-                <Icon name="type" :size="12" />{{ s.wordCount || 0 }} 字
+                <Icon name="type" :size="'xs'" />{{ s.wordCount || 0 }} 字
               </span>
               <span v-if="s.metaphor" class="wb-story-analogy">
-                <Icon name="lightbulb" :size="12" />{{ s.metaphor }}
+                <Icon name="lightbulb" :size="'xs'" />{{ s.metaphor }}
               </span>
             </div>
             <div class="wb-story-actions" @click.stop>
               <button class="wb-icon-btn" title="编辑" @click="router.push('/workbench/story/' + s.id)">
-                <Icon name="edit-2" :size="14" />
+                <Icon name="edit-2" :size="'sm'" />
               </button>
               <button class="wb-icon-btn" title="删除" @click="remove(s)">
-                <Icon name="trash-2" :size="14" />
+                <Icon name="trash-2" :size="'sm'" />
               </button>
             </div>
           </div>
 
           <p v-if="s.gapNote" class="wb-story-gap">
-            <Icon name="alert-circle" :size="12" />
+            <Icon name="alert-circle" :size="'xs'" />
             <span>卡点：{{ s.gapNote }}</span>
           </p>
         </article>
@@ -203,8 +203,8 @@ onMounted(load)
 .wb-stat-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
+  gap: 4px;
+  padding: 4px 12px;
   border-radius: 999px;
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -217,13 +217,13 @@ onMounted(load)
 .wb-story-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 .wb-story-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -256,8 +256,8 @@ onMounted(load)
 .wb-story-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
+  gap: 8px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -305,7 +305,7 @@ onMounted(load)
 .wb-story-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
   min-width: 0;
 }
@@ -313,7 +313,7 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: var(--kb-radius-sm);
   font-size: var(--kb-fs-xs);
   font-weight: 500;
@@ -344,8 +344,8 @@ onMounted(load)
 .wb-story-gap {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 10px;
+  gap: 4px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   background: color-mix(in srgb, var(--kb-warning) 10%, transparent);
   color: var(--kb-warning);

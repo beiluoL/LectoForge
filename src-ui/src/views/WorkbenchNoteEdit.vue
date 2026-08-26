@@ -4,7 +4,7 @@
     <header class="note-topbar">
       <div class="note-topbar-left">
         <button class="wb-icon-btn" title="返回列表" @click="goBack">
-          <Icon name="chevron-left" :size="18" />
+          <Icon name="chevron-left" :size="'lg'" />
         </button>
         <div class="note-topbar-title">
           <span class="wb-eyebrow wb-eyebrow-sm">
@@ -17,23 +17,23 @@
 
       <div class="note-topbar-center">
         <span v-if="autoSaving" class="note-save-status note-save-saving">
-          <Icon name="repeat" :size="14" class="animate-spin" /> 自动保存中…
+          <Icon name="repeat" :size="'sm'" class="animate-spin" /> 自动保存中…
         </span>
         <span v-else-if="lastSavedAt" class="note-save-status note-save-done">
-          <Icon name="check" :size="14" /> 已自动保存 · {{ lastSavedAt }}
+          <Icon name="check" :size="'sm'" /> 已自动保存 · {{ lastSavedAt }}
         </span>
         <span v-else-if="!isNew && noteLoaded" class="note-save-status note-save-done">
-          <Icon name="check" :size="14" /> 已同步
+          <Icon name="check" :size="'sm'" /> 已同步
         </span>
         <span v-else class="note-save-status note-save-idle">
-          <Icon name="info" :size="14" /> {{ isNew ? '编辑后将自动保存' : '加载中…' }}
+          <Icon name="info" :size="'sm'" /> {{ isNew ? '编辑后将自动保存' : '加载中…' }}
         </span>
       </div>
 
       <div class="note-topbar-right">
         <!-- 沉浸阅读 / 导图：两个「换个视角看这篇笔记」的入口，放在最前面 -->
         <button class="kb-btn note-read-btn note-export-btn" title="全屏沉浸阅读（Esc 退出）" @click="enterReader">
-          <Icon name="maximize" :size="14" /> 全屏阅读
+          <Icon name="maximize" :size="'sm'" /> 全屏阅读
         </button>
         <button
           class="kb-btn note-map-btn note-export-btn"
@@ -41,21 +41,21 @@
           title="把这篇笔记的结构抽成思维导图"
           @click="runMindmap"
         >
-          <Icon :name="mindmapGen ? 'loader' : 'git-branch'" :size="14" :class="{ 'ai-spin': mindmapGen }" />
+          <Icon :name="mindmapGen ? 'loader' : 'git-branch'" :size="'sm'" :class="{ 'ai-spin': mindmapGen }" />
           {{ mindmapGen ? '生成中…' : '生成导图' }}
         </button>
         <span class="note-topbar-sep"></span>
 
         <button class="kb-btn ai-btn note-export-btn" :disabled="aiGen" @click="runAiGenerate('cue')">
-          <Icon :name="aiMode === 'cue' && aiGen ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiMode === 'cue' && aiGen }" />
+          <Icon :name="aiMode === 'cue' && aiGen ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiMode === 'cue' && aiGen }" />
           {{ aiMode === 'cue' && aiGen ? '生成中…' : 'AI 生成线索' }}
         </button>
         <button class="kb-btn ai-btn note-export-btn" :disabled="aiGen" @click="runAiGenerate('summary')">
-          <Icon :name="aiMode === 'summary' && aiGen ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiMode === 'summary' && aiGen }" />
+          <Icon :name="aiMode === 'summary' && aiGen ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiMode === 'summary' && aiGen }" />
           {{ aiMode === 'summary' && aiGen ? '生成中…' : 'AI 生成总结' }}
         </button>
         <button class="kb-btn ai-btn note-export-btn" :disabled="aiGen || aiCardsGen" @click="runAiCards">
-          <Icon :name="aiCardsGen ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiCardsGen }" />
+          <Icon :name="aiCardsGen ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiCardsGen }" />
           {{ aiCardsGen ? '生成中…' : 'AI 生成复习卡' }}
         </button>
 
@@ -69,7 +69,7 @@
             :disabled="quizGen"
             @click="runQuiz('mixed')"
           >
-            <Icon :name="quizGen ? 'loader' : 'target'" :size="14" :class="{ 'ai-spin': quizGen }" />
+            <Icon :name="quizGen ? 'loader' : 'target'" :size="'sm'" :class="{ 'ai-spin': quizGen }" />
             {{ quizGen ? '出题中…' : '生成自测题' }}
           </button>
           <button
@@ -79,23 +79,23 @@
             aria-label="选择题型"
             @click="quizMenuOpen = !quizMenuOpen"
           >
-            <Icon name="chevron-down" :size="12" />
+            <Icon name="chevron-down" :size="'xs'" />
           </button>
           <transition name="sel-bar">
             <div v-if="quizMenuOpen" class="note-quiz-menu">
-              <button @click="runQuiz('mixed')"><Icon name="shuffle" :size="13" /> 混合题型</button>
-              <button @click="runQuiz('choice')"><Icon name="list-todo" :size="13" /> 只出选择题</button>
-              <button @click="runQuiz('fill')"><Icon name="pen-line" :size="13" /> 只出填空题</button>
+              <button @click="runQuiz('mixed')"><Icon name="shuffle" :size="'13px'" /> 混合题型</button>
+              <button @click="runQuiz('choice')"><Icon name="list-todo" :size="'13px'" /> 只出选择题</button>
+              <button @click="runQuiz('fill')"><Icon name="pen-line" :size="'13px'" /> 只出填空题</button>
             </div>
           </transition>
         </div>
 
         <span class="note-topbar-sep"></span>
         <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportImage">
-          <Icon name="image" :size="14" /> 导出图片
+          <Icon name="image" :size="'sm'" /> 导出图片
         </button>
         <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportPDF()">
-          <Icon name="file-text" :size="14" /> 导出PDF
+          <Icon name="file-text" :size="'sm'" /> 导出PDF
         </button>
       </div>
     </header>
@@ -125,7 +125,7 @@
         <div class="note-meta-field">
           <label class="wb-label">关键词标签</label>
           <div class="note-tags-input">
-            <Icon name="hash" :size="14" class="note-tags-icon" />
+            <Icon name="hash" :size="'sm'" class="note-tags-icon" />
             <input
               v-model="tagInput"
               class="kb-input note-tags-field"
@@ -137,7 +137,7 @@
           <div v-if="tags.length" class="note-tags-list">
             <span v-for="(t, i) in tags" :key="i" class="note-tag-chip">
               {{ t }}
-              <button class="note-tag-remove" @click="tags.splice(i, 1)"><Icon name="x" :size="12" /></button>
+              <button class="note-tag-remove" @click="tags.splice(i, 1)"><Icon name="x" :size="'xs'" /></button>
             </span>
           </div>
         </div>
@@ -150,7 +150,7 @@
 
       <!-- ============ Cornell Three-Column Layout ============ -->
       <div v-if="aiHintVisible" class="ai-hint note-ai-hint">
-        <Icon name="info" :size="14" />
+        <Icon name="info" :size="'sm'" />
         <span>尚未配置 AI 服务，无法生成线索/总结。</span>
         <router-link to="/settings">前往 AI 设置</router-link>
       </div>
@@ -168,7 +168,7 @@
           <!-- 线索栏 -->
           <div class="cornell-col cornell-cue">
             <div class="cornell-col-head">
-              <Icon name="list-todo" :size="16" />
+              <Icon name="list-todo" :size="'md'" />
               <div>
                 <h3 class="cornell-col-title">线索栏</h3>
                 <p class="cornell-col-hint">关键问题 / 关键词，用于主动回忆自测</p>
@@ -204,7 +204,7 @@
           <!-- 笔记栏（富文本） -->
           <div class="cornell-col cornell-note">
             <div class="cornell-col-head">
-              <Icon name="pen-line" :size="16" />
+              <Icon name="pen-line" :size="'md'" />
               <div>
                 <h3 class="cornell-col-title">笔记栏</h3>
                 <p class="cornell-col-hint">课堂 / 阅读的主体内容，选中文字可快速转为线索</p>
@@ -214,41 +214,41 @@
             <!-- Rich Text Toolbar -->
             <div class="rte-toolbar">
               <button class="rte-btn" title="加粗 (Ctrl+B)" @mousedown.prevent="exec('bold')">
-                <Icon name="bold" :size="14" />
+                <Icon name="bold" :size="'sm'" />
               </button>
               <button class="rte-btn" title="斜体 (Ctrl+I)" @mousedown.prevent="exec('italic')">
-                <Icon name="italic" :size="14" />
+                <Icon name="italic" :size="'sm'" />
               </button>
               <button class="rte-btn" title="下划线" @mousedown.prevent="exec('underline')">
-                <Icon name="underline" :size="14" />
+                <Icon name="underline" :size="'sm'" />
               </button>
               <span class="rte-divider"></span>
               <button class="rte-btn" title="无序列表" @mousedown.prevent="exec('insertUnorderedList')">
-                <Icon name="list" :size="14" />
+                <Icon name="list" :size="'sm'" />
               </button>
               <button class="rte-btn" title="有序列表" @mousedown.prevent="exec('insertOrderedList')">
-                <Icon name="list-ordered" :size="14" />
+                <Icon name="list-ordered" :size="'sm'" />
               </button>
               <span class="rte-divider"></span>
               <button class="rte-btn rte-highlight" title="高亮" @mousedown.prevent="toggleHighlight">
                 <span class="rte-hl-mark">H</span>
               </button>
               <button class="rte-btn" title="清除格式" @mousedown.prevent="exec('removeFormat')">
-                <Icon name="x" :size="14" />
+                <Icon name="x" :size="'sm'" />
               </button>
               <span class="rte-divider"></span>
               <!-- 媒体 / 离线智能输入组：插入图片、截图、语音转文字、OCR 扫描 -->
               <button class="rte-btn" title="插入图片" :disabled="mediaBusy" @click="pickAndInsertImage">
-                <Icon name="image" :size="14" />
+                <Icon name="image" :size="'sm'" />
               </button>
               <button class="rte-btn" title="截图" :disabled="mediaBusy" @click="startScreenshot">
-                <Icon name="screenshot" :size="14" />
+                <Icon name="screenshot" :size="'sm'" />
               </button>
               <button class="rte-btn" title="语音转文字" :disabled="mediaBusy" @click="startVoiceInput">
-                <Icon :name="voiceBusy ? 'loader' : 'mic'" :size="14" :class="{ 'ai-spin': voiceBusy }" />
+                <Icon :name="voiceBusy ? 'loader' : 'mic'" :size="'sm'" :class="{ 'ai-spin': voiceBusy }" />
               </button>
               <button class="rte-btn" title="OCR 扫描文字" :disabled="mediaBusy" @click="openOcr">
-                <Icon :name="ocrBusy ? 'loader' : 'scan'" :size="14" :class="{ 'ai-spin': ocrBusy }" />
+                <Icon :name="ocrBusy ? 'loader' : 'scan'" :size="'sm'" :class="{ 'ai-spin': ocrBusy }" />
               </button>
               <!-- 隐藏的文件选择器：图片 / 附件 -->
               <input
@@ -277,7 +277,7 @@
             -->
             <div class="cornell-col-foot">
               <button class="kb-btn ai-btn cornell-extend-btn" :disabled="extendLoading" @click="openExtend">
-                <Icon :name="extendLoading ? 'loader' : 'ai-sparkle'" :size="13" :class="{ 'ai-spin': extendLoading }" />
+                <Icon :name="extendLoading ? 'loader' : 'ai-sparkle'" :size="'13px'" :class="{ 'ai-spin': extendLoading }" />
                 {{ extendLoading ? 'AI 正在续写…' : 'AI 拓展' }}
               </button>
               <span class="cornell-col-foot-hint">让 AI 接着往下写 300 字以上，采纳前可对比</span>
@@ -307,7 +307,7 @@
         <!-- 总结栏 -->
         <div class="cornell-col cornell-summary">
           <div class="cornell-col-head">
-            <Icon name="check-check" :size="16" />
+            <Icon name="check-check" :size="'md'" />
             <div>
               <h3 class="cornell-col-title">总结栏</h3>
               <p class="cornell-col-hint">用自己的话一句话概括</p>
@@ -325,9 +325,9 @@
       <!-- AI 生成的复习卡（B4）：确认后逐张走 POST /reviews，SM-2 排程不受影响 -->
       <div v-if="flashcards && flashcards.length" class="ai-panel note-cards-panel">
         <div class="ai-panel-head">
-          <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" /> AI 生成的复习卡（{{ flashcards.length }} 张）</span>
+          <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" /> AI 生成的复习卡（{{ flashcards.length }} 张）</span>
           <button class="kb-btn kb-btn-primary note-cards-adopt" :disabled="aiCardsCreating" @click="createCards">
-            <Icon :name="aiCardsCreating ? 'loader' : 'check'" :size="14" :class="{ 'ai-spin': aiCardsCreating }" />
+            <Icon :name="aiCardsCreating ? 'loader' : 'check'" :size="'sm'" :class="{ 'ai-spin': aiCardsCreating }" />
             {{ aiCardsCreating ? '创建中…' : '采纳并创建' }}
           </button>
         </div>
@@ -343,14 +343,14 @@
       <div v-if="quizItems.length" class="ai-panel note-quiz-panel">
         <div class="ai-panel-head">
           <span class="ai-panel-title">
-            <Icon name="target" :size="14" /> AI 自测题（{{ quizItems.length }} 道 · 已进入复习队列）
+            <Icon name="target" :size="'sm'" /> AI 自测题（{{ quizItems.length }} 道 · 已进入复习队列）
           </span>
           <div class="note-quiz-actions">
             <button class="kb-btn wb-ghost-btn note-cards-adopt" @click="quizItems = []">
-              <Icon name="x" :size="14" /> 收起
+              <Icon name="x" :size="'sm'" /> 收起
             </button>
             <button class="kb-btn kb-btn-primary note-cards-adopt" @click="router.push('/workbench/review')">
-              <Icon name="arrow-right" :size="14" /> 前往复习
+              <Icon name="arrow-right" :size="'sm'" /> 前往复习
             </button>
           </div>
         </div>
@@ -385,12 +385,12 @@
     <!-- ============ 反向引用：谁在正文里写了 [[本笔记标题]] ============ -->
     <section v-if="!isNew && noteId" class="note-backlinks">
       <button class="note-backlinks-head" :aria-expanded="backlinksOpen" @click="toggleBacklinks">
-        <Icon :name="backlinksOpen ? 'chevron-down' : 'chevron-right'" :size="15" />
-        <Icon name="link" :size="14" />
+        <Icon :name="backlinksOpen ? 'chevron-down' : 'chevron-right'" :size="'15px'" />
+        <Icon name="link" :size="'sm'" />
         <span class="note-backlinks-title">反向引用</span>
         <span v-if="noteStore.backlinks.length" class="note-backlinks-count">{{ noteStore.backlinks.length }}</span>
         <span v-if="noteStore.backlinksLoading" class="note-backlinks-loading">
-          <Icon name="loader" :size="12" class="ai-spin" /> 检索中
+          <Icon name="loader" :size="'xs'" class="ai-spin" /> 检索中
         </span>
       </button>
       <div v-show="backlinksOpen" class="note-backlinks-body">
@@ -403,7 +403,7 @@
         <ul v-else class="note-backlinks-list">
           <li v-for="b in noteStore.backlinks" :key="b.id">
             <button class="note-backlink-item" @click="gotoNote(b.id)">
-              <span class="note-backlink-title"><Icon name="file-text" :size="13" /> {{ b.title }}</span>
+              <span class="note-backlink-title"><Icon name="file-text" :size="'13px'" /> {{ b.title }}</span>
               <span class="note-backlink-excerpt">{{ b.excerpt }}</span>
             </button>
           </li>
@@ -415,15 +415,15 @@
     <footer class="note-action-bar">
       <div class="note-action-left">
         <span v-if="errors._form" class="note-err note-err-form">
-          <Icon name="alert-circle" :size="14" /> {{ errors._form }}
+          <Icon name="alert-circle" :size="'sm'" /> {{ errors._form }}
         </span>
       </div>
       <div class="note-action-right">
         <button class="kb-btn note-draft-btn" :disabled="saving" @click="saveDraft">
-          <Icon name="save" :size="14" /> 保存草稿
+          <Icon name="save" :size="'sm'" /> 保存草稿
         </button>
         <button class="kb-btn kb-btn-primary note-publish-btn" :disabled="saving" @click="publish">
-          <Icon name="send" :size="14" /> 完成并发布
+          <Icon name="send" :size="'sm'" /> 完成并发布
         </button>
       </div>
     </footer>
@@ -442,14 +442,14 @@
           @mousedown.prevent
         >
           <button class="note-sel-btn" title="加粗" @click="applySelection('bold')">
-            <Icon name="bold" :size="15" />
+            <Icon name="bold" :size="'15px'" />
           </button>
           <button class="note-sel-btn" title="高亮" @click="applySelection('highlight')">
-            <Icon name="highlighter" :size="15" />
+            <Icon name="highlighter" :size="'15px'" />
           </button>
           <span class="note-sel-divider"></span>
           <button class="note-sel-btn note-sel-cue" title="把选中文字加到线索栏" @click="applySelection('cue')">
-            <Icon name="pencil" :size="15" />
+            <Icon name="pencil" :size="'15px'" />
             <span>转为线索</span>
           </button>
         </div>
@@ -462,7 +462,7 @@
         <div v-if="noteStore.fullscreenMode" class="note-reader" :style="{ '--mc': themeColor }">
           <header class="note-reader-bar">
             <div class="note-reader-bar-left">
-              <Icon name="book-open" :size="15" />
+              <Icon name="book-open" :size="'15px'" />
               <span class="note-reader-mode">沉浸阅读</span>
               <span class="note-reader-kbd">Esc</span>
               <span class="note-reader-tip">退出</span>
@@ -470,18 +470,18 @@
             <div class="note-reader-bar-right">
               <div class="note-reader-zoom">
                 <button title="缩小字号" aria-label="缩小字号" @click="stepReaderFont(-1)">
-                  <Icon name="minus" :size="13" />
+                  <Icon name="minus" :size="'13px'" />
                 </button>
                 <span>{{ readerFontSize }}px</span>
                 <button title="放大字号" aria-label="放大字号" @click="stepReaderFont(1)">
-                  <Icon name="plus" :size="13" />
+                  <Icon name="plus" :size="'13px'" />
                 </button>
               </div>
               <button class="kb-btn wb-ghost-btn note-export-btn" :disabled="exporting" @click="exportPDF({ singlePage: true })">
-                <Icon name="file-text" :size="14" /> 导出 PDF
+                <Icon name="file-text" :size="'sm'" /> 导出 PDF
               </button>
               <button class="kb-btn wb-ghost-btn note-export-btn" @click="noteStore.exitFullscreen()">
-                <Icon name="minimize" :size="14" /> 退出全屏
+                <Icon name="minimize" :size="'sm'" /> 退出全屏
               </button>
             </div>
           </header>
@@ -501,12 +501,12 @@
               <p v-else class="note-reader-empty">这篇笔记的正文还是空的。</p>
 
               <section v-if="form.summaryColumn?.trim()" class="note-reader-summary">
-                <h2><Icon name="check-check" :size="15" /> 总结</h2>
+                <h2><Icon name="check-check" :size="'15px'" /> 总结</h2>
                 <p>{{ form.summaryColumn }}</p>
               </section>
 
               <section v-if="noteStore.backlinks.length" class="note-reader-backlinks">
-                <h2><Icon name="link" :size="15" /> 反向引用（{{ noteStore.backlinks.length }}）</h2>
+                <h2><Icon name="link" :size="'15px'" /> 反向引用（{{ noteStore.backlinks.length }}）</h2>
                 <ul>
                   <li v-for="b in noteStore.backlinks" :key="b.id">
                     <button @click="gotoNote(b.id)">{{ b.title }}</button>
@@ -526,26 +526,26 @@
         <div v-if="extendOpen" class="note-extend-mask" :style="{ '--mc': themeColor }" @click.self="closeExtend">
           <div class="note-extend-win" role="dialog" aria-label="AI 拓展结果对比">
             <header class="note-extend-head">
-              <span class="note-extend-title"><Icon name="ai-sparkle" :size="15" /> AI 拓展 · 对比确认</span>
+              <span class="note-extend-title"><Icon name="ai-sparkle" :size="'15px'" /> AI 拓展 · 对比确认</span>
               <span v-if="extendResult" class="note-extend-stat">
                 {{ extendResult.chars }} 字
                 <em v-if="extendResult.belowTarget" class="note-extend-warn">（未达 {{ extendResult.minChars }} 字目标）</em>
               </span>
-              <button class="wb-icon-btn" title="关闭" @click="closeExtend"><Icon name="x" :size="16" /></button>
+              <button class="wb-icon-btn" title="关闭" @click="closeExtend"><Icon name="x" :size="'md'" /></button>
             </header>
 
             <div class="note-extend-body">
               <section class="note-extend-pane">
-                <h4><Icon name="file-text" :size="13" /> 当前正文（结尾片段）</h4>
+                <h4><Icon name="file-text" :size="'13px'" /> 当前正文（结尾片段）</h4>
                 <div class="note-extend-scroll note-extend-origin">{{ extendTail || '（正文为空）' }}</div>
               </section>
               <section class="note-extend-pane">
                 <h4>
-                  <Icon name="ai-sparkle" :size="13" /> AI 续写
+                  <Icon name="ai-sparkle" :size="'13px'" /> AI 续写
                   <span v-if="extendResult?.summary" class="note-extend-summary">{{ extendResult.summary }}</span>
                 </h4>
                 <div v-if="extendLoading" class="note-extend-scroll note-extend-busy">
-                  <Icon name="loader" :size="16" class="ai-spin" /> 正在续写，通常需要十几秒…
+                  <Icon name="loader" :size="'md'" class="ai-spin" /> 正在续写，通常需要十几秒…
                 </div>
                 <div v-else class="note-extend-scroll dl-md" v-html="extendHtml"></div>
               </section>
@@ -553,7 +553,7 @@
 
             <footer class="note-extend-foot">
               <label class="note-extend-dir">
-                <Icon name="compass" :size="13" />
+                <Icon name="compass" :size="'13px'" />
                 <input
                   v-model="extendDirection"
                   class="kb-input"
@@ -563,10 +563,10 @@
               </label>
               <div class="note-extend-actions">
                 <button class="kb-btn wb-ghost-btn" :disabled="extendLoading" @click="runExtend">
-                  <Icon name="repeat" :size="14" /> 重新生成
+                  <Icon name="repeat" :size="'sm'" /> 重新生成
                 </button>
                 <button class="kb-btn wb-ghost-btn" @click="closeExtend">
-                  <Icon name="x" :size="14" /> 放弃
+                  <Icon name="x" :size="'sm'" /> 放弃
                 </button>
                 <button
                   class="kb-btn note-extend-cursor"
@@ -574,10 +574,10 @@
                   :title="hasSavedCursor ? '插入到你离开笔记栏时的光标位置' : '还没在笔记栏点过光标，将插入到末尾'"
                   @click="adoptExtend('cursor')"
                 >
-                  <Icon name="text-cursor-input" :size="14" /> 追加到光标位置
+                  <Icon name="text-cursor-input" :size="'sm'" /> 追加到光标位置
                 </button>
                 <button class="kb-btn kb-btn-primary" :disabled="!canAdopt" @click="adoptExtend('paragraph')">
-                  <Icon name="corner-down-left" :size="14" /> 作为新段落插入
+                  <Icon name="corner-down-left" :size="'sm'" /> 作为新段落插入
                 </button>
               </div>
             </footer>
@@ -1835,7 +1835,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
   border: 1px solid var(--kb-border);
@@ -1845,7 +1845,7 @@ onUnmounted(() => {
 .note-topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 .note-topbar-title {
@@ -1870,8 +1870,8 @@ onUnmounted(() => {
 .note-save-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
+  gap: 4px;
+  padding: 4px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
@@ -1891,11 +1891,11 @@ onUnmounted(() => {
 .note-topbar-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .note-export-btn {
   font-size: 12px;
-  padding: 6px 12px;
+  padding: 8px 12px;
 }
 .wb-ghost-btn {
   background: var(--kb-card);
@@ -1930,13 +1930,13 @@ onUnmounted(() => {
 .note-meta-title-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   grid-column: span 1;
 }
 .note-meta-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .note-title-input {
   font-family: var(--font-serif);
@@ -1960,7 +1960,7 @@ onUnmounted(() => {
 .note-tags-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   margin-top: 2px;
 }
 .note-tag-chip {
@@ -2007,13 +2007,13 @@ onUnmounted(() => {
 
 /* ===== Cornell Three-Column ===== */
 .note-ai-hint {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .note-cards-panel { margin-top: 16px; }
-.note-cards-adopt { font-size: 12px; padding: 5px 12px; }
+.note-cards-adopt { font-size: 12px; padding: 4px 12px; }
 .cap-card-list {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -2023,7 +2023,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -2137,7 +2137,7 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 12px 14px 8px;
+  padding: 12px 16px 8px;
   color: var(--kb-foreground);
 }
 .cornell-cue .cornell-col-head { color: var(--kb-warning); }
@@ -2179,7 +2179,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-top: 1px solid var(--kb-border);
   border-bottom: 1px solid var(--kb-border);
   background: var(--kb-background);
@@ -2226,7 +2226,7 @@ onUnmounted(() => {
 .cornell-editor {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 14px;
+  padding: 16px;
   font-size: 14px;
   line-height: 1.8;
   color: var(--kb-foreground);
@@ -2243,13 +2243,13 @@ onUnmounted(() => {
 .cornell-editor :deep(u) { text-decoration: underline; }
 .cornell-editor :deep(ul) {
   list-style: disc;
-  padding-left: 22px;
-  margin: 6px 0;
+  padding-left: 24px;
+  margin: 8px 0;
 }
 .cornell-editor :deep(ol) {
   list-style: decimal;
-  padding-left: 22px;
-  margin: 6px 0;
+  padding-left: 24px;
+  margin: 8px 0;
 }
 .cornell-editor :deep(li) { margin: 3px 0; }
 .cornell-editor :deep([style*="background-color"]) {
@@ -2289,7 +2289,7 @@ onUnmounted(() => {
 .note-sel-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 30px;
   padding: 0 8px;
   border: none;
@@ -2351,18 +2351,18 @@ onUnmounted(() => {
 .note-quiz-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .note-quiz-list {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .note-quiz-item {
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-background);
   border: 1px solid var(--kb-border);
@@ -2370,7 +2370,7 @@ onUnmounted(() => {
 .note-quiz-q {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -2379,7 +2379,7 @@ onUnmounted(() => {
 }
 .note-quiz-type {
   flex: none;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -2394,11 +2394,11 @@ onUnmounted(() => {
 }
 .note-quiz-options {
   list-style: none;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   padding: 0 0 0 4px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 14px;
+  gap: 4px 16px;
 }
 .note-quiz-options li {
   font-size: 13px;
@@ -2450,11 +2450,11 @@ onUnmounted(() => {
   gap: 8px;
 }
 .note-draft-btn {
-  padding: 8px 18px;
+  padding: 8px 16px;
   font-size: 14px;
 }
 .note-publish-btn {
-  padding: 8px 22px;
+  padding: 8px 24px;
   font-size: 14px;
 }
 .note-draft-btn:disabled, .note-publish-btn:disabled {
@@ -2543,7 +2543,7 @@ onUnmounted(() => {
 }
 .note-quiz-caret {
   margin-left: -1px;
-  padding: 6px 6px;
+  padding: 8px 8px;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 }
@@ -2565,13 +2565,13 @@ onUnmounted(() => {
 .note-quiz-menu button {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   border: none;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   color: var(--kb-foreground);
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   text-align: left;
   cursor: pointer;
   transition: background 0.14s ease, color 0.14s ease;
@@ -2585,14 +2585,14 @@ onUnmounted(() => {
 .cornell-col-foot {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 12px;
+  gap: 12px;
+  padding: 8px 12px;
   border-top: 1px solid var(--kb-border);
   background: var(--kb-background);
 }
 .cornell-extend-btn {
   font-size: 12px;
-  padding: 5px 11px;
+  padding: 4px 12px;
   flex: none;
 }
 .cornell-extend-btn:disabled {
@@ -2619,7 +2619,7 @@ onUnmounted(() => {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   padding: 12px 16px;
   border: none;
   background: transparent;
@@ -2651,16 +2651,16 @@ onUnmounted(() => {
   color: var(--kb-muted-foreground);
 }
 .note-backlinks-body {
-  padding: 0 16px 14px;
+  padding: 0 16px 16px;
 }
 .note-backlinks-empty {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--kb-fs-body-sm);
   line-height: 1.7;
   color: var(--kb-muted-foreground);
 }
 .note-backlinks-empty code {
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: var(--kb-radius-sm);
   background: var(--kb-muted);
   color: var(--mc);
@@ -2680,7 +2680,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 9px 11px;
+  padding: 8px 12px;
   border-radius: var(--kb-radius-sm);
   border: 1px solid var(--kb-border);
   background: var(--kb-background);
@@ -2695,7 +2695,7 @@ onUnmounted(() => {
 .note-backlink-title {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 13px;
   font-weight: 600;
   color: var(--kb-foreground);
@@ -2726,14 +2726,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--kb-border);
   background: var(--kb-card);
 }
 .note-reader-bar-left {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--kb-muted-foreground);
   font-size: 12px;
 }
@@ -2742,7 +2742,7 @@ onUnmounted(() => {
   color: var(--mc);
 }
 .note-reader-kbd {
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: var(--kb-radius-sm);
   border: 1px solid var(--kb-border);
   background: var(--kb-muted);
@@ -2798,7 +2798,7 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 .note-reader-title {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-family: var(--font-serif);
   font-size: 30px;
   font-weight: 700;
@@ -2809,9 +2809,9 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 18px;
-  margin-bottom: 22px;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
   border-bottom: 1px solid var(--kb-border);
   font-size: 12px;
   color: var(--kb-muted-foreground);
@@ -2819,10 +2819,10 @@ onUnmounted(() => {
 .note-reader-tags {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .note-reader-tag {
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--mc) 12%, transparent);
   color: var(--mc);
@@ -2840,7 +2840,7 @@ onUnmounted(() => {
 .note-reader-summary,
 .note-reader-backlinks {
   margin-top: 36px;
-  padding: 16px 18px;
+  padding: 16px 16px;
   border-radius: var(--kb-radius-md);
   border: 1px solid var(--kb-border);
   background: var(--kb-card);
@@ -2849,8 +2849,8 @@ onUnmounted(() => {
 .note-reader-backlinks h2 {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 10px;
+  gap: 8px;
+  margin: 0 0 12px;
   font-family: var(--font-serif);
   font-size: 15px;
   font-weight: 700;
@@ -2883,7 +2883,7 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   color: var(--mc);
-  font-size: 13.5px;
+  font-size: var(--kb-fs-body-md);
   font-weight: 600;
   cursor: pointer;
 }
@@ -2929,14 +2929,14 @@ onUnmounted(() => {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--kb-border);
 }
 .note-extend-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-family: var(--font-serif);
   font-size: 15px;
   font-weight: 700;
@@ -2944,7 +2944,7 @@ onUnmounted(() => {
 }
 .note-extend-stat {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   color: var(--kb-muted-foreground);
 }
 .note-extend-warn {
@@ -2970,9 +2970,9 @@ onUnmounted(() => {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
-  padding: 9px 14px;
+  padding: 8px 16px;
   background: var(--kb-background);
   font-size: 12px;
   font-weight: 700;
@@ -2982,7 +2982,7 @@ onUnmounted(() => {
   margin-left: auto;
   max-width: 55%;
   font-weight: 500;
-  font-size: 11.5px;
+  font-size: var(--kb-fs-caption);
   color: var(--mc);
   overflow: hidden;
   white-space: nowrap;
@@ -2993,8 +2993,8 @@ onUnmounted(() => {
   min-height: 240px;
   max-height: 52vh;
   overflow-y: auto;
-  padding: 14px 16px;
-  font-size: 13.5px;
+  padding: 16px 16px;
+  font-size: var(--kb-fs-body-md);
   line-height: 1.8;
 }
 .note-extend-origin {
@@ -3022,13 +3022,13 @@ onUnmounted(() => {
   flex: 1 1 240px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--kb-muted-foreground);
 }
 .note-extend-dir .kb-input {
   flex: 1 1 auto;
-  font-size: 12.5px;
-  padding: 6px 10px;
+  font-size: var(--kb-fs-body-sm);
+  padding: 8px 12px;
 }
 .note-extend-actions {
   display: flex;
@@ -3037,8 +3037,8 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 .note-extend-actions .kb-btn {
-  font-size: 12.5px;
-  padding: 7px 13px;
+  font-size: var(--kb-fs-body-sm);
+  padding: 8px 12px;
 }
 .note-extend-cursor {
   background: color-mix(in srgb, var(--mc) 12%, transparent);

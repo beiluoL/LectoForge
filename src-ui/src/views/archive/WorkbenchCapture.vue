@@ -14,7 +14,7 @@
               Step 01 · 输入 · Capture
             </span>
             <h1 class="wb-title">
-              <Icon name="inbox" :size="28" class="wb-title-icon" />
+              <Icon name="inbox" :size="'28px'" class="wb-title-icon" />
               知识输入 · 收集箱
             </h1>
             <p class="wb-subtitle">
@@ -23,7 +23,7 @@
             </p>
           </div>
           <button class="kb-btn kb-btn-primary wb-cta" @click="openCreate">
-            <Icon name="plus" :size="16" /> 新建条目
+            <Icon name="plus" :size="'md'" /> 新建条目
           </button>
         </div>
 
@@ -57,7 +57,7 @@
           <option v-for="c in flatCategories" :key="c.id" :value="c.id">{{ '　'.repeat(c.depth ?? 0) }}{{ c.name }}</option>
         </select>
         <div class="wb-search">
-          <Icon name="search" :size="14" class="wb-search-icon" />
+          <Icon name="search" :size="'sm'" class="wb-search-icon" />
           <input v-model="keyword" class="kb-input wb-search-input" placeholder="搜索标题…" @input="load" />
         </div>
       </div>
@@ -65,7 +65,7 @@
 
     <!-- ============ List ============ -->
     <div v-if="aiHintVisible" class="ai-hint cap-ai-hint">
-      <Icon name="info" :size="14" />
+      <Icon name="info" :size="'sm'" />
       <span>尚未配置 AI 服务，无法使用智能整理。</span>
       <router-link to="/settings">前往 AI 设置</router-link>
     </div>
@@ -73,17 +73,17 @@
       <div v-if="loading" class="wb-card-grid">
         <div v-for="n in 4" :key="n" class="wb-card wb-skeleton">
           <div class="wb-skel-line" style="width: 70%; height: 16px;"></div>
-          <div class="wb-skel-line" style="width: 95%; height: 12px; margin-top: 10px;"></div>
+          <div class="wb-skel-line" style="width: 95%; height: 12px; margin-top: 12px;"></div>
           <div class="wb-skel-line" style="width: 60%; height: 12px;"></div>
         </div>
       </div>
 
       <div v-else-if="list.length === 0" class="wb-empty">
-        <div class="wb-empty-icon"><Icon name="inbox" :size="40" /></div>
+        <div class="wb-empty-icon"><Icon name="inbox" :size="'40px'" /></div>
         <h3 class="wb-empty-title">收集箱还是空的</h3>
         <p class="wb-empty-desc">从一条灵感开始，让知识真正流动起来。</p>
         <button class="kb-btn kb-btn-primary" @click="openCreate">
-          <Icon name="plus" :size="14" /> 新建第一条
+          <Icon name="plus" :size="'sm'" /> 新建第一条
         </button>
       </div>
 
@@ -98,7 +98,7 @@
               <span class="wb-status-dot"></span>{{ captureStatusLabel(item.status) }}
             </span>
             <button class="wb-icon-btn" :class="{ 'is-on': item.starred }" title="标星" @click="toggleStar(item)">
-              <Icon name="star" :size="16" />
+              <Icon name="star" :size="'md'" />
             </button>
           </div>
 
@@ -107,19 +107,19 @@
 
           <div class="wb-card-meta">
             <span v-if="categoryName(item.categoryId)" class="wb-chip wb-chip-blue">
-              <Icon name="folder" :size="12" />{{ categoryName(item.categoryId) }}
+              <Icon name="folder" :size="'xs'" />{{ categoryName(item.categoryId) }}
             </span>
             <span class="wb-chip wb-chip-muted">
-              <Icon name="link" :size="12" />{{ sourceLabel(item.sourceType) }}
+              <Icon name="link" :size="'xs'" />{{ sourceLabel(item.sourceType) }}
             </span>
             <span v-if="item.tags" class="wb-chip wb-chip-muted">
-              <Icon name="hash" :size="12" />{{ item.tags }}
+              <Icon name="hash" :size="'xs'" />{{ item.tags }}
             </span>
           </div>
 
           <div class="wb-card-foot">
             <button class="wb-mini-btn wb-mini-primary" title="转为笔记" @click="toNote(item)">
-              <Icon name="notebook-pen" :size="14" /> 转笔记
+              <Icon name="notebook-pen" :size="'sm'" /> 转笔记
             </button>
             <button
               class="wb-mini-btn ai-mini"
@@ -127,7 +127,7 @@
               title="AI 提炼要点"
               @click="runAiSummarize(item)"
             >
-              <Icon :name="aiSummarizing === item.id ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiSummarizing === item.id }" />
+              <Icon :name="aiSummarizing === item.id ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiSummarizing === item.id }" />
               提炼
             </button>
             <button
@@ -136,7 +136,7 @@
               title="AI 标签与分类"
               @click="runAiTags(item)"
             >
-              <Icon :name="aiTagging === item.id ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiTagging === item.id }" />
+              <Icon :name="aiTagging === item.id ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiTagging === item.id }" />
               标签
             </button>
             <button
@@ -145,24 +145,24 @@
               title="AI 起草笔记"
               @click="runAiDraftNote(item)"
             >
-              <Icon :name="aiDrafting === item.id ? 'loader' : 'ai-sparkle'" :size="14" :class="{ 'ai-spin': aiDrafting === item.id }" />
+              <Icon :name="aiDrafting === item.id ? 'loader' : 'ai-sparkle'" :size="'sm'" :class="{ 'ai-spin': aiDrafting === item.id }" />
               起草笔记
             </button>
             <button class="wb-mini-btn" title="归档" @click="setStatus(item, CAPTURE_STATUS.ARCHIVED)">
-              <Icon name="archive" :size="14" /> 归档
+              <Icon name="archive" :size="'sm'" /> 归档
             </button>
             <button class="wb-mini-btn" title="编辑" @click="openEdit(item)">
-              <Icon name="edit-2" :size="14" />
+              <Icon name="edit-2" :size="'sm'" />
             </button>
             <button class="wb-mini-btn wb-mini-danger" title="删除" @click="remove(item)">
-              <Icon name="trash-2" :size="14" />
+              <Icon name="trash-2" :size="'sm'" />
             </button>
           </div>
 
           <!-- AI 提炼结果面板（A1） -->
           <div v-if="summaries[item.id]" class="ai-panel cap-ai-panel">
             <div class="ai-panel-head">
-              <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" /> AI 提炼要点</span>
+              <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" /> AI 提炼要点</span>
             </div>
             <p v-if="summaries[item.id].oneLine" class="cap-ai-oneline">{{ summaries[item.id].oneLine }}</p>
             <ul v-if="summaries[item.id].bullets.length" class="ai-list">
@@ -173,7 +173,7 @@
           <!-- AI 标签/分类结果面板（A2） -->
           <div v-if="tagSuggs[item.id]" class="ai-panel cap-ai-panel">
             <div class="ai-panel-head">
-              <span class="ai-panel-title"><Icon name="ai-sparkle" :size="14" /> AI 标签建议</span>
+              <span class="ai-panel-title"><Icon name="ai-sparkle" :size="'sm'" /> AI 标签建议</span>
             </div>
             <div class="cap-ai-tags">
               <button
@@ -205,7 +205,7 @@
             <span class="wb-eyebrow wb-eyebrow-sm">Capture</span>
             <h2 class="wb-drawer-title">{{ editingId ? '编辑条目' : '新建收集箱条目' }}</h2>
           </div>
-          <button class="wb-icon-btn" @click="showDrawer = false"><Icon name="x" :size="18" /></button>
+          <button class="wb-icon-btn" @click="showDrawer = false"><Icon name="x" :size="'lg'" /></button>
         </header>
         <div class="wb-drawer-body">
           <div class="wb-field">
@@ -249,7 +249,7 @@
         <footer class="wb-drawer-foot">
           <button class="kb-btn" @click="showDrawer = false">取消</button>
           <button class="kb-btn kb-btn-primary" @click="save">
-            <Icon name="check" :size="14" /> 保存
+            <Icon name="check" :size="'sm'" /> 保存
           </button>
         </footer>
       </div>
@@ -544,12 +544,12 @@ onMounted(() => {
 .wb-card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 .wb-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 16px;
   border-radius: var(--kb-radius-md);
   background: var(--kb-card);
@@ -569,8 +569,8 @@ onMounted(() => {
 .wb-card-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
+  gap: 8px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -601,13 +601,13 @@ onMounted(() => {
 .wb-card-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .wb-chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: var(--kb-radius-sm);
   font-size: var(--kb-fs-xs);
   font-weight: 500;
@@ -627,7 +627,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 8px;
+  padding: 4px 8px;
   border-radius: var(--kb-radius-sm);
   background: transparent;
   color: var(--kb-muted-foreground);
@@ -645,21 +645,21 @@ onMounted(() => {
 
 /* ===== AI 智能整理面板（A1/A2） ===== */
 .cap-ai-hint { margin-bottom: 12px; }
-.cap-ai-panel { margin-top: 10px; }
+.cap-ai-panel { margin-top: 12px; }
 .cap-ai-oneline {
   font-size: 12px;
   color: var(--kb-foreground);
-  margin: 6px 0;
+  margin: 8px 0;
   line-height: 1.5;
 }
 .cap-ai-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
 }
 .cap-ai-tag {
-  padding: 3px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
   border: 1px dashed var(--kb-highlight);
   color: var(--kb-highlight);
@@ -684,7 +684,7 @@ onMounted(() => {
   padding: 0;
 }
 .cap-ai-cat:hover { text-decoration: underline; }
-.cap-ai-cat-none { margin-top: 6px; font-size: 11px; color: var(--kb-muted-foreground); }
+.cap-ai-cat-none { margin-top: 8px; font-size: 11px; color: var(--kb-muted-foreground); }
 .ai-mini { color: var(--kb-highlight); }
 .ai-mini:hover { background: color-mix(in srgb, var(--kb-highlight) 10%, transparent); color: var(--kb-highlight); }
 
