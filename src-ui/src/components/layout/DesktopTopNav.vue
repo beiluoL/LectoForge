@@ -17,15 +17,17 @@
     <!-- 自绘 macOS 红黄绿：顶掉被 decorations:false 移除的系统窗口按钮 -->
     <WindowControls class="mr-4 shrink-0" />
 
-    <!-- Left: 品牌字标 Logo（系统字体栈 semibold，点击回学习工作台；位于收集箱左侧） -->
+    <!-- Left: 品牌字标 Logo（双色拼接 Wordmark：Lecto 加粗主题蓝 + Forge 中等前景色 + 品牌圆点，
+         点击回学习工作台；位于收集箱左侧） -->
     <router-link
       to="/workbench"
-      class="lf-brand-wordmark shrink-0"
+      class="lf-brand-wordmark shrink-0 flex items-center leading-none"
       data-tauri-drag-region="false"
       aria-label="LectoForge 返回工作台"
       @click="closeMenus"
     >
-      LectoForge
+      <span class="lf-brand-lec">Lecto</span><span class="lf-brand-forge">Forge</span>
+      <span class="lf-brand-dot" aria-hidden="true"></span>
     </router-link>
 
     <!-- ============================================================
@@ -550,25 +552,42 @@ async function checkUpdate() {
   transition: color 0.15s ease, opacity 0.15s ease, background 0.15s ease;
 }
 
-/* 品牌字标 Logo：系统默认字体栈 + semibold + tracking-tight（macOS 原生感）。
-   字号取 text-xl 档（--kb-fs-h4 = 20px），比导航文字（14px）更醒目；
-   颜色用 --kb-foreground：浅色自动深灰、深色自动近白，随 data-theme 联动，
-   不写死 dark: 变体（项目主题走 documentElement[data-theme]）。
-   hover 时透明度降 0.8 + 微缩放，transition 200ms 过渡。 */
+/* 品牌字标 Logo（双色拼接 Wordmark）：
+   - 系统默认字体栈（macOS 原生感），text-2xl 档（--kb-fs-h3 = 24px），leading-none + flex items-center 垂直居中
+   - 两词之间无空格，靠颜色差 + 字距节奏分隔：Lecto 加粗（700）+ tracking-tighter，Forge 中等（500）+ tracking-normal
+   - 颜色全部走 --kb-* token：Lecto 用 --kb-primary（项目主题蓝，随强调色换肤联动；
+     ⚠️ --kb-accent 在本项目是绿色成功色而非主题蓝）；Forge 用 --kb-foreground（浅色深灰 / 深色近白自适应）
+   - 品牌小圆点：主题蓝 6px 圆点点缀
+   - hover 透明度降至 80%，transition-opacity 200ms */
 .lf-brand-wordmark {
   display: inline-flex;
   align-items: center;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: var(--kb-fs-h4);
-  font-weight: 600;
-  letter-spacing: -0.025em; /* tracking-tight */
-  color: var(--kb-foreground);
+  font-size: var(--kb-fs-h3);
+  line-height: 1;
   white-space: nowrap;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 .lf-brand-wordmark:hover {
   opacity: 0.8;
-  transform: scale(1.02);
+}
+.lf-brand-lec {
+  font-weight: 700;
+  letter-spacing: -0.05em; /* tracking-tighter */
+  color: var(--kb-primary);
+}
+.lf-brand-forge {
+  font-weight: 500;
+  letter-spacing: 0; /* tracking-normal */
+  color: var(--kb-foreground);
+}
+.lf-brand-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--kb-primary);
+  margin-left: 6px;
+  flex-shrink: 0;
 }
 .nav-item:hover {
   opacity: 0.8;
