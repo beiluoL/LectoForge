@@ -1,9 +1,10 @@
 [package]
 name = "lectoforge-desktop"
-version = "1.0.0"
+version = "1.2.0"
 description = "LectoForge 学习工作台桌面应用"
 authors = ["LectoForge"]
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "lectoforge_desktop"
