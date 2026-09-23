@@ -198,7 +198,16 @@ vue-flow 混进来的运行时字段会被剔除——所以**别指望通过 `d
 **存储层**：`data` 用 JSON 字符串存整图，损坏的 JSON 由 `parseData` 兜底回退空白画布，
 **绝不抛错**导致详情页打不开。
 
-**旧实现**：此前基于 Vue Flow 的版本未删除但已取消引用；现行实现对标的 draw.io 能力约 80%。
+**导出**：PNG 走 `html2canvas` 抓画布；SVG 走**几何重绘**——`exportToSVG()` 基于当前
+`nodes` / `edges` 的几何信息重新构造 SVG（含背景、箭头 marker、细/粗线型），
+**不依赖画布 DOM 像素**，因此导出结果与缩放级别无关。
+
+**技术底座**：`@vue-flow/core` 全家桶（core / background / controls / minimap /
+node-resizer）。对标 draw.io 的能力覆盖约 80%，尚未支持的能力包括连线自动重路由、
+样式主题包、协同编辑等。
+
+> ℹ️ 仓库中另有一条基于 AntV X6 的重写分支（`feature/x6-*`），**尚未并入 `main`**，
+> 因此当前发布版本一律以 Vue Flow 实现为准。
 
 ---
 

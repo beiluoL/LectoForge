@@ -47,7 +47,7 @@ flowchart TB
 
   subgraph RENDER["③ 渲染进程 · WKWebView"]
     direction TB
-    V["Vue 3 + Pinia + vue-router<br/>36 条路由 · 17 个 store"]
+    V["Vue 3 + Pinia + vue-router<br/>36 条路由 · 16 个 store"]
   end
 
   DB[("SQLite · WAL<br/>workbench.db<br/>24 张表")]
@@ -212,7 +212,7 @@ flowchart TB
     V1["业务页面"]
   end
 
-  subgraph ST["store/ · 17 个 Pinia store"]
+  subgraph ST["store/ · 16 个 Pinia store"]
     ST1["状态 + 乐观更新 + 失败回滚"]
   end
 
@@ -236,12 +236,12 @@ flowchart TB
 - **设计令牌唯一来源**：`src-ui/src/style.css` 的 `--kb-*` 变量。禁止硬编码色值、字号、圆角、间距。
 - **主题切换**：走 `documentElement[data-theme='dark']` + `color-mix`。**禁止 Tailwind 的 `dark:` 变体**。
 - **Markdown 渲染唯一来源**：`src-ui/src/lib/markdown.ts`。不要另起渲染器。
-- **Pinia store ID 一旦发布不可更改**：`defineStore('tasks', ...)` 中的 `'tasks'` 是持久化键名，改名 = 老用户数据丢失。当前 17 个 store：
+- **Pinia store ID 一旦发布不可更改**：`defineStore('tasks', ...)` 中的 `'tasks'` 是持久化键名，改名 = 老用户数据丢失。当前 16 个 store：
 
   ```
   ai-assistant · ai-chat · app · calendar · daily-report · dashboard · diagram
-  habit · inbox · memory-palace · note · pomodoro · quadrant · review
-  search · task
+  habits · inbox · memoryPalace · note · pomodoro · quadrant · review
+  search · tasks
   ```
 
 - **Tailwind 只用于布局**（flex / grid / spacing）；按钮、输入框等外观走全局类
@@ -682,15 +682,32 @@ bash scripts/build-piper.sh     # 编译 piper
 
 ```bash
 # 后端路由模块数与端点数
-grep -c "" src-api/src/routes/*.ts | wc -l
+ls src-api/src/routes/*.ts | wc -l
 grep -rhoE "app\.(get|post|put|patch|delete)\(" src-api/src/routes/*.ts | wc -l
 
 # 数据表数
-python3 -c "import re;print(len(re.findall(r\"sqliteTable\(\s*['\\\"]([^'\\\"]+)['\\\"]\", open('src-api/src/db/schema.ts',encoding='utf-8').read())))"
+python3 - <<'EOF'
+import re
+src = open('src-api/src/db/schema.ts', encoding='utf-8').read()
+print(len(re.findall(r"sqliteTable\(\s*['\"]([^'\"]+)['\"]", src)))
+EOF
 
-# 前端路由数
+# 前端路由数（命名页面数）
 grep -cE "path: '" src-ui/src/router/index.ts
+grep -cE "^\s+name: '" src-ui/src/router/index.ts
+
+# Vue 单文件组件数
+find src-ui/src -name "*.vue" | wc -l
+
+# Pinia store 数（store 目录下除 index.ts 外的模块数）
+ls src-ui/src/store/*.ts | grep -v "index.ts$" | wc -l
+
+# Rust 代码行数
+wc -l src-tauri/src/*.rs | tail -1
 ```
+
+> 注：store ID 有的写成单行 `defineStore('tasks', ...)`，有的换行写，
+> 所以**不要**用 `grep defineStore` 统计数量——按 `store/` 目录下的模块文件数最可靠。
 
 | 指标 | 值 |
 |------|-----|
@@ -699,9 +716,11 @@ grep -cE "path: '" src-ui/src/router/index.ts
 | `index.ts` 直挂端点 | 2（`GET /api/health`、`GET /`） |
 | 后端 HTTP 路由合计 | 218 |
 | 数据表 | 24 |
-| 前端路由记录 | 36（含重定向与别名；30 个具名页面） |
-| Vue 单文件组件 | 85 |
-| Pinia store | 17 |
+| 前端路由记录 | 36（含重定向与别名） |
+| 前端具名页面 | 30 |
+| Vue 单文件组件（`src-ui/src` 合计） | 101 |
+| ↳ 其中 `src/views` 下 | 85 |
+| Pinia store | 16 |
 | Rust 源码 | 3 文件 / 1960 行 |
 
 ---

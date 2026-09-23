@@ -247,7 +247,7 @@
 | 后端 | **Node.js + TypeScript + Fastify** | 与 Web 端共享同一套端点契约与 SRS 算法，避免两套实现漂移 |
 | 数据 | **SQLite（better-sqlite3，WAL）** | 单文件本地库，离线优先；同步 API 免去异步事务竞态 |
 | 访问层 | **Drizzle ORM** | 类型安全且贴近 SQL，行为可预测，不像 ActiveRecord 那样隐式 N+1 |
-| 前端 | **Vue 3 + Vite + Pinia + vue-router** | 组合式 API + `<script setup>`；17 个 store 管状态 |
+| 前端 | **Vue 3 + Vite + Pinia + vue-router** | 组合式 API + `<script setup>`；16 个 store 管状态 |
 | 样式 | **Tailwind（仅布局）+ CSS 变量** | 外观全部走 `--kb-*` 设计令牌，明暗与强调色可整体切换 |
 | 编辑器/渲染 | markdown-it + highlight.js + KaTeX | 统一渲染入口 `lib/markdown.ts` |
 | 图与图表 | AntV X6 / Vue Flow / markmap / Chart.js | 流程图、导图、统计图 |
@@ -367,9 +367,9 @@ bash scripts/run-whisper.sh      # dev 环境手动启动 whisper 侧车
 ```
 desktopApp/
 ├── src-ui/                    Vue 3 前端（Vite + Pinia + vue-router）
-│   ├── src/views/             业务页面（36 条路由 / 85 个 .vue 组件）
+│   ├── src/views/             业务页面（36 条路由；views 下 85 个 .vue）
 │   ├── src/components/        公共组件（布局、编辑器、弹窗、图标包装器）
-│   ├── src/store/             17 个 Pinia store（乐观更新 + 失败回滚）
+│   ├── src/store/             16 个 Pinia store（乐观更新 + 失败回滚）
 │   ├── src/lib/               能力模块（Markdown 渲染、OCR/STT/TTS、日期与日历）
 │   ├── src/router/            路由表（含 meta：fullscreen / standalone / fill）
 │   └── src/style.css          ✅ 全局设计令牌唯一来源（--kb-*）
