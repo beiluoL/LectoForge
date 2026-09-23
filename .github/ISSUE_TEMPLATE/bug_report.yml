@@ -1,0 +1,179 @@
+name: 🐛 Bug 报告
+description: 报告一个可复现的缺陷
+title: "[Bug] "
+labels:
+  - "type: bug"
+  - "status: needs-triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。为了让问题能被**快速定位**，请尽量填全下面的信息。
+
+        > ⚠️ **安全漏洞请勿在此公开提交**，请通过仓库主页的邮箱私下联系维护者。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索过现有 Issues，确认这不是重复问题
+          required: true
+        - label: 我已确认在最新版本（或 `main` 分支最新提交）上仍然存在
+          required: true
+
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: 运行方式
+      description: 这一项对定位问题非常关键——开发模式与打包后的行为差异很大
+      options:
+        - 打包后的 .app / .dmg（Release 下载）
+        - 从源码 `npm run tauri dev`
+        - 仅前端 + 后端（`npm run dev:all`，浏览器打开）
+        - 仅后端（`npm run dev:api`）
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本
+      description: 见 `package.json` 的 `version`，或「设置 → 关于」。若从源码运行，请填 `git rev-parse --short HEAD` 的结果
+      placeholder: "例如 1.2.0 或 a1b2c3d"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS 版本
+      description: 「关于本机」中的版本号
+      placeholder: "例如 macOS 15.3 / macOS 14.6.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: chip
+    attributes:
+      label: 芯片类型
+      options:
+        - Apple Silicon（M 系列）
+        - Intel
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js 版本
+      description: 运行 `node -v` 与 `node -p "process.versions.modules"`。**本项目的 ABI 硬约束是 137（Node 24.16.0）**，若你的值不是 137，请先切版本再复现
+      placeholder: "v24.16.0 / ABI 137"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 受影响模块
+      description: 若问题跨多个模块，选最相关的一个，并在正文中补充
+      multiple: true
+      options:
+        - 收集箱 /inbox
+        - 康奈尔笔记 /workbench/notes
+        - 记忆宫殿 /workbench/palace
+        - 费曼故事 /workbench/story
+        - 间隔重复 /review
+        - 文档库 /library
+        - 思维导图 /mindmap
+        - 绘图工具 /diagram
+        - 任务清单 /tasks
+        - 四象限 /quadrant
+        - 日历 /calendar
+        - 习惯打卡 /habits
+        - 番茄钟 /pomodoro
+        - AI 助手 /ai-assistant
+        - 知识库问答 /ai-chat
+        - 学习日报 /daily-report
+        - 模拟面试 /interview
+        - 设置中心 /settings
+        - 其他 / 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请给出**最小可复现路径**，精确到点击了哪个按钮、输入了什么内容
+      placeholder: |
+        1. 打开 xxx 页面
+        2. 点击「xxx」按钮
+        3. 输入「xxx」
+        4. 观察到 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      placeholder: 我认为应该发生什么？为什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么？有报错信息请完整粘贴
+      placeholder: |
+        实际结果是 ...
+
+        报错信息：
+        ```
+        （粘贴完整报错）
+        ```
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: 复现频率
+      options:
+        - 每次都能复现（100%）
+        - 经常出现（>50%）
+        - 偶尔出现（<50%）
+        - 只遇到过一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与截图
+      description: |
+        - 后端日志：终端输出，或 `<数据目录>/logs/`
+        - 前端报错：开发者工具 Console
+        - 截图 / 录屏：**请先遮盖个人路径、笔记标题、API Key 等隐私信息**
+      placeholder: 粘贴日志或拖入截图
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 任何你认为有助于定位的信息，例如：只在特定数据量下出现、最近升级过什么、是否改过数据目录、是否配置了 AI Key / 离线语音模型
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 隐私确认
+      options:
+        - label: 我确认提交内容中**不含** API Key、个人笔记内容、真实姓名或其他敏感信息
+          required: true

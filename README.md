@@ -1,386 +1,535 @@
-# LectoForge 学习工作台 · macOS 桌面应用
+<div align="center">
 
-把 Web 项目中的「学习工作台」模块（收集箱 → 康奈尔笔记 → 间隔重复/记忆宫殿 → 费曼故事 四模块闭环）独立为 **macOS 专用**桌面应用，并扩展 **文档库（Obsidian 式本地 Markdown 工作台）** 与 **思维导图** 两大模块。
+# LectoForge · 学习工作台
 
-> 代码仓库：GitHub [`beiluoL/LectoForge`](https://github.com/beiluoL/LectoForge) ｜ Gitee [`beiluol/lecto-forge`](https://gitee.com/beiluol/lecto-forge)
->
-> 完整技术架构与功能说明见仓库根目录《桌面端技术架构与功能手册.md》。
+**本地优先的 macOS 学习工作台 —— 把「收集 → 整理 → 内化 → 输出」做成一条真正会转的学习闭环。**
 
-## 技术选型（均为各维度最推荐方案）
+数据全部留在你自己的电脑上：没有账号、没有服务端、没有遥测。
 
-| 层 | 技术 | 说明 |
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2012%2B-lightgrey.svg)](#环境要求)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB.svg)](https://tauri.app/)
+[![Vue](https://img.shields.io/badge/Vue-3-42B883.svg)](https://vuejs.org/)
+
+[GitHub](https://github.com/beiluoL/LectoForge) ｜ [Gitee](https://gitee.com/beiluol/lecto-forge) ｜ [架构文档](docs/ARCHITECTURE.md) ｜ [更新日志](CHANGELOG.md) ｜ [功能详解](docs/FEATURES.md)
+
+</div>
+
+---
+
+## 这是什么
+
+大多数笔记软件能帮你**记下来**，但记下来之后呢？LectoForge 关注的是记下来**之后**的事：
+
+- 收集箱里堆着的碎片，怎么变成一条条有结构的笔记？
+- 笔记里的知识，怎么让它在两周后还留在脑子里，而不是过目就忘？
+- 学完的东西，怎么证明自己真的懂了，而不是「看懂了」？
+
+它把认知科学里几套被验证过的方法——**康奈尔笔记**、**间隔重复（SM-2）**、
+**记忆宫殿**、**费曼技巧**——做成了四个互相咬合的模块，
+再用**主动智能**（学习日报 / 薄弱点诊断）在背后推着你走完闭环。
+
+它同时也是一个**本地优先**的桌面应用：SQLite 单文件、原生 Markdown 文档库、
+离线语音识别与合成。除了 AI 问答需要你自备 API Key，其余功能全部离线可用。
+
+<table>
+<tr>
+<td width="50%">
+
+**核心定位**
+
+- 🎯 围绕「学完能记住」设计，不是又一个笔记仓库
+- 🔒 数据 100% 本地：SQLite + 本地文件夹，随时可打包带走
+- 📴 离线优先：语音识别/合成本地跑，AI 可用本地 Ollama
+- 🧩 高度可组合：四个模块既可单用，也能串成闭环
+- 🍎 原生化：无边框窗口、原生托盘倒计时、系统通知
+
+</td>
+<td width="50%">
+
+**适合谁**
+
+- 正在系统学习一门新技术，需要「输入→内化→输出」全流程工具
+- 备考 / 面试冲刺，需要大量记忆与自测
+- 想要本地、可迁移、不被平台锁定的知识资产
+- 喜欢 Obsidian 式「文件即数据」，但还想要 SRS 与复盘能力
+
+</td>
+</tr>
+</table>
+
+---
+
+## 界面一览
+
+> 以下截图均取自**隔离的演示环境**（独立数据目录 + 通用示例内容），不含任何真实个人数据。
+
+### 工作台总览
+
+<p align="center">
+  <img src="docs/screenshots/01-workbench.png" alt="工作台总览" width="880">
+</p>
+
+六指标看板 + 学习闭环四步导航 + 今日聚焦四卡。待整理、待复习、故事草稿等关键指标一目了然。
+
+### 收集箱：先积累，再沉淀
+
+<p align="center">
+  <img src="docs/screenshots/02-inbox.png" alt="收集箱" width="880">
+</p>
+
+速记 / 剪藏 / 语音 / 截图 / 附件五种入口，标签一键归类，待处理项一键「沉淀」为结构化笔记。
+
+### 康奈尔笔记：线索栏 · 笔记栏 · 总结栏
+
+<p align="center">
+  <img src="docs/screenshots/03-notes.png" alt="康奈尔笔记" width="880">
+</p>
+
+左侧线索栏自测、右侧笔记栏记录、下方总结栏复述——**主动回忆胜过被动阅读**。
+支持掌握度评分、标签聚合、AI 续写与自测题生成。
+
+### 间隔重复：SM-2 排期 + 四档评分
+
+<p align="center">
+  <img src="docs/screenshots/demo-review.gif" alt="复习翻卡演示" width="880">
+</p>
+
+翻卡 → 看答案 → 评「困难 / 良好 / 轻松 / 完美」，SM-2 据此计算下次到期时间。
+间隔基于「上次复习时间 + interval」，而非当前时间累加——这是排期正确的关键。
+
+<details>
+<summary>查看复习页静态截图</summary>
+
+<p align="center">
+  <img src="docs/screenshots/04-review.png" alt="间隔重复" width="880">
+</p>
+
+</details>
+
+### 文档库：Obsidian 式本地 Markdown 工作台
+
+<p align="center">
+  <img src="docs/screenshots/05-library.png" alt="文档库" width="880">
+</p>
+
+选任意本地文件夹作为 vault，**直接读写原文件**（不导入数据库）。
+三栏布局：目录树 · 源码/分栏/预览 · 大纲。兼容 Obsidian 双链 `[[笔记]]`、`[[笔记#标题]]`、
+`[[笔记|别名]]`、嵌入块 `![[...]]`，点击双链直接跳转。
+
+### 思维导图与流程图
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/06-mindmap.png" alt="思维导图" width="100%"></td>
+<td width="50%"><img src="docs/screenshots/07-diagram.png" alt="流程图" width="100%"></td>
+</tr>
+<tr>
+<td>同一份文档三视图：极简大纲 / 导图 / 流程图，支持 AI 生成</td>
+<td>类 draw.io 白板：11 种形状、四向互联、撤销重做、导出 PNG/SVG</td>
+</tr>
+</table>
+
+### 规划：任务清单 · 四象限 · 日历 · 习惯
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/08-tasks.png" alt="任务清单" width="100%"></td>
+<td width="50%"><img src="docs/screenshots/09-quadrant.png" alt="四象限" width="100%"></td>
+</tr>
+<tr>
+<td>对标 Things 3：智能列表 + 自定义清单树 + 子任务 + 日历联动</td>
+<td>艾森豪威尔矩阵：拖拽换象限、勾选完成、清空已完成</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/11-calendar.png" alt="日历" width="100%"></td>
+<td><img src="docs/screenshots/10-habits.png" alt="习惯打卡" width="100%"></td>
+</tr>
+<tr>
+<td>月/周/日三视图，任务与事件进同一张时间网格</td>
+<td>连续天数进度环 + GitHub 风格年热力图，可补卡</td>
+</tr>
+</table>
+
+### 专注：番茄钟
+
+<p align="center">
+  <img src="docs/screenshots/12-pomodoro.png" alt="番茄钟" width="880">
+</p>
+
+计时引擎常驻 Pinia store，**切页不中断**；阶段与倒计时实时烘进**状态栏图标**；
+白噪音播放器 + Web Audio 合成提示音；专注记录进统计页柱状图。
+
+### AI 助手：多轮对话 + 知识库问答
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/13-ai-assistant.png" alt="AI 助手多轮对话" width="100%"></td>
+<td width="50%"><img src="docs/screenshots/14-rag-chat.png" alt="知识库问答" width="100%"></td>
+</tr>
+<tr>
+<td>对标 DeepSeek 网页端：会话管理、流式输出、Markdown 表格、消息反馈</td>
+<td>RAG 检索本地文档库，回答带<b>来源药丸 + 精确行号锚点</b>，点击跳回原文高亮</td>
+</tr>
+</table>
+
+### 设置中心
+
+<p align="center">
+  <img src="docs/screenshots/15-settings.png" alt="设置中心" width="880">
+</p>
+
+数据目录、AI 模型服务、本地模型、外观主题、数据备份与更新。
+
+---
+
+## 功能总览
+
+### 学习闭环四模块
+
+| 模块 | 路由 | 做什么 | 亮点 |
+|------|------|--------|------|
+| **收集箱** | `/inbox` | 速记、网页剪藏、语音、截图、附件 | 五种入口；批量处理；去重检测；一键沉淀为笔记或记忆宫殿地点 |
+| **康奈尔笔记** | `/workbench/notes` | 线索栏 · 笔记栏 · 总结栏三栏编辑 | 掌握度评分；双链 `[[...]]` + 反向引用；AI 续写 / 自测题 / 生成导图 |
+| **记忆宫殿** | `/workbench/palace` | 地点法编码 + 主动回忆 | 图片提示；巡检式回忆打卡 |
+| **费曼故事** | `/workbench/story` | 用自己的话讲一遍 | AI 起草 + 清晰度评分，讲不清就是没懂 |
+| **间隔重复** | `/review` | SM-2 排期 + 四档评分 | 遗忘曲线；热力图；卡组挂起；番茄钟内嵌 |
+
+### 资料与创作
+
+| 模块 | 路由 | 说明 |
+|------|------|------|
+| **文档库** | `/library` | Obsidian 式本地 Markdown 工作台，直读磁盘原文件；三栏 + 双链 + 待办扫描 |
+| **思维导图** | `/mindmap` | 大纲 /导图 / 流程图三视图；AI 一键生成 |
+| **绘图工具** | `/diagram` | 类 draw.io 白板：11 种形状、四向互联、多页、导出 PNG/SVG |
+
+### 规划与执行
+
+| 模块 | 路由 | 说明 |
+|------|------|------|
+| **任务清单** | `/tasks` | Things 3 式：五个智能列表 + 清单树 + 子任务 + 目标日/截止日 + 日历联动 |
+| **四象限** | `/quadrant` | 艾森豪威尔矩阵，原生 HTML5 拖拽换象限 |
+| **日历** | `/calendar` | 月/周/日三视图，任务与事件统一网格；**范围查询**（不拉全量） |
+| **习惯打卡** | `/habits` | 连续天数进度环 + GitHub 风格年热力图，可补卡 |
+| **番茄钟** | `/pomodoro` | 后台常驻计时 + 状态栏图标指示 + 白噪音 + Chart.js 统计 |
+
+### AI 与语音
+
+| 模块 | 路由 | 说明 |
+|------|------|------|
+| **AI 助手** | `/ai-assistant` | 多轮对话，流式输出、Markdown 渲染、消息反馈、悬浮大纲 |
+| **知识库问答** | `/ai-chat` | RAG：检索文档库 + 康奈尔笔记后作答，**回答带来源与行号锚点** |
+| **学习日报** | `/daily-report` | 主动智能：昨日流入/复习/薄弱点 Top3/转化率，一键生成强化闪卡 |
+| **模拟面试** | `/interview` | 语音对话式面试，本地题库抽题，SSE 流式点评与追问 |
+| **题库管理** | `/interview-bank` | 面经 Markdown / PDF 导入；从复习卡与笔记一键导入 |
+
+### 基础设施
+
+| 能力 | 说明 |
+|------|------|
+| **AI provider 无关** | DeepSeek / OpenAI / 本地 Ollama，切 `baseUrl` 即可；未配 Key 时优雅降级 |
+| **离线语音** | STT：whisper.cpp 双轨（原生侧车 + WASM）；TTS：本地 Piper + 浏览器合成 |
+| **离线 OCR** | tesseract.js（WASM），中文优先，截图识字进收集箱 |
+| **数据备份** | 一键打包 zip（含 WAL checkpoint 保证一致性）+ 每日定时自动备份 |
+| **侧车自愈** | Node 后端异常退出后 2s→30s 退避无限重启；前端断线自动重连 |
+| **历史数据迁移** | 更名（KnowFlow → LectoForge）后自动一次性迁移旧数据，幂等且保留旧目录 |
+
+> 每个模块的技术取舍、踩坑记录与实现细节见 [`docs/FEATURES.md`](docs/FEATURES.md)。
+
+---
+
+## 技术栈
+
+| 层 | 技术 | 选型理由 |
+|----|------|----------|
+| 桌面外壳 | **Tauri 2** + Rust | 用系统 WKWebView，产物约 220MB（含 Node 运行时）；Electron 同功能约 2 倍 |
+| 后端 | **Node.js + TypeScript + Fastify** | 与 Web 端共享同一套端点契约与 SRS 算法，避免两套实现漂移 |
+| 数据 | **SQLite（better-sqlite3，WAL）** | 单文件本地库，离线优先；同步 API 免去异步事务竞态 |
+| 访问层 | **Drizzle ORM** | 类型安全且贴近 SQL，行为可预测，不像 ActiveRecord 那样隐式 N+1 |
+| 前端 | **Vue 3 + Vite + Pinia + vue-router** | 组合式 API + `<script setup>`；17 个 store 管状态 |
+| 样式 | **Tailwind（仅布局）+ CSS 变量** | 外观全部走 `--kb-*` 设计令牌，明暗与强调色可整体切换 |
+| 编辑器/渲染 | markdown-it + highlight.js + KaTeX | 统一渲染入口 `lib/markdown.ts` |
+| 图与图表 | AntV X6 / Vue Flow / markmap / Chart.js | 流程图、导图、统计图 |
+| 语音 | whisper.cpp · Piper · tesseract.js | 全离线 |
+
+### 通信方式
+
+Node 后端**同源托管** Vue `dist` 与 `/api/*`，窗口加载 `http://127.0.0.1:8787`：
+
+- **零 CORS**：前后端同源，无需跨域配置
+- **vue-router 保持 history 模式**：可以直接用路径导航
+- **不需要 WebSocket**：SSE 只用于模拟面试的流式点评
+- **响应信封统一** `{ code: 200, data }`，由 `onSend` 钩子唯一负责包装
+
+---
+
+## 安装与使用
+
+### 环境要求
+
+| 项 | 版本 | 备注 |
 |----|------|------|
-| 桌面外壳 | **Tauri 2** | Rust 极薄壳 + macOS 原生 WKWebView，体积小、内存省 |
-| 后端 | **Node.js + TypeScript + Fastify** | 重写 Web 端 `WorkbenchController`，共 214 个端点（2026-08-26 审计值；2026-08-13 新增文档库待办扫描 `/api/library/notes/todos`、AI 导图转费曼故事 `/api/ai/mindmap/convert-to-story` 共 2 个；含 2026-08-13 新增学习日报 `/api/insight` 3 个；含番茄钟 `/api/pomodoro` 5 个、AI 25 个（v1.2 新增 `/api/ai/note/extend`、`/api/ai/note/flashcards` 增强、`/api/ai/note/generate-mindmap` 3 个）；其中收集箱 `/api/inbox` 14 个：剪藏/列表/沉淀 + 「5 大体验升级」metadata 2 个 + 「收集箱进阶」批量处理/语音上传/附件上传/去重检测 4 个 + 「间隔复习体验升级」snooze/heatmap/forgetting-curve 3 个）；v1.2 另在 `/api/workbench/notes` 下新增 `backlinks` / `tags` / `resolve` 3 个端点；2026-08-09 新增四象限任务 `/api/quadrant` 6 个：GET 列表 / POST 新建 / PUT 更新 / PUT 勾选切换 / DELETE 删除 / POST 清空已完成（详见《桌面端技术架构与功能手册.md》§7.3.1）；同日新增日历视图 `/api/calendar` 4 个：GET 按范围查询事件 / POST 新建 / PUT 更新 / DELETE 删除（详见《桌面端技术架构与功能手册.md》§7.20） |
-| 数据 | **SQLite (better-sqlite3, WAL)** | 单文件本地库，离线优先、隐私可控 |
-| 访问层 | **Drizzle ORM** | 类型安全 SQL，似 MyBatis |
-| 前端 | **Vue 3 + Vite + vue-router** | 复用 `/workbench` 端点契约，history 路由 |
+| macOS | 12 及以上 | 仅支持 macOS（依赖 WKWebView 与原生托盘 API） |
+| Node.js | **24.16.0** | **强约束**，见下方说明 |
+| Rust | 1.97+ | 仅从源码打包时需要 |
 
-通信：Node 后端**同源托管** Vue `dist` 与 `/api/*`，窗口加载 `http://127.0.0.1:<port>`，
-零 CORS、vue-router 保持 history 模式、无需 WebSocket。生产由 Tauri 启动 Node 侧车实现。
+> ⚠️ **Node 版本是硬约束，不是建议。**
+> 后端依赖 `better-sqlite3`（原生模块），Node 24 的 ABI 号是 **137**，Node 22 是 **127**。
+> 版本不匹配会在启动瞬间抛 `ERR_DLOPEN_FAILED`，表现为后端崩溃、前端 `ECONNREFUSED`。
+>
+> ```bash
+> nvm install 24.16.0
+> export PATH="$HOME/.nvm/versions/node/v24.16.0/bin:$PATH"
+> node -p "process.versions.modules"   # 必须输出 137
+> ```
+
+### 方式一：下载安装包
+
+从 [Releases](https://github.com/beiluoL/LectoForge/releases) 下载最新的 `.dmg` 或 `.app`。
+
+> ⚠️ 当前构建产物是 **ad-hoc 签名**，未做 Apple Developer ID 签名与公证。
+> 首次打开若被 Gatekeeper 拦截，执行：
+>
+> ```bash
+> xattr -cr "/Applications/LectoForge 学习工作台.app"
+> open "/Applications/LectoForge 学习工作台.app"
+> ```
+
+首次启动会进入**新手引导**（`/onboarding`），可在此配置 AI Key，也可以跳过后续再配。
+
+### 方式二：从源码运行
+
+```bash
+git clone git@github.com:beiluoL/LectoForge.git
+cd LectoForge
+
+# 切换到正确的 Node 版本
+nvm install 24.16.0 && nvm use 24.16.0
+
+# 安装依赖
+npm --prefix src-api install
+npm --prefix src-ui  install
+npm install
+
+# 纯前后端开发（不需要 Rust）→ 打开 http://localhost:5173
+npm run dev:all
+
+# 或启动完整桌面应用（需要 Rust）
+bash scripts/prepare-bin.sh        # 生成 Node 侧车二进制
+npm run tauri dev
+```
+
+### 常用命令
+
+| 命令 | 作用 |
+|------|------|
+| `npm run dev:all` | 同时启动前端（5173）与后端（8787） |
+| `npm run dev:web` / `npm run dev:api` | 单独启动前端 / 后端 |
+| `npm run build:all` | 构建前端与后端产物 |
+| `npm run tauri dev` | 启动完整桌面应用（开发模式） |
+| `npm run tauri build` | 打包 `.app` / `.dmg` |
+| `npm run ui:theme-check` | UI 主题回归检查（需 `playwright-core`） |
+| `bash scripts/fetch-models.sh` | 下载离线模型（OCR / 语音） |
+
+### 数据存放位置
+
+| 位置 | 内容 |
+|------|------|
+| `~/Library/Application Support/com.lectoforge.desktop/` | SQLite 主库、AI 配置、上传件、日志 |
+| 你自己选择的文件夹 | 文档库 vault（直接用 Markdown 原文件） |
+
+后端也支持通过环境变量覆盖数据目录，便于隔离调试：
+
+```bash
+LECTOFORGE_DATA_DIR=/tmp/lf-dev npm --prefix src-api run dev
+```
+
+> 💡 调试时**务必**用 `LECTOFORGE_DATA_DIR` 指向临时目录，避免污染真实学习数据。
+
+### 启用离线语音（可选）
+
+语音模型体积较大，不随仓库分发，需单独获取：
+
+```bash
+bash scripts/fetch-models.sh     # tesseract（OCR）+ whisper（语音识别）模型
+bash scripts/build-whisper.sh    # 编译 whisper-server
+bash scripts/build-piper.sh      # 编译 Piper（本地 TTS）
+bash scripts/run-whisper.sh      # dev 环境手动启动 whisper 侧车
+```
+
+缺资源时应用会给出明确提示并优雅降级，不会崩窗。
+
+---
 
 ## 目录结构
 
 ```
 desktopApp/
-├── src-api/         # Node 后端（Fastify + SQLite + Drizzle），Route → Controller → Service 三层
-│   ├── src/routes/      # 薄路由 34 模块：只绑定「路径 → Controller」，无任何 SQL（逐模块端点明细见《桌面端技术架构与功能手册.md》§4.1）
-│   │                    # 共 214 个端点（2026-08-26 全量审计值）：34 个路由模块注册 212 个（AI 25 / 文档库 17 / 收集箱 14 / 记忆宫殿 10 / 复习 reviews 9 / 笔记 9 / 日程 8 / 任务 8 / 间隔复习 review 8 / 清单树 lists 4 / 思维导图 7 / 绘图工具 5 / 收集·剪藏 7 / 题库 7 / 四象限 6 / 习惯 7 / 故事 5 / 主动回忆 5 / 番茄钟 5 / 模拟面试 3 / 日历 4 / 数据备份 3 / 学习日报 4 / 本地模型 5 / 离线 TTS 6 / AI 助手 8 / 导图生成 1 / 导出 3 / 分类 2 / 配置 2 / 看板 1 / 搜索 1 / 概览 1 / 迁移 1）+ index.ts 直接注册 2 个（`/api/health`、`GET /`）；逐模块明细见《桌面端技术架构与功能手册.md》§4.1
-│   ├── src/controllers/ # 控制层 33 模块：解析请求、调 Service、决定 HTTP 状态码
-│   ├── src/services/    # 服务层 49 模块：Drizzle 查询、文件 IO、axios 外呼
-│   │   ├── sm2.ts       # SM-2 算法（与 Web 端逐位一致）+ 遗忘曲线
-│   │   └── backupService.ts # child_process 拉起 backup.js 打包 + 每日备份计划持久化
-│   ├── src/types/       # 契约层 27 模块：DTO / VO / 结果判别联合
-│   ├── src/db/          # schema + 建表 + WAL
-│   └── backup.js        # 纯 JS 备份脚本（archiver 打 zip），被 Tauri 单独打进 api/backup.js
-├── src-ui/          # Vue 3 前端（35 条路由（30 业务页面 + 5 重定向）/ 100 个 .vue 视图与组件 / 16 个 Pinia store：总览/收集箱(/inbox)/笔记/笔记编辑/复习驾驶舱(/workbench/review)/传统卡组(/workbench/review/card-list)/间隔复习闪卡(/review,/review/flashcard)/记忆宫殿/宫殿编辑/主动回忆/费曼故事/故事编辑/AI设置/AI洞察/文档库/思维导图/学习日报(/daily-report) + v1.1.0 新增 新手引导/设置中心/间隔复习 + 2026-08-07 新增 番茄钟(/pomodoro)/番茄钟统计(/pomodoro/stats) + 2026-08-09 新增 日程计划(/schedule)/习惯打卡(/habits)/四象限(/quadrant)/日历(/calendar)；旧 /workbench/capture 已重定向到 /inbox）；2026-08-07 复习模块收敛：顶栏「间隔复习」并入「复习」，新旧两套复习系统统一从复习驾驶舱分流；已引入 Pinia 4 状态管理（含 pomodoroStore 计时引擎、calendarStore 日历状态）+ lucide-vue-next 图标体系
-├── src-tauri/       # Tauri 2 macOS 外壳（Rust 侧车启动 Node 后端）
-├── scripts/         # prepare-bin.sh 生成 Node 侧车二进制
-└── package.json     # 编排脚本
+├── src-ui/                    Vue 3 前端（Vite + Pinia + vue-router）
+│   ├── src/views/             业务页面（36 条路由 / 85 个 .vue 组件）
+│   ├── src/components/        公共组件（布局、编辑器、弹窗、图标包装器）
+│   ├── src/store/             17 个 Pinia store（乐观更新 + 失败回滚）
+│   ├── src/lib/               能力模块（Markdown 渲染、OCR/STT/TTS、日期与日历）
+│   ├── src/router/            路由表（含 meta：fullscreen / standalone / fill）
+│   └── src/style.css          ✅ 全局设计令牌唯一来源（--kb-*）
+│
+├── src-api/                   Node 后端（Fastify + better-sqlite3 + Drizzle）
+│   ├── src/routes/            34 个薄路由模块（216 端点，只绑路径）
+│   ├── src/controllers/       33 个 HTTP 层模块（参数 + 状态码）
+│   ├── src/services/          49 个业务层模块（SQL / 文件 IO / 外呼）
+│   ├── src/types/             27 个契约层模块（DTO / VO，禁运行时值）
+│   ├── src/db/                schema（24 张表）+ 建表 + WAL
+│   ├── src/lib/               llm / prompts / paths / pagination 等基础设施
+│   └── backup.js              独立备份脚本（archiver 打 zip）
+│
+├── src-tauri/                 Tauri 2 macOS 外壳（Rust，3 文件 / 1960 行）
+│   ├── src/lib.rs             窗口、侧车托管、菜单、迁移、备份调度
+│   ├── src/tray.rs            状态栏番茄钟指示器
+│   └── tauri.conf.json        打包配置（resources 必需项，改动需谨慎）
+│
+├── scripts/                   构建与验收脚本
+├── docs/                      架构文档、功能详解、截图
+├── resources/models/          离线模型存放区（默认空，需 fetch-models.sh）
+└── package.json               编排脚本
 ```
 
-## 后端分层约定（2026-08-08 三层重构完成）
+---
 
-34 个路由模块已全量下沉为 **Route → Controller → Service**，新增代码必须遵守边界：
+## 架构概览
 
-- **Route** 只声明路径、方法、参数 schema 并绑定 Controller，**禁止出现** `db.` / `drizzle-orm` / `axios` / `fetch(`。
-- **Controller** 解析请求、调用 Service、决定 HTTP 状态码，**禁止写 SQL**。
-- **Service** 承载 Drizzle 查询、事务、文件 IO、外部调用，**禁止引用** `FastifyRequest` / `FastifyReply`。
-- 跨层错误用判别联合（如 `AiResult<T>`、`ImportOutcome`）传递，由 Controller 翻译成状态码。
-- 响应信封由 `index.ts` 的 `onSend` 钩子唯一负责，Controller 直接 `return` 纯数据即可，不要手写 `{ code: 200, data }`。
-- better-sqlite3 是同步的：`db.transaction((tx) => {...})` 回调**不得写成 async**，否则事务会在首个 `await` 处提前提交。
+三进程结构：**Rust 极薄壳**（窗口/托盘/通知/调度）+ **Node 全功能后端**（全部业务）
++ **Vue 渲染进程**（全部 UI）。Rust 不含任何业务逻辑。
 
-详细的层职责表、AI 模块的 `{ code, message, aiCode }` 例外契约见《桌面端技术架构与功能手册.md》§2.3.1。
+```mermaid
+flowchart LR
+  HOST["Tauri 2 宿主<br/>Rust"] -->|"spawn · 注入数据目录"| NODE["Node 侧车<br/>Fastify :8787"]
+  HOST -->|"窗口加载"| WEB["WKWebView<br/>Vue 3"]
+  WEB -->|"同源 /api/*"| NODE
+  NODE --> DB[("SQLite · WAL<br/>24 张表")]
+  NODE --> EXT["LLM<br/>DeepSeek / Ollama"]
+```
 
-## 快速开始（开发，无需 Rust）
+**完整架构文档**（运行时拓扑、分层边界、数据模型、学习闭环数据流、离线语音链路、
+数据目录解析与迁移、21 条红线清单、已知技术债）：
+
+👉 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
+### 后端三层架构
+
+调用链严格单向：`routes/ → controllers/ → services/`。
+
+- **Route** 只声明路径与方法 → 禁止出现 `db.` / `drizzle-orm` / `axios`
+- **Controller** 解析参数、决定状态码 → 禁止写 SQL
+- **Service** 承载查询、事务、文件 IO → 禁止引用 `FastifyRequest` / `FastifyReply`
+- **types/** 只放契约 → 禁止任何运行时值
+
+### 数据模型
+
+单库 SQLite（WAL 模式），24 张表。复习记录统一落在 `wb_review_log`，
+而 SRS 列（`dueDate` / `easeFactor` / `masteredLevel`）**下沉到源表**
+（`wb_note` / `wb_palace_loci`），不额外建卡表。
+
+---
+
+## 隐私与数据
+
+- **无账号体系**：没有登录、没有注册、没有云端同步。
+- **无遥测**：不收集任何使用数据，不发任何统计请求。
+- **数据可带走**：SQLite 单文件 + 普通 Markdown 文件夹，随时打包迁移。
+- **备份一致性**：打包前执行 `PRAGMA wal_checkpoint(TRUNCATE)`，保证 zip 里的库文件是完整快照。
+- **AI 调用**：仅在你主动提问时，把问题与检索到的片段发给你配置的 provider。
+  未配置 Key 时 AI 功能给出明确提示，**不会伪造结果**。
+- **API Key 存储**：仅存本地 `ai-config.json`，不进代码、不进日志、不进版本控制。
+
+---
+
+## 已知限制
+
+诚实记录，避免踩坑。
+
+| 项 | 说明 |
+|----|------|
+| **仅 macOS** | 依赖 WKWebView 与原生托盘 API，未适配 Windows / Linux |
+| **未公证** | 无 Apple Developer ID 签名，首次打开需 `xattr -cr` 解除隔离 |
+| **Node 版本硬约束** | 必须 Node 24.16.0（ABI 137），否则原生模块加载失败 |
+| **语音资源需自备** | Whisper / Piper 模型体积大，不随仓库分发，需 `scripts/fetch-models.sh` |
+| **RAG 中文分词弱** | 关键词降级路径按空格/标点切分，**无空格的中文长问句检索命中率为 0**；配了 embeddings 模型走向量检索则不受影响 |
+| **向量检索未规模化** | 当前为应用层余弦计算，约 5k 篇文档时 JS 堆峰值近 490MB；阈值与改造方案见架构文档 |
+| **模拟面试会话不持久** | 面试会话存内存 `Map`，进程重启即失 |
+
+完整技术债清单见 [`docs/ARCHITECTURE.md` §11](docs/ARCHITECTURE.md#11-已知技术债)。
+
+---
+
+## 贡献指南
+
+欢迎贡献。开始之前请先读 **[CONTRIBUTING.md](CONTRIBUTING.md)**，其中有：
+
+- 环境准备（**Node 24.16.0 的 ABI 约束**、原生模块重编译）
+- 三层架构红线与前端设计令牌约束
+- Conventional Commits 提交规范
+- **提交前必跑的验收清单**（`vue-tsc --noEmit && vite build`、`cargo check --release`、接口契约快照对比）
+
+### 快速开始
 
 ```bash
-# 1. 安装依赖
-npm --prefix src-api install
-npm --prefix src-ui install
-
-# 2. 同时启动前端(5173)与后端(8787)，浏览器打开 http://localhost:5173
+git clone git@github.com:beiluoL/LectoForge.git
+cd LectoForge
+npm --prefix src-api install && npm --prefix src-ui install && npm install
 npm run dev:all
 ```
-前端经 Vite 代理把 `/api` 转发到本地 Node 后端，即可完整使用四模块功能。
 
-## 打包为 macOS .app（需 Rust 工具链）
+### 报告问题
 
-```bash
-# 1. 安装 Rust（一次性，约 1-2 分钟）
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
+请使用仓库的 [Issue 模板](.github/ISSUE_TEMPLATE/)：Bug 报告 / 功能建议。
+标签体系（类型 / 模块 / 优先级 / 状态）说明见 [`.github/labels.md`](.github/labels.md)。
 
-# 2. 安装 Tauri CLI（已写入根 package.json）
-npm install
+提交 Bug 时请附上 **macOS 版本、芯片类型、应用版本、以及是开发模式还是打包后的 `.app`**——
+这几项信息能大幅缩短定位时间。
 
-# 3. 生成 Node 侧车二进制（复制本机 node）
-bash scripts/prepare-bin.sh
+---
 
-# 4. 生成应用图标（准备一张 1024x1024 png）
-npm run tauri icon /path/to/icon.png
+## 更新日志
 
-# 5. 构建 .app / .dmg
-npm run tauri build
-```
-产物在 `src-tauri/target/release/bundle/macos/`。
+版本历史与每个版本的新增 / 修复 / 已知问题见 **[CHANGELOG.md](CHANGELOG.md)**。
 
-## 与现有 Web 项目的数据交互
+### 当前版本 **v1.2.0**（2026-08-26）
 
-- 桌面端数据**本地优先**存于 `~/Library/Application Support/com.lectoforge.desktop/` 下 SQLite。
-- 从 Web 迁移：在 Web 端导出 `workbench-export` JSON（新增只读端点即可），桌面端「导入」映射本地表。
-- 分类：本地 `categories` 表（已预置 未分类/工作/学习/生活），也可从 Web 导入。
+首个正式打标的发布版本，聚合了 v1.1.0 之后的全部工作：
 
-## 文档库与思维导图（新增模块）
+- 🤖 **AI 与离线语音**：AI 助手多轮对话、知识库问答（RAG + 行号锚点）、学习日报（主动智能）、模拟面试、离线 STT（whisper.cpp 双轨）、本地 TTS（Piper）、离线 OCR
+- 🎯 **学习闭环深化**：康奈尔笔记 5 大增强（沉浸阅读 / 反向引用 / AI 续写 / 自测题 / 一键导图 / 标签聚合 / PDF 导出）、收集箱进阶、复习体验升级
+- 🎨 **绘图工具**（全新）：类 draw.io 白板，11 种形状、多页画布、对齐分布、模板库、AI 生成流程图
+- 🗂 **规划完善**：任务清单（Things 3 式）、四象限、日历（含中国法定节假日）、习惯打卡、番茄钟
+- 💻 **平台能力**：无边框沉浸式窗口、数据自动备份、CSV 导出、文档库拖拽移动、窗口尺寸记忆
+- 🎛 **UI 设计体系**：主题系统（浅/深/跟随系统 + 6 档强调色）、字体自托管、全站一致性收敛、WCAG AA 对比度
 
-除「学习工作台」四模块闭环外，桌面应用还内置两个面向「资料组织 / 知识结构化」的模块：
+### 历史版本
 
-### 文档库（Obsidian 式本地 Markdown 工作台，`/library`）
+| 版本 | 日期 | 主题 |
+|------|------|------|
+| [v1.1.0](CHANGELOG.md#110---2026-08-07) | 2026-08-07 | 稳定性基建（侧车自愈 / 断线重连 / 数据目录注入 / 历史迁移）+ 间隔复习 / 命令面板 / 首页动态化 / 新手引导与设置中心 |
+| [v1.0.0](CHANGELOG.md#100---2026-08-07) | 2026-08-07 | 首个版本：学习闭环四模块 + 文档库 + 思维导图 + 番茄钟 + 原生集成 |
 
-- 选任意本地文件夹作为 vault，**直接读写原文件**（不导入数据库）；左目录树 + 中编辑/预览 + 右大纲三栏。
-- Markdown 预览兼容 **Obsidian 语法**：双链 `[[笔记]]` / `[[笔记#标题]]` / `[[笔记|别名]]`、嵌入块 `![[笔记]]`、图片嵌入 `![[图片]]` / `![[图片|WxH]]`；点击双链可跳转对应笔记/资源。
-- 左栏目录树支持**折叠/展开**（收起后内容区自动占满），搜索走后端全库检索；图片/资源经同源 `/api/library/asset` 流式返回。
+### 发布说明
 
-### 思维导图（`/mindmap`）
+可直接用于 Release 页面的单版本说明见 [`docs/releases/`](docs/releases/)。
 
-- 同一文档三视图：**极简大纲**（Tab/Shift+Tab 缩进）/ **markmap 导图**（SVG 导出）/ **vue-flow 流程图**（5 种形状、双击编辑）。
-- 支持 **AI 生成**思维导图（未配 Key 时返回 mock，优雅降级）。
+---
 
-> 两模块的前后端接口、关键技术取舍详见《桌面端技术架构与功能手册.md》§7.10 / §7.11。
+## 许可证
 
-## 番茄钟模块（2026-08-07 新增）
+本项目基于 [MIT License](LICENSE) 开源。
 
-独立的专注计时模块，计时引擎常驻后台（Pinia `pomodoroStore`），切去任意页面都不会中断：
+---
 
-- **主页面 `/pomodoro`**：conic-gradient 圆形进度环 + 四参数配置（专注 / 小憩 / 长休息 / 每组番茄数）+ 开始 / 暂停 / 重置 / 跳过 / 退出 + 白噪音 Mini 播放器（雨声 / 溪流 / 咖啡馆，Howler 播放 `public/audio/white-noise/*.mp3`，资源缺失自动降级为 Web Audio 合成）+ 提示音设置（Web Audio 实时合成 ding / tick / alarm）。
-- **统计页 `/pomodoro/stats`**：vue-chartjs 柱状图（蓝 = 专注 / 橙 = 休息，按天聚合）+ 累计专注时长 / 日均专注 / 完成番茄数三张总结卡。
-- **计时精度**：基于 `Date.now()` 时间戳差值（`accumulatedMs + (now - runStartedAt)`），`setInterval` 仅 250ms 刷新进度环，后台节流 / 休眠不掉秒。
-- **配置持久化**：偏好落盘 `<dataDir>/pomodoro-config.json`（后端 `GET` / `PUT /api/pomodoro/config`），前端防抖保存。
-- **工作台嵌入式 + 菜单栏指示器形态（2026-08-08 重构，取代此前的独立菜单栏弹窗应用）**：番茄钟不再是一个独立的浮窗应用，而是沉浸在主工作台里的辅助工具：
-  - **顶栏胶囊 `TimerCapsule.vue`**（`src-ui/src/components/layout/TimerCapsule.vue`，挂在 `DesktopTopNav` 最右侧）：胶囊底 + 阶段状态点（专注红 `#FF6B35` / 休息绿 `#34C759`，运行中呼吸动画）+ 等宽 `MM:SS` 倒计时（`tabular-nums` 防抖动）+ 三个 18px 无边框按钮（开始 / 暂停 / 重置）。状态经 `storeToRefs(usePomodoroStore())` 取 `timeLeft` / `phase` / `isRunning`，点击数字跳 `/pomodoro` 完整页。
-  - **菜单栏只做只读指示器**：把「阶段色圆点 + MM:SS」实时烤进托盘**图标位图**（`set_icon`），前端每秒主用 `invoke('update_tray_title', { title })` 命令（emit `tray:update` 事件兜底），Rust `tray.rs::paint_tray_title` 渲染 5×7 点阵文字 + 阶段色圆点后 `set_icon`。**改用图标而非 `set_title` 文本：Tauri 2 在部分 macOS 版本上运行时 `set_title` 不触发状态栏重绘（标题卡死初值），而 `set_icon` 必然触发 NSStatusItem 重绘，是最可靠的逐秒刷新方案。**
-  - 左键点击托盘倒计时 → `focus_main_window()`（`show()` + `unminimize()` + `set_focus()`）**激活并前置主工作台窗口**，不再弹任何小窗；右键托盘 → 原生菜单（显示主窗口 / 退出）。
-  - 关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截 + `hide()`），计时继续后台运行（隐藏的 WebView 仍在跑 JS）；`activationPolicy` 保持默认 `Regular`（有 Dock 图标、显示应用主菜单，`⌘C/⌘V` 依赖的原生「编辑」菜单才在响应链上）。
-  - 阶段自然结束前端 `invoke('trigger_notification', {title, body})` 命令，Rust 经 `tauri-plugin-notification` 弹原生系统通知（即便主窗口被隐藏也照常提醒）。
-  - 顶栏「番茄钟」导航项回归普通路由跳转 `/pomodoro`；App 菜单「番茄钟」项 = 前置主窗口 + `emit("navigate", "/pomodoro")`。
-- **复习页集成**：`/review` 顶部嵌入番茄钟状态条（阶段 + 剩余时间 + 暂停 / 继续），专注刷题中不被打断。
+<div align="center">
 
-> 后端接口、表结构（`wb_pomodoro_log`）、计时引擎设计详见《桌面端技术架构与功能手册.md》番茄钟章节。
+**LectoForge · 学习工作台**
 
-## 任务清单模块（对标 Things 3，2026-08-10 重构）
+如果这个项目对你有帮助，欢迎点一个 ⭐ Star
 
-把「日程计划」与「待办事项」彻底融合为**单一任务管理系统**（对标 Things 3 桌面端）：智能列表（收件箱 / 今天 / 计划 / 某天 / 日志本）+ 自定义清单树（领域→项目→清单）+ 子任务（Checklist）+ 目标日 / 截止日 + 日历联动。
+[GitHub](https://github.com/beiluoL/LectoForge) ｜ [Gitee](https://gitee.com/beiluol/lecto-forge)
 
-- **路由 `/tasks`**（**红线：主路由名固定，任何情况不得更名**）：独立入口（`meta:{layout:'c',fullscreen:true}`，顶栏「规划▾」下拉的「任务清单」用 `match:['/tasks','/schedule',...]` 高亮）。旧 `/schedule` 在 router 重定向到 `/tasks` 且 query 透传，外部书签 / 日历深链不丢。
-- **五个智能列表 + 自定义清单树**：`wb_task` 单表承载全部任务（`status` 决定所属智能列表，`list_id` 归属自定义清单，`parent_task_id` 挂子任务）；`wb_task_list` 承载清单树（area/project/list 三类，area 可含子清单）。侧边栏徽标来自 `GET /tasks/counters` 一次聚合。
-- **树在 JS 层拼装**：`GET /tasks` 仅两条 SQL（父任务 + 一条 `IN` 查子任务），Service 层 O(n) 分组挂树，前端**禁止**再自己 filter 组树；`TaskNode.children` 为自引用 `TaskNode[]`（叶节点也保证 `children:[]`），递归组件类型与运行时自洽。
-- **过期上浮 + 当天保留已完成**：每次读列表前把过期未完成的 `upcoming` 批量挪进 `today`；「今天」视图保留当天已完成项（进度条真实可用、撤销不丢目标）。
-- **乐观交互**：勾选 / 删除乐观翻面 + 失败回滚，store ID 固定 `defineStore('tasks')`；新建按当前视图自动归位（在「今天」里建就落在今天）。
-- **日历联动**：任务清单的 `target_date` / `due_date` 进入日历（来源 `task` / `task_due`，配色 `TASK_COLOR` / `TASK_DUE_COLOR`），点击色块跳 `/tasks?date=&taskId=` 高亮定位。
-- **后端端点**：`/api/tasks`（GET 列表 / POST 新建 / `:id` PUT·DELETE / `:id/complete` 勾选 / `counters` / `clear-logbook` = 7）+ `/api/lists`（GET 树 / POST / `:id` PUT·DELETE = 4），三层架构 `routes→controllers→services` 严守边界。
-
-> 表结构（`wb_task` / `wb_task_list`）、状态机、树拼装、过期上浮详见《桌面端技术架构与功能手册.md》§7.21。旧 `wb_task_template` / `wb_daily_task`（原「日程计划」）作为迁移来源与日历读取来源保留，不再有独立前端入口。
-
-## 习惯打卡模块（2026-08-09 新增）
-
-轻量「每日微习惯」追踪：定义习惯 → 每天一键打卡 → 用连续天数与年热力图看见坚持。
-
-- **路由 `/habits`**：独立入口（**前缀不加 `/workbench`**，顶栏「习惯打卡」用 `match:['/habits']` 独立高亮，避免与「工作台」互相误亮）。
-- **习惯卡片**：左侧 Apple Watch 风格彩色进度环显示**当前连续天数**（30 天满环），中间图标 + 名称 + 描述，右侧打卡按钮（`◉ 点击打卡` / `✅ 已打卡`，`active:scale-95` 反馈）。
-- **详情抽屉**：右侧滑出，GitHub 风格 7×N 年热力图（5 级绿按「连续天数」深浅，点击格子可补卡 / 取消）、连续天数 / 最长连续 / 累计打卡 / 本月打卡率四张指标。
-- **新建 / 编辑弹窗**：名称 + 描述 + 8 色 macOS 色板 + 16 图标选择器。
-- **乐观交互**：打卡 / 删除均乐观更新 + 失败回滚 + 轻量 toast（对齐 `schedule-store` 套路），store ID 固定 `defineStore('habits')`。
-- **N+1 防御（后端）**：`GET /api/habits` 用单条 `LEFT JOIN wb_habit_log` 算 `todayStatus`，另一条聚合查询在内存按 habit 分组算 `streak`——全程仅 2 条 SQL，绝不随习惯数线性增长。
-- **事务级联**：`DELETE /api/habits/:id` 用 better-sqlite3 同步事务级联删除该习惯全部打卡记录。
-
-> 后端接口、表结构（`wb_habit` / `wb_habit_log`）、统计与热力图计算详见《桌面端技术架构与功能手册.md》§7.18。
-
-## 四象限任务模块（2026-08-09 新增）
-
-把「紧急 × 重要」二维决策可视化：2×2 网格（艾森豪威尔矩阵）把任务落到「重要且紧急 / 重要不紧急 / 紧急不重要 / 不重要不紧急」四个象限，支持勾选完成、拖拽换象限、增删改与「清空已完成」。
-
-- **路由 `/quadrant`**：独立入口（**前缀不加 `/workbench`**，顶栏「四象限」用 `match:['/quadrant']` 独立高亮，避免与「工作台」互相误亮），`meta: { layout: 'c', fullscreen: true }`。
-- **2×2 网格**：`qd-grid` 两列自适应（≤860px 退化为单列），每象限 `QuadrantCard` 含色条（借用 `--kb-destructive` / `--kb-warning` / `--kb-primary` / `--kb-accent` 四个 token，无硬编码色值）、序号徽章、图标、未完成计数、`...` 菜单与添加按钮。
-- **任务卡片**：原生 `type=checkbox`（`:checked` + `@change`，避免 0/1 数字被写成布尔）+ 标题 + 时间（`formatScheduleTime`，逾期红字）+ tags 胶囊 + 编辑 / 删除 / 拖拽手柄；已完成项默认折叠进折叠区。
-- **拖拽换象限**：原生 HTML5 Drag and Drop（不引入拖拽库），`dragstart` 写 `dataTransfer` 任务 id，`drop` 触发 `store.moveTask` 乐观搬桶 + 失败回滚。
-- **乐观交互**：新建 / 更新 / 勾选 / 删除 / 移动 / 清空已完成均乐观更新 + 失败回滚 + 轻量 toast，store ID 固定 `defineStore('quadrant')`。
-- **列表性能红线（后端）**：`GET /api/quadrant/tasks` **单次 SQL** 取出全量（按 `completed → sort_order → created_at` 排序），在 Service 层 `groupTasks()` 单趟 O(n) 分桶成 `urgent_important` / `not_urgent_important` / `urgent_not_important` / `not_urgent_not_important` 四个下划线键——前端**严禁循环 filter**，直接消费四分组；字段连字符 `quadrant` 与响应下划线键的映射在 Service `QUADRANT_KEYS` 与 Store `GROUP_OF` 收口。
-
-> 后端接口、表结构（`wb_quadrant_task`）、分组与映射逻辑详见《桌面端技术架构与功能手册.md》§7.19。
-
-## 日历视图模块（2026-08-09 新增）
-
-类 TickTick 的月 / 周 / 日日历：把任务与事件放进时间网格，支持点选日期新建、点击事件看详情、拖拽无（当前为点选闭环）、按范围拉取避免全量。
-
-- **路由 `/calendar`**：独立入口（**前缀不加 `/workbench`**，顶栏「日历」收进「规划▾」下拉，高亮由父级 `match:['/tasks','/schedule','/quadrant','/habits','/calendar']` 统一负责，避免与「工作台」互相误亮），`meta: { layout: 'c', fullscreen: true }`。
-- **月视图**：固定 42 格 CSS Grid（6×7），非当月补位格浅灰且不可交互，今天高亮环；全天事件显示「📌 全天：XXX」，定时事件显示时刻 + 标题；每格最多 3 条、余下「+N 更多」。
-- **周 / 日视图**：左侧小时刻度（00–23）+ 多日列时间轴，全天事件置顶条、定时事件按「当日可见区间」绝对定位（跨天事件在多列各自截断显示）；点击空白时间格以落点时刻为起点新建。
-- **三态**：加载态（首屏骨架）/ 空态（该区间无事件 + 新建 CTA）/ 数据态，视图只从 `eventsByDate`（按本地日键索引的派生）读取，避免 42 格各自 filter。
-- **🔴 性能红线（后端）**：`GET /api/calendar/events` **必须**带 `start_date` / `end_date` 范围参数，不提供任何「拉全量」形态；范围查询用「区间重叠」命中（非「开始时间落在范围内」），跨月长事件在两侧月份都出现。
-- **乐观交互**：新建成功后重拉当前视图；更新 / 删除乐观更新 + 失败回滚 + 轻量 toast，store ID 固定 `defineStore('calendar')`。
-
-> 后端接口、表结构（`wb_calendar_event`）、范围查询与 UTC ISO 时间口径详见《桌面端技术架构与功能手册.md》§7.20。
-
-## 绘图工具 / 流程图模块（2026-08-14 新增）
-
-类 ProcessOn / Draw.io 的本地白板流程图编辑器，整图存库、防抖自动保存。
-
-- **前端三栏**（`src/views/Diagram/`）：左「图形库」（基础形状 / 流程图 / UML 共 11 种，支持拖入画布与点击添加）、顶「工具栏」（新建 / 保存 / 导出 PNG·SVG / 连线样式 / 排版色 / 撤销重做 / 删除 / 图文件切换）、中「画布」（`@vue-flow/core` + background + controls，`ConnectionMode.Loose` 四向互联、双击编辑）、右「属性面板」（节点 X/Y/宽/高/文本/填充/描边/文字色，连线线宽/虚线/箭头/线色）。
-- **状态层**（`store/diagram-store.ts`）：`nodes`/`edges`/`viewport` 直接绑 VueFlow v-model（`any[]` 规避 TS2589），2000ms 防抖自动保存；快照式撤销/重做（VueFlow core 无内建 history）；PNG（html2canvas）/ SVG 导出；编辑文字时屏蔽 Delete/Backspace 防误删。
-- **后端（前缀 `/api/diagram`，5 端点）**：`GET /`（列表）、`POST /`（新建空白画布）、`GET /:id`（详情）、`PUT /:id`（保存）、`DELETE /:id`（删除）。数据落 `wb_diagram` 表（`data` 列存整图 JSON，不拆子表），写前 `sanitizeData` 只留业务字段。
-- 顶栏入口：规划▾ → 流程图（`/diagram`）。
-
-> 前后端接口、11 种形状与关键技术取舍详见《桌面端技术架构与功能手册.md》§7.12。
-
-## 数据备份模块（2026-08-10 新增）
-
-「所有数据都在你自己电脑上」的另一面是「电脑坏了就全没了」。设置中心 `/settings` 的**关于**卡片新增「数据备份」区，把学习资产一键打成可离线保管的 zip，并支持每日定时自动备份。
-
-- **入口**：选择备份目录（原生目录选择器）→「立即备份」→ 结果直接显示 zip 文件名；「打开目录」在访达中定位；「每日自动备份」开关 + 时刻选择；下方列出该目录最近的备份（名称 / 体积 / 时间）。
-- **备份内容**：`db/`（SQLite 主库 + `-wal`/`-shm`）、`uploads/`（录音 / 图片 / 附件）、`config/`（`config.json` + `ai-config.json`）、`mindmaps/`，外加 `backup-meta.json` 记录来源路径便于恢复。文件名 `lectoforge-backup-YYYYMMDD-HHmmss.zip`（**本地时间**）。
-- **一致性**：打包前后端先执行 `PRAGMA wal_checkpoint(TRUNCATE)`，把 WAL 里的未落盘事务刷进主库，保证 zip 里的 `.db` 单文件就是完整快照。
-- **执行链路**：前端 `invoke('create_backup')` → Rust `ureq` 调 `POST /api/backup` → Node 侧车 `child_process.spawn` 拉起 `src-api/backup.js`（`archiver` 压缩）→ 返回 zip 绝对路径。Rust 只做调度与编排，不碰文件。
-- **每日调度**：`tauri::async_runtime::spawn` + `tokio::time::sleep` 长驻循环，每轮重新读计划（改开关 / 改时刻**即时生效，无需重启**），到点二次确认后触发，成功弹原生通知并 `emit("backup:done")`。
-- **后端端点（3 个）**：`POST /api/backup`、`GET /api/backup/schedule`、`PUT /api/backup/schedule`；计划落 `<dataDir>/backup-config.json`。
-- **权限**：新增 `tauri-plugin-fs`（scope 限 `$APPDATA`/`$APPCONFIG`/`$HOME`）+ 5 条自定义命令 ACL；「打开目录」复用 `tauri-plugin-shell` 的 `command("open")`。
-
-> ⚠️ 打包前务必确认 `tauri.conf.json` resources 含 `"../src-api/backup.js": "api/backup.js"`，且 `archiver` 已随 `scripts/prepare-bin.sh` 进 `.prod-modules/node_modules`。详见《桌面端技术架构与功能手册.md》§7.22 / §9.2.1。
-
-## 离线模拟面试 / 语音通话模块（2026-08-12 新增）
-
-对标豆包「模拟面试」：与 AI 面试官**语音对话**式模拟面试，题目取自**本地题库**，答完自动打分与追问。全链路可离线（语音识别本地 Whisper、语音合成 macOS 系统嗓音），LLM 先走现有云端 provider 跑通、架构 provider 无关，后续改 `baseUrl` 指本地 Ollama 即完全离线。
-
-- **路由（+2 视图 / +2 条路由）**：`/interview`（通话式面试：对话气泡 + 大「开始通话/结束」按钮 + 实时字幕）、`/interview-bank`（题库管理），均 `meta:{layout:'c',fullscreen:true}`；顶栏新增「模拟面试」入口。
-- **闭环**：录音（复用 `useVoiceRecorder`）→ `POST /api/interview/transcribe` → 本地 `whisper-server`(:8080) 转文字 → `POST /api/interview/answer` → `recallService` 关键词命中率打分 + `chatStream()` 生成口语化点评/追问 → **SSE** 回推 `evaluation → question|end`，前端边收边用 `window.speechSynthesis` 朗读。
-- **题库 `wb_qa_bank`（统一题库层）**：三来源汇入——① 手动导入面经（Markdown/纯文本 `Q:`/`A:` 或 `## ` 分隔）；② PDF 导入（`pdf-parse`）；③ 一键从复习卡 `wb_review_card`（front=问/back=答）与康奈尔笔记 `wb_note`（cue=问/note=答）导入。
-- **后端端点（+10 个）**：`/api/interview` 3 个（`transcribe` / `start` / `answer`，后两者为 **SSE 流**）+ `/api/qa-bank` 7 个（列表 / 取单条 / 随机抽题 / `import-md` / `import-pdf` / `import-from-review-cards` / `import-from-notes`）。
-- **LLM 层**：`lib/llm.ts` 新增 `local` provider 预设（Ollama `http://localhost:11434/v1`）+ `chatStream()` 流式生成器；`assertReady` 对 `local` 放宽 apiKey 强校验（本地模型无 Key）。
-- **Whisper 侧车**：Rust `WhisperSidecar` 镜像既有 `SidecarManager` 监督/退避模式，仅 release 编译；路径经 `WHISPER_BIN` / `WHISPER_MODEL` 解析，**缺二进制或模型则静默跳过不崩窗**；**刻意不进 `externalBin`** 以免开发者机器 `tauri build` 断裂；dev 手动起用 `scripts/run-whisper.sh`。不新增任何 invoke 命令 → `capabilities` 无需改动。
-
-> ⚠️ 两个 SSE 端点是「响应信封由 `index.ts` onSend 唯一负责」约定的**唯一例外**（控制器直写 `reply.raw`）。会话状态为 `interviewService` 内存 `Map`，进程重启即失。
-> ⚠️ 离线语音识别需先备好 `whisper-server` 二进制 + `ggml-*.bin` 模型（当前 `resources/models/whisper/` 为空），否则面试语音输入不可用。详见《桌面端技术架构与功能手册.md》§7.24。
-
-## 学习日报与知识闪卡联动模块（2026-08-13 新增，主动智能）
-
-AI 从「被动答疑」升级为「主动复盘」：每天自动分析用户**昨日（本地时区 0:00–24:00）**的学习数据，生成精美日报，并据薄弱点一键生成强化复习卡推入间隔复习系统。
-
-- **路由（+1 视图 / +1 条路由）**：`/daily-report`（Apple-Health 风格统计卡 + 磨砂玻璃 AI 面板 + 「🔁重新生成」「🧠一键生成 3 张复习闪卡」按钮），`meta:{layout:'c',fullscreen:true}`；顶栏「AI 助手」组（原含知识库问答 / 模拟面试 / 题库管理）新增「学习日报」子项，`match` 数组含 `/daily-report`。
-- **四维聚合（本地时区红线）**：① 昨日新收集箱流入量 ② 昨日复习次数 ③ 昨日薄弱知识点 Top3（`wb_review_log.quality < 2` 错题，按 `front` 分组）④ 近 7 天「收集箱 → 笔记」转化率（`wb_capture.capture_id` → `wb_note` 闭环）。所有「昨日」过滤统一用 `date(col,'localtime') = date('now','-1 day','localtime')`，非裸 UTC。
-- **后端端点（+3 个，前缀 `/api/insight`）**：`GET /daily-report`（只读聚合）、`POST /daily-report/generate`（AI 文案，严格只输出 JSON，结果按 `YYYY-MM-DD` 在内存 `Map` 缓存 1h）、`POST /daily-report/generate-cards`（薄弱点 → 复习卡，**空薄弱点返回「昨日表现完美」且不调 LLM**）。
-- **闪卡联动（红线）**：`generate-cards` 复用既有 `generateFlashcards({ autoSave:true })`，新卡写入旧系统 `wb_review_card`，`next_review_time=now` 立即进复习队列（`/review/flashcard`）。
-- **清晨定时推送**：宿主拉起后端后，每小时检查本地 08:00，触发 `runMorningPush` → 生成日报并落盘 `<dataDir>/last-daily-report.json`；用「当日日期」标记防同小时 / 重启重复生成。仅宿主拉起时启用，开发者 `npm run dev:api` 不触发。
-- **分层**：`routes/insight.ts`（薄路由）→ 内联 `fail/replyResult` 翻译 `LlmError`/`AiResult`；`services/insightService.ts`（聚合 + 缓存 + 复用 `generateFlashcards`）；`buildDailyReportPrompt` 在 `lib/prompts.ts`。
-
-> ⚠️ 不新增数据表（复用 `wb_capture` / `wb_review_log` / `wb_review_card` / `wb_note`），故《桌面端技术架构与功能手册.md》§3.2 的「23 张表」计数不变。详见《桌面端技术架构与功能手册.md》§7.26。
-
-## v1.1.0 新增能力（本次更新）
-
-在原有四模块闭环 + 文档库 + 思维导图之上，本次更新补齐了**稳定性基建**与**四个体验型功能**：
-
-- **侧车自愈重启（Rust 宿主）**：`SidecarManager` 在独立线程监控 Node 侧车，异常退出后**无限退避重启**（2s 起翻倍、封顶 30s），应用退出时 `SIGTERM→SIGKILL` 回收，杜绝僵尸后端堆积。
-- **前端断线重连**：网络抖动 / 侧车重启期间，连接状态机自动探测、用公共 `replayRequest` 重放进行中的请求，并弹出毛玻璃「重新连接」遮罩，恢复后无感续接。
-- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析出可写目录 `~/Library/Application Support/com.lectoforge.desktop/`，以 `LECTOFORGE_DATA_DIR` 环境变量 + `--data-dir` 注入侧车，数据库/配置/日志全部落在可写区，绝不写进只读的 `.app` 包。
-- **历史数据自动迁移**：产品由 KnowFlow 更名为 LectoForge 后 bundle identifier 随之改变，AppData 会指向全新空目录。宿主启动时若发现新目录尚无 `workbench.db`、而旧目录 `com.knowflow.desktop/` 中存在，则一次性递归复制历史数据（笔记库、思维导图、上传件、AI 配置）；**旧目录保留不删**，作为回滚安全网。已迁移过则自动跳过，幂等。
-- **间隔复习系统 `/review`**（新）：基于 SM-2 的卡片复习，SRS 列下沉到 `wb_note` / `wb_palace_loci` 源表，首屏「待复习」直达此页。
-- **命令面板 `⌘K`**：跨收集箱 / 笔记 / 故事三表的全局模糊搜索，回车直达对应条目。
-- **首页动态化**：总览页双数据源（`/api/workbench/overview` 供 6 指标看板、`/api/dashboard/stats` 供「学习闭环四步」气泡 + 今日聚焦四卡）。
-- **新手引导与设置中心**：首次启动走 `/onboarding` 引导（含 AI Key 配置），`/settings` 可改主题、重跑引导、选择数据目录。
-
-## v1.2.0 新增能力（康奈尔笔记生态增强）
-
-在康奈尔三栏编辑 / 自动保存 / 划词工具栏之上，补齐 **5 大跨模块联动 + AI 赋能**（详见《桌面端技术架构与功能手册.md》§7.3.1）：
-
-- **① 沉浸阅读 & 反向引用**：`⛶ 全屏阅读` 隐藏 chrome 只留 Markdown 渲染；`[[笔记标题]]` 双链 + `GET /api/workbench/notes/backlinks/:id` 反向引用面板。
-- **② AI 续写 & 自测题**：`POST /api/ai/note/extend` 浮动对比窗（新段落插入 / 光标处追加）；自测题 `POST /api/ai/note/flashcards` 支持 `choice` / `fill` / `mixed` 题型。
-- **③ 一键生成导图**：`POST /api/ai/note/generate-mindmap`（只算不存）→ 复用导图模块 `POST /api/mindmaps` → 跳 `/mindmap?id=`。
-- **④ 标签聚合 & 智慧筛选**：`GET /api/workbench/notes/tags` 标签云 + 掌握度≤30% / 未写总结智能筛选，全部下推 SQL。
-- **⑤ 页面级 PDF 导出**：`exportPDF()` 重写分页算法，阅读模式内单页 A4 压缩导出。
-
-> 新增 / 扩展后端端点共 **6 个**（`backlinks` / `tags` / `resolve` / `note/extend` / `note/flashcards` 增强 / `note/generate-mindmap`，及 `GET /notes` 的 `tag` / `mastery_lte` / `has_summary` 参数）。
-
-> 详细接口、表结构、启动链路见《桌面端技术架构与功能手册.md》 §4.4 / §6.6 / §7.12–§7.15 / §9.4。
-
-## 原生能力（Tauri，macOS）
-
-桌面壳 `src-tauri/src/lib.rs` 在白屏壳基础上增加了以下原生能力，**业务代码零改动**：
-
-### 1. 原生菜单 + 状态栏托盘
-macOS 标准菜单栏：
-- **LectoForge**（App 菜单）：关于 / 检查更新… / 去学习复习 / 复习提醒：开（可切换）/ 番茄钟（常驻倒计时，点击回工作台番茄钟页）/ 退出
-- **视图**：重新加载页面（等效 `location.reload()`）
-
-「去学习复习」与点击复习提醒通知向渲染进程发 `navigate` 事件（`App.vue` 统一监听并 `router.push`）；「番茄钟」菜单项 = `focus_main_window()` + `emit("navigate", "/pomodoro")`。
-
-**状态栏托盘（菜单栏番茄钟指示器）**：`src-tauri/src/tray.rs` 用核心 `tauri::tray` 在顶部状态栏常驻图标（倒计时画进图标位图）。托盘是**只读指示器**：左键点击 = 激活并前置主工作台窗口（`focus_main_window()`），右键 = 原生菜单（显示主窗口 / 退出）；倒计时由 `update_tray_title` 命令（emit `tray:update` 兜底）每秒刷新图标，结束经 `trigger_notification` 命令弹原生通知。关闭主窗口仅隐藏、不退出（`WindowEvent::CloseRequested` 拦截）。
-
-### 2. 复习提醒通知（后台轮询）
-- 后台独立线程每 **30 分钟** 轮询后端 `GET /api/workbench/reviews/due-count`。
-- 有待复习卡片时弹 **macOS 原生通知**（标题/正文含卡片样例）。
-- 点击通知：聚焦窗口并跳到复习页。
-- 菜单「复习提醒：开/关」可随时开关，状态由共享 `Arc<Mutex<bool>>` 维护。
-
-> 轮询走 `ureq`（纯 Rust HTTP，无 OpenSSL 依赖），只请求计数端点，开销极小。
-
-### 3. 每日数据备份调度
-- `tauri::async_runtime::spawn` + `tokio::time::sleep` 长驻循环，到点调 `POST /api/backup` 触发 Node 侧车打包。
-- 每轮重新读取计划，设置中心改开关 / 改时刻**即时生效，无需重启**；成功后弹原生通知并 `emit("backup:done")`。
-- 用到 `tauri-plugin-fs`（预建备份目录，scope 限 `$APPDATA`/`$APPCONFIG`/`$HOME`）与 `tauri-plugin-shell`（在访达中打开备份目录）。
-- 详见上文「数据备份模块」。
-
-### 4. 自动更新
-- 集成 `tauri-plugin-updater`，菜单「检查更新…」与前端侧边栏「检查更新」按钮共用 `check_for_update` 命令。
-- 检测到新版本自动下载并安装，完成后弹通知。
-- **当前 `tauri.conf.json` 中 `updater.active=false`**：因自动更新需要你自己的 ed25519 签名密钥与发布端点（属个人密钥，不能提交到仓库）。激活步骤见下方「启用自动更新」。
-
-## 启用自动更新（一次性，发布前做）
-
-```bash
-# 1. 生成签名密钥对（私钥 tauri.key 务必离线保管，公钥填回配置）
-npx tauri signer generate
-
-# 2. 把输出的「公钥」粘贴到 src-tauri/tauri.conf.json 的 plugins.updater.pubkey
-#    并把 "active": false 改为 true
-
-# 3. 用 CI（tauri-action）发布 GitHub Release 时，会生成 latest.json + 签名文件，
-#    并把 endpoints 改成你的仓库地址：
-#    "endpoints": ["https://github.com/<你>/<仓库>/releases/latest/download/latest.json"]
-```
-
-### 4. 侧车自愈重启与数据目录注入（v1.1.0）
-
-- **自愈重启**：`SidecarManager` 在独立线程阻塞 `child.wait()`，侧车异常退出后按 2s→30s 退避无限重启；存活满 30s 自动重置退避；退出码 0（含孤儿自检）不重启。应用退出时 `shutdown()` 发 `SIGTERM`、2s 未退则 `SIGKILL`。
-- **数据目录注入**：宿主用 `BaseDirectory::AppData` 解析 `~/Library/Application Support/com.lectoforge.desktop/`，以 `LECTOFORGE_DATA_DIR` 环境变量 + `--data-dir` 注入侧车；同时 `cwd` 设为数据目录，防止任何库按相对路径落盘到只读 `.app`。
-- 连接遮罩上的「重启服务」按钮调用 `restart_sidecar` 命令，对当前 pid 发 `SIGTERM`，由监控线程接管自愈。
-
-## 已知说明
-
-- 生产由 Rust 宿主协商端口后传给侧车，**宿主模式下端口恒定不漂移**（已加载页面的断线重连依赖恒定 origin）；独立开发模式 `npm run dev:api` 才保留 +1 漂移，仅绑 `127.0.0.1`。Tauri 单实例锁避免重复启动。
-- macOS 分发需 Apple Developer ID 签名 + 公证（`notarytool`），否则 Gatekeeper 拦截；本仓库未包含证书。
-- Mac App Store 暂不推荐（本地 SQLite + 文件访问受沙箱限制）。
-
-## 运行打包后的 .app（未公证）
-
-本机构建产物是 **ad-hoc 签名**（主程序）；侧车 `server` 复用 Node.js 官方的 Developer ID 签名。
-在**本机或同机**直接双击通常即可打开；若被 Gatekeeper 拦截，执行：
-
-```bash
-xattr -cr "src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app"
-open "src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app"
-```
-
-若要分发给他人，必须先做 Apple Developer ID 签名 + `notarytool` 公证（见上方「启用自动更新」附近的签名说明）。
-
-## 构建验证记录（2026-08-06，arm64 macOS）
-
-`tauri build` 已在本机（Rust 1.97.1 + Xcode）跑通，产出
-`src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app`（arm64，约 220MB）。
-
-验证点到为止（GUI 窗口需真实显示环境，以下为后端+资源链路实测）：
-
-- 用打包内的 `server` 侧车 + `Resources/api/index.js` + `Resources/web` 真实拉起后端；
-- `GET /api/workbench/overview` 返回真实 JSON；
-- 同源首页 `GET /` 返回 `index.html`（http 200）；
-- `POST /api/inbox/` 建卡成功并计入总览（旧 `/api/workbench/captures` 仍可用，属遗留接口）。
-- 因后端依赖 `better-sqlite3`（原生模块），`tauri.conf.json` 的 `bundle.resources`
-  已额外包含 `../src-api/node_modules → api/node_modules`，否则打包后 `require` 会失败。
-
-### 实现注意点（与原先预期的差异）
-
-1. **通知点击不会自动跳转复习页**：`tauri-plugin-notification` 2.3.x 桌面端 builder
-   无 `on_click` 回调，点击通知仅由系统原生聚焦应用到前台。跳转复习页请走菜单
-   「去学习复习」或侧边栏导航。（代码已改用 `app.notification().builder()...` 写法。）
-2. **`download_and_install` 需两个闭包**：updater 2.10.1 签名为
-   `download_and_install(on_chunk, on_download_finish)`，已修正。
-3. 菜单「关于」`PredefinedMenuItem::about` 需第三个 `AboutMetadata` 参数（传 `None`）。
-
-### 故障复盘：双击 .app 无任何界面（2026-08-06）
-
-**现象**：双击 `LectoForge 学习工作台.app` 后 Dock 图标弹一下即消失，完全没有窗口。
-
-**根因**：`src-tauri/tauri.conf.json` 的 `plugins.shell` 配置里写了非法字段 `execute`
-（以及 `sidecar`）。当前 `tauri-plugin-shell` 2.3.5 的 Config 结构体**仅有一个 `open` 字段**
-（`#[serde(deny_unknown_fields)]` 会拒绝未知字段）。该错误在插件初始化阶段就 panic：
-
-```
-PluginInitialization("shell", "Error deserializing 'plugins.shell' within your Tauri configuration: unknown field `execute`, expected `open`")
-```
-
-由于 panic 发生在任何窗口创建之前，所以**根本不会渲染 GUI**，与「白屏/错误页」是两回事。
-
-**修复**：`plugins.shell` 只保留 `"open": false`（侧车启用不靠这里，而是靠
-`bundle.externalBin` + 能力权限 `shell:allow-spawn`）。改完后重新 `tauri build` 即恢复。
-
-**排查方法（Mac 上若再遇「启动即退出」）**：在终端直接运行主程序即可看到 panic 堆栈：
-
-```bash
-"/Applications/LectoForge 学习工作台.app/Contents/MacOS/lectoforge-desktop"
-# 或本地路径：
-"src-tauri/target/release/bundle/macos/LectoForge 学习工作台.app/Contents/MacOS/lectoforge-desktop"
-```
-
-**仍无界面时的二次排查**：若已越过插件初始化但仍空白，多半是后端侧车未就绪/崩溃。
-检查：① 日志 `~/Library/Logs/LectoForge`（如有写入）；② 终端 `lsof -i:8787` 看端口是否监听；
-③ 直接跑侧车验证：`Contents/MacOS/server Contents/Resources/api/index.js --port 8787
---web-dir Contents/Resources/web --data-dir /tmp/test`。
-
-
+</div>

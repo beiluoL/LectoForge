@@ -1,0 +1,116 @@
+name: 💡 功能建议
+description: 提出一个新功能或改进建议
+title: "[Feature] "
+labels:
+  - "type: feature"
+  - "status: needs-triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢建议。请**重点描述你遇到的实际问题**，而不是只给一个方案——
+        这样我们才能一起找到真正合适的解法。
+
+        提交前可先看一眼 [`docs/FEATURES.md`](../blob/main/docs/FEATURES.md)，
+        有些能力可能已经存在。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索过现有 Issues 与功能文档，确认这不是重复建议
+          required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 建议类型
+      options:
+        - 全新功能（现有产品里没有的能力）
+        - 现有功能增强（能力已有，但不够好用/不够完整）
+        - 体验优化（交互、性能、视觉）
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 涉及模块
+      multiple: true
+      options:
+        - 收集箱 /inbox
+        - 康奈尔笔记 /workbench/notes
+        - 记忆宫殿 /workbench/palace
+        - 费曼故事 /workbench/story
+        - 间隔重复 /review
+        - 文档库 /library
+        - 思维导图 /mindmap
+        - 绘图工具 /diagram
+        - 任务清单 /tasks
+        - 四象限 /quadrant
+        - 日历 /calendar
+        - 习惯打卡 /habits
+        - 番茄钟 /pomodoro
+        - AI 助手 /ai-assistant
+        - 知识库问答 /ai-chat
+        - 学习日报 /daily-report
+        - 模拟面试 /interview
+        - 设置中心 /settings
+        - 整体 / 跨模块
+    validations:
+      required: true
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: "**最重要的一项**。请描述：你在做什么事的时候、卡在了哪一步、现在的做法是什么、为什么不满意"
+      placeholder: |
+        我在 ______ 的时候，需要 ______。
+        现在只能 ______，问题是 ______。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 你希望它怎么工作？如果可以，描述理想的操作流程
+      placeholder: |
+        希望可以：
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 已考虑过的替代方案
+      description: 你试过哪些变通做法？为什么不行？其他软件里有没有类似的实现可以参考？
+    validations:
+      required: false
+
+  - type: dropdown
+    id: offline
+    attributes:
+      label: 是否要求离线可用
+      description: |
+        本项目是**本地优先**设计。若建议涉及联网能力（如调用云端 AI），
+        需要额外说明降级方案——未配置 Key 时也必须有合理表现。
+      options:
+        - 必须完全离线可用
+        - 可以依赖联网（但需有降级方案）
+        - 不确定，请维护者判断
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 截图、参考链接、竞品实现截图等（请遮盖隐私信息）
+    validations:
+      required: false
