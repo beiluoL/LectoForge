@@ -42,3 +42,22 @@ resources/models/
 
 # WorkBuddy 内部工作记忆（agent 专用，非项目源码）
 .workbuddy/
+
+# ── 内部文档与审查资产：仅本地留存，不随仓库公开 ──
+# 内部方案 / 规范 / 手册（面向开发者，非面向使用者）
+docs/功能待开发文档.md
+docs/界面开发规范.md
+docs/UI设计审查与功能增强建议.md
+docs/桌面端技术架构与功能手册.md
+docs/*方案.md
+# AI 编码提示词集合
+docs/vibecoding/
+# 功能设计文档（X6 升级的 spec / tasks / checklist）
+docs/diagram-x6-upgrade/
+# UI 改造前后对比审查截图（区别于 docs/screenshots/ 的产品演示图）
+docs/ui-review-assets/
+# 内部开发路线图（正文含本机绝对路径）
+P1核心缺口开发计划.md
+
+# 临时备份文件
+*.bak

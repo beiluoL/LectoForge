@@ -1,8 +1,7 @@
 # 功能详解
 
 > 本文承接 [`README.md`](../README.md) 的「功能总览」，逐模块记录**技术取舍、实现要点与踩坑记录**。
-> 架构层面的分层边界与数据流见 [`ARCHITECTURE.md`](ARCHITECTURE.md)；
-> 更细的接口清单见 [`桌面端技术架构与功能手册.md`](桌面端技术架构与功能手册.md)。
+> 架构层面的分层边界与数据流见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
 ## 目录
 
