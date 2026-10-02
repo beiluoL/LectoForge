@@ -1,20 +1,18 @@
-<div align="center">
-
-# LectoForge · 学习工作台
-
-**本地优先的 macOS 学习工作台 —— 把「收集 → 整理 → 内化 → 输出」做成一条真正会转的学习闭环。**
-
-数据全部留在你自己的电脑上：没有账号、没有服务端、没有遥测。
-
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](CHANGELOG.md)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2012%2B-lightgrey.svg)](#环境要求)
-[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB.svg)](https://tauri.app/)
-[![Vue](https://img.shields.io/badge/Vue-3-42B883.svg)](https://vuejs.org/)
-
-[GitHub](https://github.com/beiluoL/LectoForge) ｜ [Gitee](https://gitee.com/beiluol/lecto-forge) ｜ [架构文档](docs/ARCHITECTURE.md) ｜ [更新日志](CHANGELOG.md) ｜ [功能详解](docs/FEATURES.md)
-
+<div align="right">
+  <strong>简体中文</strong> · <a href="README.en.md">English</a>
 </div>
+
+# LectoForge · 本地优先学习工作台
+
+**面向 macOS 的学习工作台，把收集、整理、复习与输出连接成日常学习闭环。**
+
+[安装与使用](#安装与使用) · [界面一览](#界面一览) · [架构文档](docs/ARCHITECTURE.md)
+
+- 康奈尔笔记、SM-2 间隔复习、记忆宫殿与费曼练习。
+- 本地 Markdown 文档库、AI 助手与带来源的 RAG 问答。
+- 学习数据存储在本机；使用云端 AI 时会发送相关问题与检索片段。
+
+**技术栈 / 主题：** Tauri 2 · Rust · Vue 3 · TypeScript · Fastify · SQLite
 
 ---
 
